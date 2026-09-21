@@ -18,6 +18,7 @@ export default async function AdminPricingPage() {
     if (!ctx?.isSuperAdmin) return;
     const current = await getPricingConfig();
     const link = String(formData.get("stripePaymentLink") || "").trim() || current.stripePaymentLink;
+    const zoomRaw = String(formData.get("zoomMeetingUrl") || "").trim();
     await prisma.pricingConfig.update({
       where: { key: "default" },
       data: {
@@ -25,6 +26,7 @@ export default async function AdminPricingPage() {
         introductoryPriceCents: Math.round(Number(formData.get("introductoryPrice") || 10000) * 100),
         standardPriceCents: Math.round(Number(formData.get("standardPrice") || 20000) * 100),
         stripePaymentLink: link,
+        zoomMeetingUrl: zoomRaw || null,
       },
     });
     await writeAudit({
@@ -35,11 +37,12 @@ export default async function AdminPricingPage() {
     });
     revalidatePath("/admin/pricing");
     revalidatePath("/pricing");
+    revalidatePath("/demo/thank-you");
   }
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-xl font-semibold">Pricing config</h1>
+      <h1 className="text-xl font-semibold">Pricing &amp; config</h1>
       <p className="mt-1 text-xs text-neutral-500">Single source of truth — not hardcoded in product UI.</p>
       <form action={save} className="si-panel mt-6 space-y-4 p-4">
         <label className="block text-xs text-neutral-400">
@@ -58,6 +61,19 @@ export default async function AdminPricingPage() {
           Stripe Payment Link
           <Input name="stripePaymentLink" defaultValue={config.stripePaymentLink} className="mt-1" />
         </label>
+        <label className="block text-xs text-neutral-400">
+          Zoom meeting URL (global demo CTA)
+          <Input
+            name="zoomMeetingUrl"
+            type="url"
+            placeholder="https://zoom.us/j/… or scheduling link"
+            defaultValue={config.zoomMeetingUrl ?? ""}
+            className="mt-1"
+          />
+        </label>
+        <p className="text-xs text-neutral-500">
+          When set, the /demo thank-you page shows a “Join / schedule on Zoom” button. Leave blank until ready.
+        </p>
         <p className="text-xs text-neutral-500">
           Current: {formatCurrency(centsToDollars(config.introductoryPriceCents))} → {formatCurrency(centsToDollars(config.standardPriceCents))}
         </p>

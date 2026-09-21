@@ -74,6 +74,15 @@ export function DemoForm() {
         </div>
       </fieldset>
       <label className="block text-xs text-neutral-400">
+        Preferred Zoom / meeting link (optional)
+        <Input
+          name="zoomLink"
+          type="url"
+          className="mt-1"
+          placeholder="https://zoom.us/j/… — if you have a preferred meeting room"
+        />
+      </label>
+      <label className="block text-xs text-neutral-400">
         Message
         <Textarea name="message" className="mt-1" placeholder="Context for the conversation…" />
       </label>

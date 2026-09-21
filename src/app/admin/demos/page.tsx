@@ -39,20 +39,50 @@ export default async function AdminDemosPage() {
               Products: {d.products} · {formatDate(d.createdAt)}
               {d.message ? ` · ${d.message.slice(0, 120)}` : ""}
             </p>
+            {d.zoomLink ? (
+              <p className="mt-1 text-xs">
+                <span className="text-neutral-500">Zoom: </span>
+                <a
+                  href={d.zoomLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-400 hover:text-amber-300 break-all"
+                >
+                  {d.zoomLink}
+                </a>
+              </p>
+            ) : null}
+            {d.status === "SCHEDULED" && !d.zoomLink ? (
+              <p className="mt-2 rounded-md border border-amber-900/60 bg-amber-950/30 px-2 py-1.5 text-xs text-amber-200">
+                Status is SCHEDULED — set a Zoom link so the lead has a meeting URL.
+              </p>
+            ) : null}
             <form
               action={async (fd) => {
                 "use server";
                 await updateDemoStatus(d.id, fd);
               }}
-              className="mt-3 flex flex-wrap items-center gap-2"
+              className="mt-3 space-y-2"
             >
-              <select name="status" defaultValue={d.status} className="h-9 rounded-md border border-neutral-700 bg-neutral-950 px-2 text-sm">
-                {PIPELINE.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-              <input name="notes" placeholder="Notes" defaultValue={d.notes ?? ""} className="h-9 flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-2 text-sm" />
-              <Button type="submit" size="sm" variant="secondary">Update</Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <select name="status" defaultValue={d.status} className="h-9 rounded-md border border-neutral-700 bg-neutral-950 px-2 text-sm">
+                  {PIPELINE.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <input name="notes" placeholder="Notes" defaultValue={d.notes ?? ""} className="h-9 flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-2 text-sm" />
+                <Button type="submit" size="sm" variant="secondary">Update</Button>
+              </div>
+              <label className="block text-xs text-neutral-400">
+                Zoom / meeting link
+                <input
+                  name="zoomLink"
+                  type="url"
+                  placeholder="https://zoom.us/j/… (per-lead scheduled meeting)"
+                  defaultValue={d.zoomLink ?? ""}
+                  className="mt-1 h-9 w-full rounded-md border border-neutral-700 bg-neutral-950 px-2 text-sm"
+                />
+              </label>
             </form>
           </li>
         ))}

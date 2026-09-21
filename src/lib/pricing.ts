@@ -13,6 +13,7 @@ export async function getPricingConfig() {
         currency: "USD",
         stripePaymentLink:
           process.env.STRIPE_PAYMENT_LINK || STRIPE_PAYMENT_LINK_FALLBACK,
+        zoomMeetingUrl: null,
       },
     });
   }

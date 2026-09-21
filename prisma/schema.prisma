@@ -183,6 +183,7 @@ model PricingConfig {
   standardPriceCents     Int      @default(2000000)
   currency               String   @default("USD")
   stripePaymentLink      String
+  zoomMeetingUrl         String?  // global Join/schedule Zoom CTA for /demo thank-you
   updatedAt              DateTime @updatedAt
   createdAt              DateTime @default(now())
 }
@@ -227,6 +228,7 @@ model DemoRequest {
   products    String
   companySize String?
   message     String?
+  zoomLink    String?  // per-lead meeting URL (prospect preferred or admin-scheduled)
   status      String   @default("NEW")
   notes       String?
   createdAt   DateTime @default(now())

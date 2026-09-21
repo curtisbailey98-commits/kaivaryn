@@ -42,6 +42,7 @@ async function main() {
       introductoryPriceCents: 1_000_000,
       standardPriceCents: 2_000_000,
       stripePaymentLink: STRIPE,
+      // zoomMeetingUrl intentionally not overwritten — admin sets under /admin/pricing
     },
     create: {
       key: "default",
@@ -50,6 +51,7 @@ async function main() {
       standardPriceCents: 2_000_000,
       currency: "USD",
       stripePaymentLink: STRIPE,
+      zoomMeetingUrl: null,
     },
   });
 
