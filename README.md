@@ -47,6 +47,14 @@ Stored in `PricingConfig` (not hardcoded):
 - Admin (SUPER_ADMIN): `/admin/*`
 - Health: `GET /api/health`
 
+## Live
+
+- **App:** https://kaivaryn.onrender.com  
+- **Health:** https://kaivaryn.onrender.com/api/health  
+- **GitHub:** https://github.com/curtisbailey98-commits/kaivaryn  
+
+Free tier sleeps when idle — first request after idle may take ~30–60s.
+
 ## Deploy (Render free)
 
 1. Connect this repo or use `render.yaml` blueprint
