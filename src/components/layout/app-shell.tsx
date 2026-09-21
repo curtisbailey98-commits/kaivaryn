@@ -8,6 +8,11 @@ const nav = [
   { href: "/app/action-center", label: "Action Center" },
   { href: "/app/revenue", label: "Revenue Recovery" },
   { href: "/app/operations", label: "Operations" },
+  { href: "/app/findings", label: "Findings" },
+  { href: "/app/imports", label: "Imports" },
+  { href: "/app/jobs", label: "Jobs" },
+  { href: "/app/search", label: "Search" },
+  { href: "/app/notifications", label: "Notifications" },
   { href: "/app/integrations", label: "Integrations" },
   { href: "/app/approvals", label: "Approvals" },
   { href: "/app/onboarding", label: "Onboarding" },
@@ -35,7 +40,7 @@ export function AppShell({
               {APP_NAME}
             </Link>
           </div>
-          <nav className="flex-1 space-y-0.5 p-3">
+          <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
             {nav.map((item) => (
               <Link
                 key={item.href}
@@ -68,10 +73,17 @@ export function AppShell({
           </div>
         </aside>
         <main className="flex-1 overflow-x-hidden">
-          <div className="border-b border-neutral-900 px-4 py-3 md:hidden">
+          <div className="flex items-center justify-between gap-2 border-b border-neutral-900 px-4 py-3 md:hidden">
             <Link href="/app" className="text-xs font-semibold uppercase tracking-widest text-amber-400">
               {APP_NAME}
             </Link>
+            <div className="flex gap-2 overflow-x-auto text-[10px] text-neutral-400">
+              <Link href="/app/action-center">Actions</Link>
+              <Link href="/app/revenue">RR</Link>
+              <Link href="/app/operations">OE</Link>
+              <Link href="/app/notifications">Alerts</Link>
+              <Link href="/app/search">Search</Link>
+            </div>
           </div>
           <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</div>
         </main>

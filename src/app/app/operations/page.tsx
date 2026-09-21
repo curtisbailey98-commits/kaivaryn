@@ -16,9 +16,10 @@ const VIEWS: Record<string, { label: string; where?: Prisma.InefficiencyWhereInp
   all: { label: "All" },
   critical: { label: "Critical", where: { priority: "CRITICAL" } },
   automation: { label: "Automation candidates", where: { automationCandidate: true } },
-  new: { label: "New", where: { status: "NEW" } },
-  in_progress: { label: "In Progress", where: { status: "IN_PROGRESS" } },
-  resolved: { label: "Resolved", where: { status: "RESOLVED" } },
+  identified: { label: "Identified", where: { status: { in: ["IDENTIFIED", "NEW"] } } },
+  analyzing: { label: "Analyzing", where: { status: "ANALYZING" } },
+  implementing: { label: "Implementing", where: { status: { in: ["APPROVED", "IMPLEMENTING", "IN_PROGRESS"] } } },
+  realized: { label: "Realized", where: { status: { in: ["REALIZED", "VERIFIED", "RESOLVED"] } } },
   dismissed: { label: "Dismissed", where: { status: "DISMISSED" } },
 };
 
@@ -40,7 +41,7 @@ export default async function OperationsPage({
   const [items, agg, autoCount] = await Promise.all([
     prisma.inefficiency.findMany({
       where,
-      orderBy: [{ priority: "asc" }, { estimatedWasteAnnual: "desc" }],
+      orderBy: [{ score: "desc" }, { projectedSavings: "desc" }],
       take: 200,
     }),
     prisma.inefficiency.aggregate({

@@ -7,6 +7,7 @@
 export const CRITICAL_GATES = [
   "AUTOMATION_CANDIDATE",
   "INTEGRATION_CHANGE",
+  "EXTERNAL_ACTION",
   "evolution.deploy",
   "kernel.change",
 ] as const;

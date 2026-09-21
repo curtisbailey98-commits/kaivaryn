@@ -16,11 +16,19 @@ export const Product = {
 } as const;
 export type Product = (typeof Product)[keyof typeof Product];
 
+/** RR lifecycle — financial stages align with potential/approved/in-progress/recovered/verified */
 export const OpportunityStatus = {
+  IDENTIFIED: "IDENTIFIED",
+  UNDER_REVIEW: "UNDER_REVIEW",
+  APPROVED: "APPROVED",
+  IN_RECOVERY: "IN_RECOVERY",
+  PARTIALLY_RECOVERED: "PARTIALLY_RECOVERED",
+  RECOVERED: "RECOVERED",
+  VERIFIED: "VERIFIED",
+  DISMISSED: "DISMISSED",
+  // legacy aliases accepted in transitions
   NEW: "NEW",
   IN_PROGRESS: "IN_PROGRESS",
-  RECOVERED: "RECOVERED",
-  DISMISSED: "DISMISSED",
 } as const;
 export type OpportunityStatus = (typeof OpportunityStatus)[keyof typeof OpportunityStatus];
 
@@ -32,11 +40,18 @@ export const OpportunityPriority = {
 } as const;
 export type OpportunityPriority = (typeof OpportunityPriority)[keyof typeof OpportunityPriority];
 
+/** OE lifecycle — projected vs realized */
 export const InefficiencyStatus = {
+  IDENTIFIED: "IDENTIFIED",
+  ANALYZING: "ANALYZING",
+  APPROVED: "APPROVED",
+  IMPLEMENTING: "IMPLEMENTING",
+  REALIZED: "REALIZED",
+  VERIFIED: "VERIFIED",
+  DISMISSED: "DISMISSED",
   NEW: "NEW",
   IN_PROGRESS: "IN_PROGRESS",
   RESOLVED: "RESOLVED",
-  DISMISSED: "DISMISSED",
 } as const;
 export type InefficiencyStatus = (typeof InefficiencyStatus)[keyof typeof InefficiencyStatus];
 
@@ -67,3 +82,24 @@ export const IntegrationStatus = {
   ERROR: "ERROR",
 } as const;
 export type IntegrationStatus = (typeof IntegrationStatus)[keyof typeof IntegrationStatus];
+
+export const RR_STATUSES = [
+  "IDENTIFIED",
+  "UNDER_REVIEW",
+  "APPROVED",
+  "IN_RECOVERY",
+  "PARTIALLY_RECOVERED",
+  "RECOVERED",
+  "VERIFIED",
+  "DISMISSED",
+] as const;
+
+export const OE_STATUSES = [
+  "IDENTIFIED",
+  "ANALYZING",
+  "APPROVED",
+  "IMPLEMENTING",
+  "REALIZED",
+  "VERIFIED",
+  "DISMISSED",
+] as const;

@@ -16,10 +16,11 @@ export const dynamic = "force-dynamic";
 const VIEWS: Record<string, { label: string; where?: Prisma.OpportunityWhereInput }> = {
   all: { label: "All" },
   critical: { label: "Critical", where: { priority: "CRITICAL" } },
-  high_value: { label: "High Value", where: { estimatedAmount: { gte: 50000 } } },
-  new: { label: "New", where: { status: "NEW" } },
-  in_progress: { label: "In Progress", where: { status: "IN_PROGRESS" } },
-  recovered: { label: "Recovered", where: { status: "RECOVERED" } },
+  high_value: { label: "High Value", where: { potentialAmount: { gte: 50000 } } },
+  identified: { label: "Identified", where: { status: { in: ["IDENTIFIED", "NEW"] } } },
+  under_review: { label: "Under Review", where: { status: "UNDER_REVIEW" } },
+  in_recovery: { label: "In Recovery", where: { status: { in: ["APPROVED", "IN_RECOVERY", "IN_PROGRESS", "PARTIALLY_RECOVERED"] } } },
+  recovered: { label: "Recovered", where: { status: { in: ["RECOVERED", "VERIFIED"] } } },
   dismissed: { label: "Dismissed", where: { status: "DISMISSED" } },
 };
 
@@ -55,7 +56,7 @@ export default async function RevenuePage({
   const [opps, agg] = await Promise.all([
     prisma.opportunity.findMany({
       where,
-      orderBy: [{ priority: "asc" }, { estimatedAmount: "desc" }],
+      orderBy: [{ score: "desc" }, { potentialAmount: "desc" }],
       include: { assignee: { select: { name: true, email: true } } },
       take: 200,
     }),
@@ -91,6 +92,9 @@ export default async function RevenuePage({
           </Link>
           <Link href="/app/revenue/analytics" className="rounded-md border border-neutral-700 px-3 py-2">
             Analytics
+          </Link>
+          <Link href="/api/export?type=opportunities" className="rounded-md border border-neutral-700 px-3 py-2">
+            Export CSV
           </Link>
         </div>
       </div>
@@ -176,7 +180,7 @@ export default async function RevenuePage({
                   </TD>
                   <TD><Badge>{o.status}</Badge></TD>
                   <TD><Badge tone={o.priority === "CRITICAL" ? "danger" : o.priority === "HIGH" ? "warning" : "default"}>{o.priority}</Badge></TD>
-                  <TD>{formatCurrency(o.estimatedAmount)}</TD>
+                  <TD>{formatCurrency(o.potentialAmount || o.estimatedAmount)} <span className="text-xs text-neutral-500">s{Math.round(o.score)}</span></TD>
                   <TD className="text-emerald-300">{formatCurrency(o.recoveredAmount)}</TD>
                   <TD>{formatDate(o.identifiedAt)}</TD>
                 </TR>

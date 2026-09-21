@@ -41,3 +41,6 @@ prisma/*.db
 
 data/
 .next/
+deploy-render-state.json
+prisma/*.db
+prisma/prisma/

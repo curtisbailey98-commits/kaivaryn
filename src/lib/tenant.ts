@@ -1,4 +1,6 @@
 import type { Role } from "@/lib/enums";
+import type { Permission } from "@/lib/rbac";
+import { can, effectiveRole } from "@/lib/rbac";
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 import { prisma } from "./prisma";
@@ -36,6 +38,8 @@ export async function getSessionContext() {
   if (!user) return null;
 
   const membership = user.memberships[0] ?? null;
+  const membershipRole = (membership?.role as Role) ?? null;
+  const eff = effectiveRole(user.role as Role, membershipRole);
   return {
     user: {
       id: user.id,
@@ -46,6 +50,8 @@ export async function getSessionContext() {
     membership,
     organization: membership?.organization ?? null,
     organizationId: membership?.organizationId ?? null,
+    membershipRole,
+    effectiveRole: eff,
     isSuperAdmin: user.role === "SUPER_ADMIN",
   };
 }
@@ -66,8 +72,23 @@ export async function requireOrgAccess(opts?: { allowSuperAdminCrossTenant?: boo
   return ctx;
 }
 
+export async function requirePermission(permission: Permission, opts?: { allowSuperAdminCrossTenant?: boolean; orgIdOverride?: string }) {
+  const ctx = await requireOrgAccess(opts);
+  if (!can(ctx.effectiveRole, permission)) {
+    throw new Error(`Forbidden: ${permission} requires higher role (have ${ctx.effectiveRole})`);
+  }
+  return ctx;
+}
+
 export function assertOrgId(organizationId: string | null | undefined): asserts organizationId is string {
   if (!organizationId) {
     throw new Error("Organization context required");
+  }
+}
+
+/** Server-side tenant guard for a row. */
+export function assertSameOrg(rowOrgId: string, sessionOrgId: string) {
+  if (rowOrgId !== sessionOrgId) {
+    throw new Error("Cross-tenant access denied");
   }
 }
