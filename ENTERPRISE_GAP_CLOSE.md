@@ -45,3 +45,32 @@ Audited: 2026-09-21 against `/workspace/kaivaryn` (foundation already ships publ
 - Decorative mock dashboards  
 - Fake send / fake integration success  
 - Touch 720 SI Render services  
+
+## Completion (2026-09-21 ET)
+
+Shipped on `main` (`d31132f`), Render deploy **live**, health **200**.
+
+| # | Item | Result |
+|---|------|--------|
+| 1 | Tenant isolation + RBAC | Done — `rbac.ts` + `requirePermission`; `scripts/enterprise-validation.ts` proves 2-org cross-tenant fail |
+| 2 | Persistent models | Done — customers/contacts/leads/txns/appts/interactions/processes/StatusHistory/evidence/findings/imports/jobs/notifications/tasks/email drafts/org settings/departments + RR/OE financial fields + provenance |
+| 3 | Detection engines | Done — deterministic rules; org threshold settings |
+| 4 | Scoring | Done — weighted factors JSON for admins |
+| 5 | Workflows + StatusHistory | Done — RR/OE lifecycles + history |
+| 6 | Actions | Done — assign/notes/status/recovery/savings/draft email/task/external→approval; never fake send |
+| 7 | Financial impact engine | Done — shared service; LLM never sets money |
+| 8 | Executive Action Center | Done — union rank impact×urgency; mobile nav |
+| 9 | Intelligence E/A/R/D | Done — findings + INSUFFICIENT_DATA |
+| 10 | NL query | Partial — tenant search only (not NL parser) |
+| 11 | CSV imports | Done |
+| 12 | Jobs | Done — in-process |
+| 13 | Notifications | Done |
+| 14 | Search | Done — tenant-scoped |
+| 15 | Exports | Done — `/api/export` |
+| 16 | Audit | Done — append-only |
+| 17 | Demo seed | Done — interconnected DEMO + other-co foil |
+| 18 | Analytics | Done — DB aggregates + indexes |
+| 19 | UX states | Partial — empty states on key pages; success toasts light |
+| 20 | Reuse 720 SI | Done — approvals/connectors/anti-fabrication/health; SI Render untouched |
+
+Validation: `npm run test:enterprise` ALL PASSED. Stripe link unchanged in PricingConfig.
