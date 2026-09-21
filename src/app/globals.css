@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Ported from 720 SI OS tokens — Kaivaryn amber accent */
+  --bg: #000000;
+  --bg-elevated: #050505;
+  --panel: #0a0a0a;
+  --panel2: #111111;
+  --text: #f5f5f5;
+  --muted: #8a8a8a;
+  --accent: #f59e0b;
+  --accent-muted: rgba(245, 158, 11, 0.14);
+  --accent-2: #c4c4c4;
+  --ok: #3ddc97;
+  --ok-muted: rgba(61, 220, 151, 0.14);
+  --warn: #f5a524;
+  --danger: #ff6b6b;
+  --border: #222222;
+  --border-strong: #2a2a2a;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+  --letter-label: 0.14em;
+  --glass-bg: rgba(12, 12, 14, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --row-hover: rgba(255, 255, 255, 0.03);
+  --transition: 160ms ease;
+  color-scheme: dark;
+}
+
+html, body { min-height: 100%; margin: 0; }
+body {
+  @apply antialiased;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  isolation: isolate;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 40% at 50% -5%, rgba(245, 158, 11, 0.06), transparent 55%),
+    radial-gradient(ellipse 50% 30% at 80% 100%, rgba(255, 255, 255, 0.02), transparent 50%),
+    var(--bg);
+}
+::selection { background: rgba(245, 158, 11, 0.3); color: #fff; }
+
+@layer components {
+  .si-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--inset-highlight);
+  }
+  .si-glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(12px);
+    box-shadow: var(--glass-highlight);
+  }
+  .si-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: var(--letter-label);
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+}

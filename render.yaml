@@ -1,0 +1,21 @@
+# Kaivaryn — free web service (native Node, SQLite on disk)
+services:
+  - type: web
+    name: kaivaryn
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: npx prisma db push && npx tsx prisma/seed.ts && npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: file:./data/kaivaryn.db
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: NEXTAUTH_URL
+        sync: false
+      - key: STRIPE_PAYMENT_LINK
+        value: https://buy.stripe.com/14AaEZgJsdDNeTFePLeUU01
