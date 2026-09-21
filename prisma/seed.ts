@@ -42,7 +42,7 @@ async function main() {
       introductoryPriceCents: 1_000_000,
       standardPriceCents: 2_000_000,
       stripePaymentLink: STRIPE,
-      // zoomMeetingUrl intentionally not overwritten — admin sets under /admin/pricing
+      zoomMeetingUrl: "https://scheduler.zoom.us/curtis-bailey/kaivaryn-executive-demo",
     },
     create: {
       key: "default",
@@ -51,7 +51,7 @@ async function main() {
       standardPriceCents: 2_000_000,
       currency: "USD",
       stripePaymentLink: STRIPE,
-      zoomMeetingUrl: null,
+      zoomMeetingUrl: "https://scheduler.zoom.us/curtis-bailey/kaivaryn-executive-demo",
     },
   });
 

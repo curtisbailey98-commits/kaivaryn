@@ -13,8 +13,14 @@ export async function getPricingConfig() {
         currency: "USD",
         stripePaymentLink:
           process.env.STRIPE_PAYMENT_LINK || STRIPE_PAYMENT_LINK_FALLBACK,
-        zoomMeetingUrl: null,
+        zoomMeetingUrl: process.env.ZOOM_MEETING_URL || "https://scheduler.zoom.us/curtis-bailey/kaivaryn-executive-demo",
       },
+    });
+  }
+  if (!config.zoomMeetingUrl) {
+    config = await prisma.pricingConfig.update({
+      where: { key: "default" },
+      data: { zoomMeetingUrl: process.env.ZOOM_MEETING_URL || "https://scheduler.zoom.us/curtis-bailey/kaivaryn-executive-demo" },
     });
   }
   return config;
