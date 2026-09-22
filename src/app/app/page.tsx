@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireOrgAccess } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { assertOrgId } from "@/lib/tenant";
@@ -13,6 +14,21 @@ export default async function AppHomePage() {
   });
   const hasRevenue = entitlements.some((e) => e.product === "REVENUE_RECOVERY");
   const hasOps = entitlements.some((e) => e.product === "OPERATIONS_EFFICIENCY");
+  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks] = await Promise.all([
+    prisma.opportunity.aggregate({
+      where: { organizationId: ctx.organizationId },
+      _sum: { estimatedAmount: true, recoveredAmount: true },
+      _count: true,
+    }),
+    prisma.inefficiency.aggregate({
+      where: { organizationId: ctx.organizationId },
+      _sum: { estimatedWasteAnnual: true, recoveredAnnual: true },
+      _count: true,
+    }),
+    prisma.approvalRequest.count({ where: { organizationId: ctx.organizationId, status: "PENDING" } }),
+    prisma.notification.count({ where: { organizationId: ctx.organizationId, userId: ctx.user.id, readAt: null } }),
+    prisma.task.count({ where: { organizationId: ctx.organizationId, status: "OPEN" } }),
+  ]);
 
   return (
     <div>
@@ -23,6 +39,40 @@ export default async function AppHomePage() {
             Choose a product. {ctx.organization?.isDemo ? <Badge tone="demo">DEMO org</Badge> : null}
           </p>
         </div>
+      </div>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader><CardTitle>Recovery pipeline</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-xl font-semibold text-amber-400">{formatCurrency(revenue._sum.estimatedAmount ?? 0)}</p>
+            <p className="mt-1 text-xs text-neutral-500">{revenue._count} opportunities · {formatCurrency(revenue._sum.recoveredAmount ?? 0)} recovered</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Annual waste</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-xl font-semibold text-amber-400">{formatCurrency(operations._sum.estimatedWasteAnnual ?? 0)}</p>
+            <p className="mt-1 text-xs text-neutral-500">{operations._count} inefficiencies · {formatCurrency(operations._sum.recoveredAnnual ?? 0)} recovered</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Pending approvals</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-xl font-semibold">{pendingApprovals}</p>
+            <Link href="/app/approvals" className="mt-1 inline-block text-xs text-amber-400 hover:underline">Review decisions →</Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Open actions</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-xl font-semibold">{openTasks + unreadNotifications}</p>
+            <p className="mt-1 text-xs text-neutral-500">{openTasks} tasks · {unreadNotifications} unread notifications</p>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-3 text-sm">
+        <Link href="/app/action-center" className="rounded-md bg-amber-500 px-3 py-2 font-semibold text-neutral-950">Open Action Center →</Link>
+        <Link href="/api/summary" className="rounded-md border border-neutral-700 px-3 py-2 text-neutral-300">View summary API</Link>
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <Card className={!hasRevenue ? "opacity-60" : undefined}>
