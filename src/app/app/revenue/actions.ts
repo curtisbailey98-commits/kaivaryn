@@ -10,6 +10,7 @@ import { normalizeRevenueAmounts } from "@/lib/financial-impact";
 import { scoreWorkItem } from "@/lib/scoring";
 import { RR_STATUSES } from "@/lib/enums";
 import { notify } from "@/lib/notifications";
+import { recordLearningEvent } from "@/lib/learning";
 
 const opportunitySchema = z.object({
   title: z.string().min(1).max(300),
@@ -200,6 +201,18 @@ export async function updateOpportunity(id: string, formData: FormData) {
       actorId: ctx.user.id,
       note: String(formData.get("statusNote") || "") || null,
     });
+    if (["VERIFIED", "RECOVERED", "PARTIALLY_RECOVERED", "DISMISSED"].includes(status)) {
+      await recordLearningEvent({
+        organizationId: ctx.organizationId,
+        actorId: ctx.user.id,
+        product: "REVENUE_RECOVERY",
+        entityType: "Opportunity",
+        entityId: id,
+        outcome: status === "DISMISSED" ? "NEGATIVE" : status === "PARTIALLY_RECOVERED" ? "NEUTRAL" : "POSITIVE",
+        features: { source: data.source ?? existing.source, type: data.type ?? existing.type, department: data.department ?? existing.department, priority: data.priority ?? existing.priority },
+        note: `Outcome recorded as ${status}`,
+      });
+    }
   }
   await writeAudit({
     organizationId: ctx.organizationId,
@@ -303,6 +316,16 @@ export async function recordRecovery(opportunityId: string, formData: FormData) 
     toStatus,
     actorId: ctx.user.id,
     note: `Recorded recovery ${recovered}`,
+  });
+  await recordLearningEvent({
+    organizationId: ctx.organizationId,
+    actorId: ctx.user.id,
+    product: "REVENUE_RECOVERY",
+    entityType: "Opportunity",
+    entityId: opportunityId,
+    outcome: verified ? "POSITIVE" : recovered > 0 ? "NEUTRAL" : "NEGATIVE",
+    features: { source: opp.source, type: opp.type, department: opp.department, priority: opp.priority },
+    note: verified ? `Verified recovery ${recovered}` : `Recorded recovery ${recovered}`,
   });
   await writeAudit({
     organizationId: ctx.organizationId,

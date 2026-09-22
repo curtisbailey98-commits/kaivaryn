@@ -37,6 +37,7 @@ model User {
   notifications          Notification[]
   emailDrafts            EmailDraft[]
   intelligenceRuns       IntelligenceRun[]
+  learningEvents         LearningEvent[]
 }
 
 model Account {
@@ -118,6 +119,8 @@ model Organization {
   comments               Comment[]
   statusHistories        StatusHistory[]
   evidence               Evidence[]
+  learningEvents         LearningEvent[]
+  learningProfiles       LearningProfile[]
 }
 
 model Membership {
@@ -312,6 +315,45 @@ model AuditLog {
   @@index([organizationId])
   @@index([createdAt])
   @@index([organizationId, action])
+}
+
+model LearningEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String?
+  product        String
+  entityType     String
+  entityId       String
+  eventType      String
+  outcome        String
+  featureJson    String?
+  note           String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, product, createdAt])
+  @@index([organizationId, entityType, entityId])
+}
+
+model LearningProfile {
+  id             String   @id @default(cuid())
+  organizationId String
+  product        String
+  sampleSize     Int      @default(0)
+  positiveCount  Int      @default(0)
+  negativeCount  Int      @default(0)
+  confidence     String   @default("LOW")
+  profileJson    String   @default("{}")
+  lastLearnedAt  DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, product])
+  @@index([organizationId, product])
 }
 
 // ——— CRM / operational source entities (detection inputs) ———

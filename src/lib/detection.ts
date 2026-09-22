@@ -6,6 +6,7 @@ import { prisma } from "./prisma";
 import { scoreWorkItem } from "./scoring";
 import { normalizeRevenueAmounts, normalizeOpsAmounts } from "./financial-impact";
 import { recordStatusChange } from "./status-history";
+import { getLearnedAdjustment } from "./learning";
 
 function daysAgo(d: Date | null | undefined, now = new Date()) {
   if (!d) return 9999;
@@ -88,6 +89,7 @@ async function upsertOpportunityFromRule(opts: {
     priorityHint: opts.priorityHint,
     evidenceCount: 1,
     settings,
+    learnedAdjustment: await getLearnedAdjustment(opts.organizationId, "REVENUE_RECOVERY", { source: opts.source, type: opts.ruleId, department: opts.department, priority: opts.priorityHint }),
   });
   if (existing) {
     return existing;
@@ -177,6 +179,7 @@ async function upsertInefficiencyFromRule(opts: {
     priorityHint: money.projectedSavings >= settings.highValueThreshold ? "HIGH" : "MEDIUM",
     evidenceCount: 1,
     settings,
+    learnedAdjustment: await getLearnedAdjustment(opts.organizationId, "OPERATIONS_EFFICIENCY", { source: opts.source, type: opts.ruleId, department: opts.department, priority: money.projectedSavings >= settings.highValueThreshold ? "HIGH" : "MEDIUM" }),
   });
   const created = await prisma.inefficiency.create({
     data: {

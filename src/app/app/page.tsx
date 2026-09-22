@@ -5,6 +5,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { assertOrgId } from "@/lib/tenant";
+import { getLearningSummary } from "@/lib/learning";
 
 export default async function AppHomePage() {
   const ctx = await requireOrgAccess();
@@ -14,7 +15,7 @@ export default async function AppHomePage() {
   });
   const hasRevenue = entitlements.some((e) => e.product === "REVENUE_RECOVERY");
   const hasOps = entitlements.some((e) => e.product === "OPERATIONS_EFFICIENCY");
-  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks] = await Promise.all([
+  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks, learning] = await Promise.all([
     prisma.opportunity.aggregate({
       where: { organizationId: ctx.organizationId },
       _sum: { estimatedAmount: true, recoveredAmount: true },
@@ -28,6 +29,7 @@ export default async function AppHomePage() {
     prisma.approvalRequest.count({ where: { organizationId: ctx.organizationId, status: "PENDING" } }),
     prisma.notification.count({ where: { organizationId: ctx.organizationId, userId: ctx.user.id, readAt: null } }),
     prisma.task.count({ where: { organizationId: ctx.organizationId, status: "OPEN" } }),
+    getLearningSummary(ctx.organizationId),
   ]);
 
   return (
@@ -74,6 +76,13 @@ export default async function AppHomePage() {
         <Link href="/app/action-center" className="rounded-md bg-amber-500 px-3 py-2 font-semibold text-neutral-950">Open Action Center →</Link>
         <Link href="/api/summary" className="rounded-md border border-neutral-700 px-3 py-2 text-neutral-300">View summary API</Link>
       </div>
+      <Card className="mt-4 border-emerald-500/20 bg-emerald-500/[0.04]">
+        <CardHeader><CardTitle>Learning loop</CardTitle><CardDescription>Tenant-specific patterns built only from recorded outcomes.</CardDescription></CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-3 text-xs text-neutral-400">{learning.length ? learning.map((profile) => <span key={profile.product} className="rounded-md border border-emerald-500/20 px-3 py-2"><span className="text-white">{profile.product === "REVENUE_RECOVERY" ? "Revenue" : "Operations"}</span> · {profile.sampleSize} outcomes · {profile.confidence} confidence</span>) : <span>No verified outcomes yet — the brain learns as your team records results.</span>}</div>
+          <Link href="/api/learning/summary" className="text-xs text-emerald-400 hover:text-emerald-300">View learned profile →</Link>
+        </CardContent>
+      </Card>
       <div className="mt-8 grid gap-4 md:grid-cols-2">
         <Card className={!hasRevenue ? "opacity-60" : undefined}>
           <CardHeader>

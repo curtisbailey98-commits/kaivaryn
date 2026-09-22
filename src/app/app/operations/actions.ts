@@ -12,6 +12,7 @@ import { scoreWorkItem } from "@/lib/scoring";
 import { OE_STATUSES } from "@/lib/enums";
 import { can } from "@/lib/rbac";
 import { notify } from "@/lib/notifications";
+import { recordLearningEvent } from "@/lib/learning";
 
 const schema = z.object({
   title: z.string().min(1).max(300),
@@ -219,6 +220,18 @@ export async function updateInefficiency(id: string, formData: FormData) {
       actorId: ctx.user.id,
       note: String(formData.get("statusNote") || "") || null,
     });
+    if (["VERIFIED", "REALIZED", "RESOLVED", "DISMISSED"].includes(status)) {
+      await recordLearningEvent({
+        organizationId: ctx.organizationId,
+        actorId: ctx.user.id,
+        product: "OPERATIONS_EFFICIENCY",
+        entityType: "Inefficiency",
+        entityId: id,
+        outcome: status === "DISMISSED" ? "NEGATIVE" : status === "REALIZED" ? "NEUTRAL" : "POSITIVE",
+        features: { source: data.source ?? existing.source, type: data.type ?? existing.type, department: data.department ?? existing.department, priority: data.priority ?? existing.priority },
+        note: `Outcome recorded as ${status}`,
+      });
+    }
   }
   await writeAudit({
     organizationId: ctx.organizationId,
@@ -278,6 +291,16 @@ export async function recordSavings(inefficiencyId: string, formData: FormData) 
     toStatus,
     actorId: ctx.user.id,
     note: `Recorded savings ${realized}`,
+  });
+  await recordLearningEvent({
+    organizationId: ctx.organizationId,
+    actorId: ctx.user.id,
+    product: "OPERATIONS_EFFICIENCY",
+    entityType: "Inefficiency",
+    entityId: inefficiencyId,
+    outcome: verified ? "POSITIVE" : "NEUTRAL",
+    features: { source: row.source, type: row.type, department: row.department, priority: row.priority },
+    note: verified ? `Verified realized savings ${realized}` : `Realized savings ${realized}`,
   });
   await writeAudit({
     organizationId: ctx.organizationId,

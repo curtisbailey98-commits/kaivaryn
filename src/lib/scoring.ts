@@ -35,6 +35,7 @@ export function scoreWorkItem(input: {
     | "scoreWeightEvidence"
     | "highValueThreshold"
   > | null;
+  learnedAdjustment?: number;
 }): ScoreResult {
   const s = input.settings;
   const wAmount = s?.scoreWeightAmount ?? 0.35;
@@ -57,7 +58,12 @@ export function scoreWorkItem(input: {
   ];
   for (const f of factors) f.contribution = f.raw * f.weight * 100;
 
-  const score = Math.round(factors.reduce((a, f) => a + f.contribution, 0));
+  const baseScore = factors.reduce((a, f) => a + f.contribution, 0);
+  const learnedAdjustment = Math.max(-5, Math.min(5, input.learnedAdjustment ?? 0));
+  if (learnedAdjustment !== 0) {
+    factors.push({ key: "learned", label: "Verified tenant pattern", raw: learnedAdjustment > 0 ? 1 : 0, weight: 0, contribution: learnedAdjustment });
+  }
+  const score = Math.max(0, Math.min(100, Math.round(baseScore + learnedAdjustment)));
   const priority: ScoreResult["priority"] =
     score >= 75 ? "CRITICAL" : score >= 55 ? "HIGH" : score >= 35 ? "MEDIUM" : "LOW";
 
