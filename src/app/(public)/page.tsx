@@ -80,6 +80,33 @@ export default function HomePage() {
           See how it works →
         </Link>
       </section>
+      <section className="border-y border-neutral-900 bg-neutral-950/60">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-500/90">Executive operating model</p>
+            <h2 className="mt-4 max-w-lg text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+              Intelligence that ends in an accountable next step.
+            </h2>
+            <p className="mt-4 max-w-lg text-sm leading-relaxed text-neutral-400">
+              Kaivaryn keeps observed evidence, calculated impact, estimates, and recommendations distinct—so leadership can move quickly without confusing a model output for a business result.
+            </p>
+          </div>
+          <div className="grid gap-px overflow-hidden rounded-lg border border-neutral-800 bg-neutral-800 sm:grid-cols-2">
+            {[
+              ["01", "See the signal", "Surface leakage, bottlenecks, and unresolved work from the data your teams already create."],
+              ["02", "Rank by consequence", "Focus attention on economic impact, urgency, confidence, and ease of recovery—not volume."],
+              ["03", "Govern the action", "Assign ownership, preserve approvals, and keep every material decision traceable."],
+              ["04", "Measure the result", "Separate potential value from verified recovery or realized savings after execution."],
+            ].map(([number, title, body]) => (
+              <div key={number} className="bg-neutral-950 p-5 sm:p-6">
+                <p className="font-mono text-xs text-amber-500">{number}</p>
+                <h3 className="mt-3 text-base font-semibold text-white">{title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-neutral-500">{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </>
   );
 }
