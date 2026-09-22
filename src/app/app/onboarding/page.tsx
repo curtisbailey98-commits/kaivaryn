@@ -8,62 +8,64 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
+const optionClass = "flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-sm transition has-[:checked]:border-amber-500/50 has-[:checked]:bg-amber-500/[0.06]";
+const savedArray = (value: unknown) => Array.isArray(value) ? value.map(String) : [];
+
 export default async function OnboardingPage({ searchParams }: { searchParams: { from?: string } }) {
   const ctx = await requireOrgAccess();
   assertOrgId(ctx.organizationId);
-
-  let progress = await prisma.onboardingProgress.findUnique({
-    where: {
-      organizationId_userId: { organizationId: ctx.organizationId, userId: ctx.user.id },
-    },
-  });
-  if (!progress) {
-    progress = await prisma.onboardingProgress.create({
-      data: {
-        organizationId: ctx.organizationId,
-        userId: ctx.user.id,
-        currentStep: 0,
-        completedSteps: "[]",
-      },
-    });
-  }
-
+  let progress = await prisma.onboardingProgress.findUnique({ where: { organizationId_userId: { organizationId: ctx.organizationId, userId: ctx.user.id } } });
+  if (!progress) progress = await prisma.onboardingProgress.create({ data: { organizationId: ctx.organizationId, userId: ctx.user.id, currentStep: 0, completedSteps: "[]", dataJson: "{}" } });
   const completed: string[] = JSON.parse(progress.completedSteps || "[]");
+  const answers: Record<string, Record<string, unknown>> = JSON.parse(progress.dataJson || "{}") as Record<string, Record<string, unknown>>;
   const step = ONBOARDING_STEPS[progress.currentStep] ?? ONBOARDING_STEPS[0];
+  const current = answers[step.id] || {};
 
-  async function advance() {
+  async function saveStep(formData: FormData) {
     "use server";
     const ctx2 = await requireOrgAccess();
     assertOrgId(ctx2.organizationId);
-    const p = await prisma.onboardingProgress.findUnique({
-      where: { organizationId_userId: { organizationId: ctx2.organizationId, userId: ctx2.user.id } },
-    });
+    const p = await prisma.onboardingProgress.findUnique({ where: { organizationId_userId: { organizationId: ctx2.organizationId, userId: ctx2.user.id } } });
     if (!p) return;
+    const currentStep = ONBOARDING_STEPS[p.currentStep] ?? ONBOARDING_STEPS[0];
+    const nextAnswers: Record<string, unknown> = {};
+    for (const [key, value] of Array.from(formData.entries())) {
+      if (key === "_step") continue;
+      if (key.endsWith("[]")) continue;
+      nextAnswers[key] = String(value).trim();
+    }
+    for (const key of ["products", "integrations"]) nextAnswers[key] = formData.getAll(`${key}[]`).map(String);
+    const stored: Record<string, unknown> = JSON.parse(p.dataJson || "{}");
+    stored[currentStep.id] = nextAnswers;
     const done: string[] = JSON.parse(p.completedSteps || "[]");
-    const cur = ONBOARDING_STEPS[p.currentStep];
-    if (cur && !done.includes(cur.id)) done.push(cur.id);
+    if (!done.includes(currentStep.id)) done.push(currentStep.id);
     const next = Math.min(p.currentStep + 1, ONBOARDING_STEPS.length - 1);
-    await prisma.onboardingProgress.update({
-      where: { id: p.id },
-      data: {
-        currentStep: next,
-        completedSteps: JSON.stringify(done),
-        completedAt: next >= ONBOARDING_STEPS.length - 1 ? new Date() : null,
-      },
-    });
+    await prisma.onboardingProgress.update({ where: { id: p.id }, data: { currentStep: next, completedSteps: JSON.stringify(done), dataJson: JSON.stringify(stored), completedAt: currentStep.id === "done" ? new Date() : null } });
     revalidatePath("/app/onboarding");
   }
 
-  const completion = Math.round((completed.length / ONBOARDING_STEPS.length) * 100);
+  const completion = progress.completedAt ? 100 : Math.round((completed.length / ONBOARDING_STEPS.length) * 100);
   const fromPayment = searchParams?.from === "payment";
-  return (
-    <div className="max-w-3xl">
-      {fromPayment ? <div className="si-glass mb-6 border-amber-500/30 p-4"><p className="si-label text-amber-400">Welcome from checkout</p><p className="mt-2 text-sm text-neutral-300">Your payment handoff brought you here. Finish the activation checklist below; progress is saved per user and organization.</p></div> : null}
-      <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="si-label text-amber-500">Activation</p><h1 className="mt-1 text-2xl font-semibold">Make the workspace yours</h1><p className="mt-2 text-sm text-neutral-400">A short, resumable setup for your organization and operating priorities.</p></div><Badge tone={progress.completedAt ? "success" : "warning"}>{progress.completedAt ? "Ready" : `${completion}% complete`}</Badge></div>
-      <div className="mt-6 h-2 overflow-hidden rounded-full bg-neutral-900"><div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${Math.max(completion, progress.completedAt ? 100 : 8)}%` }} /></div>
-      <div className="mt-8 grid gap-3 sm:grid-cols-5">{ONBOARDING_STEPS.map((s, i) => <div key={s.id} className={`rounded-lg border p-3 ${completed.includes(s.id) ? "border-emerald-500/30 bg-emerald-500/[0.06]" : i === progress.currentStep ? "border-amber-500/40 bg-amber-500/[0.06]" : "border-neutral-800 bg-neutral-950"}`}><p className="font-mono text-[10px] text-neutral-500">{String(i + 1).padStart(2, "0")}</p><p className="mt-2 text-xs font-medium text-white">{s.title}</p>{completed.includes(s.id) ? <p className="mt-1 text-[10px] text-emerald-400">Complete</p> : null}</div>)}</div>
-      <div className="si-panel mt-8 p-6"><p className="si-label">Current step</p><h2 className="mt-2 text-xl font-semibold">{step.title}</h2><p className="mt-2 max-w-xl text-sm leading-6 text-neutral-400">{step.description}. We will keep this simple and leave you with a clear next move.</p>{progress.completedAt ? <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-emerald-400"><span>Activation complete.</span><Link href="/app" className="rounded-md bg-amber-500 px-3 py-2 font-semibold text-neutral-950">Enter command center →</Link></div> : <form action={advance} className="mt-6"><Button type="submit">{progress.currentStep === ONBOARDING_STEPS.length - 1 ? "Finish activation" : "Save and continue"}</Button></form>}</div>
-      <div className="mt-6 grid gap-3 sm:grid-cols-3"><Link href="/app/integrations" className="rounded-lg border border-neutral-800 p-4 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-white">Review integrations <span className="float-right text-amber-400">→</span></Link><Link href="/app" className="rounded-lg border border-neutral-800 p-4 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-white">Preview command center <span className="float-right text-amber-400">→</span></Link><Link href="/contact" className="rounded-lg border border-neutral-800 p-4 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-white">Talk to Kaivaryn <span className="float-right text-amber-400">→</span></Link></div>
+  const products = savedArray(current.products);
+  const integrations = savedArray(current.integrations);
+  const choice = (name: string, value: string, label: string, description: string, checked = false) => <label className={optionClass}><input type="radio" name={name} value={value} defaultChecked={checked} className="mt-1 accent-amber-500" /><span><span className="block font-medium text-white">{label}</span><span className="mt-1 block text-xs leading-5 text-neutral-500">{description}</span></span></label>;
+  const check = (name: string, value: string, label: string, description: string) => <label className={optionClass}><input type="checkbox" name={`${name}[]`} value={value} defaultChecked={name === "products" ? products.includes(value) : integrations.includes(value)} className="mt-1 accent-amber-500" /><span><span className="block font-medium text-white">{label}</span><span className="mt-1 block text-xs leading-5 text-neutral-500">{description}</span></span></label>;
+
+  return <div className="max-w-3xl">
+    {fromPayment ? <div className="si-glass mb-6 border-amber-500/30 p-4"><p className="si-label text-amber-400">Welcome from checkout</p><p className="mt-2 text-sm text-neutral-300">Your payment handoff brought you here. Tell us how you operate so the workspace starts with the right context.</p></div> : null}
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="si-label text-amber-500">Welcome survey</p><h1 className="mt-1 text-2xl font-semibold">Make the workspace yours</h1><p className="mt-2 text-sm text-neutral-400">Five saved choices. A clearer first week. You can revise them later.</p></div><Badge tone={progress.completedAt ? "success" : "warning"}>{progress.completedAt ? "Ready" : `${completion}% complete`}</Badge></div>
+    <div className="mt-6 h-2 overflow-hidden rounded-full bg-neutral-900"><div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${Math.max(completion, progress.completedAt ? 100 : 8)}%` }} /></div>
+    <div className="mt-8 grid gap-3 sm:grid-cols-5">{ONBOARDING_STEPS.map((s, i) => <div key={s.id} className={`rounded-lg border p-3 ${completed.includes(s.id) ? "border-emerald-500/30 bg-emerald-500/[0.06]" : i === progress.currentStep ? "border-amber-500/40 bg-amber-500/[0.06]" : "border-neutral-800 bg-neutral-950"}`}><p className="font-mono text-[10px] text-neutral-500">{String(i + 1).padStart(2, "0")}</p><p className="mt-2 text-xs font-medium text-white">{s.title}</p>{completed.includes(s.id) ? <p className="mt-1 text-[10px] text-emerald-400">Complete</p> : null}</div>)}</div>
+    <div className="si-panel mt-8 p-6"><p className="si-label">Step {progress.currentStep + 1} of {ONBOARDING_STEPS.length}</p><h2 className="mt-2 text-xl font-semibold">{step.title}</h2><p className="mt-2 max-w-xl text-sm leading-6 text-neutral-400">{step.description}. Your answer is saved when you continue.</p>
+      {progress.completedAt ? <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-emerald-400"><span>Activation complete.</span><Link href="/app" className="rounded-md bg-amber-500 px-3 py-2 font-semibold text-neutral-950">Enter command center →</Link></div> : <form action={saveStep} className="mt-6 space-y-5"><input type="hidden" name="_step" value={step.id} />
+        {step.id === "welcome" ? <><div><p className="mb-2 text-xs font-medium text-neutral-300">What best describes your role?</p><div className="grid gap-3 sm:grid-cols-2">{choice("role", "finance", "Finance / revenue", "Recovery, margin, billing, or cash visibility.", current.role === "finance")}{choice("role", "operations", "Operations", "Process, capacity, workflow, or service delivery.", current.role === "operations")}{choice("role", "executive", "Executive sponsor", "Cross-functional visibility and accountable outcomes.", current.role === "executive")}{choice("role", "other", "Other", "Another role with a consequential business question.", current.role === "other")}</div></div><div><p className="mb-2 text-xs font-medium text-neutral-300">Organization stage</p><div className="grid gap-3 sm:grid-cols-3">{choice("companySize", "growing", "Growing", "Building repeatable operating discipline.", current.companySize === "growing")}{choice("companySize", "scaling", "Scaling", "Managing complexity across teams or regions.", current.companySize === "scaling")}{choice("companySize", "enterprise", "Enterprise", "Coordinating governed change at scale.", current.companySize === "enterprise")}</div></div></> : null}
+        {step.id === "products" ? <div><p className="mb-2 text-xs font-medium text-neutral-300">Which outcomes should Kaivaryn help with first?</p><div className="grid gap-3 sm:grid-cols-2">{check("products", "REVENUE_RECOVERY", "Revenue Recovery", "Find leakage, prioritize opportunities, and track verified recovery.")}{check("products", "OPERATIONS_EFFICIENCY", "Operations Efficiency", "Surface waste, model savings, and govern automation candidates.")}</div></div> : null}
+        {step.id === "integrations" ? <><div><p className="mb-2 text-xs font-medium text-neutral-300">What data connections are relevant today?</p><div className="grid gap-3 sm:grid-cols-2">{check("integrations", "crm", "CRM / customer system", "Pipeline, customer, and interaction signals.")}{check("integrations", "billing", "Billing / finance", "Invoices, payments, contracts, and recovery signals.")}{check("integrations", "operations", "Operations systems", "Processes, queues, work orders, and service activity.")}{check("integrations", "csv", "CSV / manual upload", "Start with a controlled file import while connections are reviewed.")}</div></div><div><p className="mb-2 text-xs font-medium text-neutral-300">How often should signals be reviewed?</p><div className="grid gap-3 sm:grid-cols-3">{choice("syncCadence", "weekly", "Weekly", "A focused operating review.", current.syncCadence === "weekly")}{choice("syncCadence", "daily", "Daily", "A tighter queue and faster response.", current.syncCadence === "daily")}{choice("syncCadence", "monthly", "Monthly", "A leadership-level value review.", current.syncCadence === "monthly")}</div></div></> : null}
+        {step.id === "team" ? <><div><p className="mb-2 text-xs font-medium text-neutral-300">Who should be involved in the first review?</p><div className="grid gap-3 sm:grid-cols-3">{choice("teamSize", "solo", "Just me", "I am defining the first operating question.", current.teamSize === "solo")}{choice("teamSize", "small", "2–5 people", "A focused cross-functional working group.", current.teamSize === "small")}{choice("teamSize", "large", "6+ people", "A broader stakeholder and approval group.", current.teamSize === "large")}</div></div><label className="block text-xs font-medium text-neutral-300">Optional colleague emails<div className="mt-2 flex items-center gap-2"><input name="inviteEmails" defaultValue={String(current.inviteEmails || "")} placeholder="name@company.com, teammate@company.com" className="h-10 w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-neutral-600" /></div><span className="mt-1 block text-xs font-normal text-neutral-500">We will use this as a planning note; invites are not sent automatically.</span></label></> : null}
+        {step.id === "done" ? <><div><p className="mb-2 text-xs font-medium text-neutral-300">What should success look like in the first 30 days?</p><div className="grid gap-3 sm:grid-cols-2">{choice("launchPriority", "recover", "Recover visible value", "Turn a known leakage pattern into owned work.", current.launchPriority === "recover")}{choice("launchPriority", "efficiency", "Remove recurring friction", "Make one expensive process measurably better.", current.launchPriority === "efficiency")}{choice("launchPriority", "alignment", "Align the team", "Create one shared queue and operating language.", current.launchPriority === "alignment")}{choice("launchPriority", "learn", "Learn where to look", "Start with a structured signal and evidence review.", current.launchPriority === "learn")}</div></div><label className="block text-xs font-medium text-neutral-300">Define the first success metric<input name="successMetric" defaultValue={String(current.successMetric || "")} placeholder="Example: verify $100k of recovery opportunity" className="mt-2 h-10 w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-neutral-600" /></label></> : null}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-900 pt-5"><p className="text-xs text-neutral-500">Saved to your organization workspace.</p><Button type="submit">{step.id === "done" ? "Finish activation" : "Save and continue"}</Button></div>
+      </form>}
     </div>
-  );
+    <div className="mt-6 grid gap-3 sm:grid-cols-3"><Link href="/app/integrations" className="rounded-lg border border-neutral-800 p-4 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-white">Review integrations <span className="float-right text-amber-400">→</span></Link><Link href="/app" className="rounded-lg border border-neutral-800 p-4 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-white">Preview command center <span className="float-right text-amber-400">→</span></Link><Link href="/contact" className="rounded-lg border border-neutral-800 p-4 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-white">Talk to Kaivaryn <span className="float-right text-amber-400">→</span></Link></div>
+  </div>;
 }
