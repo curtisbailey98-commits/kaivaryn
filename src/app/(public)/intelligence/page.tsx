@@ -1,29 +1,14 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Intelligence" };
 
 export default function IntelligencePage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <h1 className="text-3xl font-semibold text-white">Executive intelligence</h1>
-      <p className="mt-4 leading-relaxed text-neutral-400">
-        Kaivaryn intelligence is positioned as disciplined analysis over your organization&apos;s
-        recorded signals — opportunities, inefficiencies, integration health — not as an autonomous
-        agent that invents outcomes.
-      </p>
-      <div className="mt-8 space-y-4 rounded-lg border border-neutral-800 bg-neutral-950 p-6 text-sm text-neutral-300">
-        <p>
-          <span className="font-mono text-amber-400">FINDING</span> — returned when enough structured
-          evidence exists; includes summary, confidence, evidence list, and recommendations.
-        </p>
-        <p>
-          <span className="font-mono text-amber-400">INSUFFICIENT_DATA</span> — returned when signals
-          are missing. Lists required inputs. Never fabricates evidence or metrics.
-        </p>
-      </div>
-      <p className="mt-6 text-sm text-neutral-500">
-        No fake capability claims. Demo environments are labeled DEMO.
-      </p>
-    </div>
+    <>
+      <section className="relative overflow-hidden border-b border-neutral-900"><div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24"><p className="public-kicker text-amber-400">A better standard for AI-assisted work</p><h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-[-0.04em] text-white sm:text-6xl">Useful intelligence should make the next step clearer.</h1><p className="mt-6 max-w-2xl text-base leading-7 text-neutral-400 sm:text-lg">Kaivaryn uses structured analysis to help teams see consequential work sooner—without turning model output into a business result it cannot prove.</p></div></section>
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24"><div className="grid gap-5 lg:grid-cols-2"><div className="public-card p-7 sm:p-9"><p className="font-mono text-xs text-emerald-400">FINDING</p><h2 className="mt-4 text-2xl font-semibold text-white">Enough evidence to act.</h2><p className="mt-3 text-sm leading-6 text-neutral-400">A finding includes a summary, confidence, evidence list, impact estimate, and recommendation. It gives an operator something specific to review—not a vague score.</p><div className="mt-7 space-y-2 text-xs text-neutral-500"><p className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2">Evidence · 4 source records</p><p className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2">Confidence · High</p><p className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2">Next step · Assign owner</p></div></div><div className="public-card p-7 sm:p-9"><p className="font-mono text-xs text-amber-400">INSUFFICIENT_DATA</p><h2 className="mt-4 text-2xl font-semibold text-white">Not enough evidence to pretend.</h2><p className="mt-3 text-sm leading-6 text-neutral-400">When signals are missing, Kaivaryn returns the missing inputs and stops. Honest uncertainty is more useful than fabricated precision.</p><div className="mt-7 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] p-4 text-xs leading-5 text-neutral-400">Required inputs: source history, owner, timeframe, and a measurable impact field.</div></div></div></section>
+      <section className="border-y border-neutral-900 bg-neutral-950/60"><div className="mx-auto flex max-w-6xl flex-col justify-between gap-7 px-4 py-14 sm:px-6 md:flex-row md:items-center"><div><p className="public-kicker">The result</p><p className="mt-2 text-xl font-semibold text-white">A recommendation that knows what it knows.</p></div><Link href="/how-it-works" className="text-sm text-amber-400 hover:text-amber-300">See the full operating model <span aria-hidden>→</span></Link></div></section>
+    </>
   );
 }

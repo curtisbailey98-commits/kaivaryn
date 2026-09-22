@@ -4,29 +4,6 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "Revenue Recovery" };
 
 export default function RevenueRecoveryPage() {
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-500">Solution</p>
-      <h1 className="mt-3 text-3xl font-semibold text-white">Revenue Recovery</h1>
-      <p className="mt-4 text-neutral-400 leading-relaxed">
-        Kaivaryn Revenue Recovery helps finance and revenue-cycle teams find leakage — underbilling,
-        underpayment, missed change orders, fee policy gaps — then track work to recovery.
-        Estimated pipeline and recovered amounts are always reported separately.
-      </p>
-      <ul className="mt-8 space-y-3 text-sm text-neutral-300">
-        <li className="border-l-2 border-amber-500/60 pl-4">Opportunity command center with priority views</li>
-        <li className="border-l-2 border-amber-500/60 pl-4">Assignment, notes, and status workflow</li>
-        <li className="border-l-2 border-amber-500/60 pl-4">Analytics from your org data — empty states when data is absent</li>
-        <li className="border-l-2 border-amber-500/60 pl-4">Tenant-isolated; demo data labeled DEMO</li>
-      </ul>
-      <div className="mt-10 flex gap-3">
-        <Link href="/demo" className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950">
-          Book a Demo
-        </Link>
-        <Link href="/pricing" className="rounded-md border border-neutral-700 px-4 py-2 text-sm">
-          Pricing
-        </Link>
-      </div>
-    </div>
-  );
+  const features = [["Surface leakage", "Underbilling, underpayment, missed change orders, and fee policy gaps become visible work—not spreadsheet archaeology."], ["Prioritize recovery", "Rank opportunities by impact, urgency, evidence, and owner so the queue reflects consequence."], ["Prove the result", "Keep potential, approved, in-progress, recovered, and verified amounts distinct from day one."]];
+  return <><section className="relative overflow-hidden border-b border-neutral-900"><div className="public-grid pointer-events-none absolute inset-0 opacity-30" /><div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24"><p className="public-kicker text-amber-400">Solution / Revenue Recovery</p><h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-[-0.04em] text-white sm:text-6xl">Recover value that is already hiding in your operation.</h1><p className="mt-6 max-w-2xl text-base leading-7 text-neutral-400 sm:text-lg">Kaivaryn helps finance and revenue-cycle teams turn leakage signals into a ranked, owned recovery queue—with estimates never confused for cash.</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link><Link href="/pricing" className="public-button-secondary">View pricing</Link></div></div></section><section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24"><div className="grid gap-5 lg:grid-cols-3">{features.map(([title, body], i) => <div key={title} className="public-card p-7 sm:p-8"><p className="font-mono text-xs text-amber-500">0{i + 1}</p><h2 className="mt-5 text-xl font-semibold text-white">{title}</h2><p className="mt-3 text-sm leading-6 text-neutral-500">{body}</p></div>)}</div><div className="mt-14 rounded-2xl border border-amber-500/20 bg-amber-500/[0.05] p-7 sm:p-10"><p className="public-kicker text-amber-400">What the workspace makes visible</p><div className="mt-6 grid gap-6 sm:grid-cols-3"><div><p className="text-2xl font-semibold text-white">Potential</p><p className="mt-2 text-sm text-neutral-500">The value worth investigating.</p></div><div><p className="text-2xl font-semibold text-white">In progress</p><p className="mt-2 text-sm text-neutral-500">The work with an owner.</p></div><div><p className="text-2xl font-semibold text-white">Verified</p><p className="mt-2 text-sm text-neutral-500">The result you can stand behind.</p></div></div></div></section></>;
 }

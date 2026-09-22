@@ -1,19 +1,10 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Company" };
 
+const principles = [["01", "Clarity over theater", "We build restrained interfaces that help leaders see what is material, what is missing, and what happens next."], ["02", "Accountability over autonomy", "Actions have owners, approvals, and audit trails. External systems are never claimed as updated when they were not."], ["03", "Progress over vanity", "We care about recovered value and realized efficiency—not activity that only looks like progress."], ["04", "Trust compounds", "Tenant isolation, honest empty states, and explicit evidence are product features, not footnotes."]];
+
 export default function CompanyPage() {
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <h1 className="text-3xl font-semibold text-white">Kaivaryn LLC</h1>
-      <p className="mt-4 leading-relaxed text-neutral-400">
-        Kaivaryn is an enterprise AI consulting company focused on revenue recovery and operations
-        efficiency. We build software that executives can trust: restrained interfaces, tenant
-        isolation, auditable actions, and honest empty states.
-      </p>
-      <p className="mt-4 text-sm text-neutral-500">
-        We do not publish fabricated testimonials, robot mascots, or vanity statistics.
-      </p>
-    </div>
-  );
+  return <><section className="relative overflow-hidden border-b border-neutral-900"><div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24"><p className="public-kicker text-amber-400">About Kaivaryn</p><h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-[-0.04em] text-white sm:text-6xl">We build software for the decisions hiding inside the data.</h1><p className="mt-6 max-w-2xl text-base leading-7 text-neutral-400 sm:text-lg">Kaivaryn is an enterprise AI consulting company focused on revenue recovery and operations efficiency—where disciplined execution creates measurable value.</p></div></section><section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24"><div className="grid gap-px overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-800 sm:grid-cols-2">{principles.map(([number, title, body]) => <div key={number} className="bg-neutral-950 p-7 sm:p-9"><p className="font-mono text-xs text-amber-500">{number}</p><h2 className="mt-5 text-xl font-semibold text-white">{title}</h2><p className="mt-3 text-sm leading-6 text-neutral-500">{body}</p></div>)}</div><div className="mt-12 flex flex-wrap gap-3"><Link href="/how-it-works" className="public-button-secondary">How we work</Link><Link href="/demo" className="public-button-primary">Start a conversation <span aria-hidden>↗</span></Link></div></section></>;
 }

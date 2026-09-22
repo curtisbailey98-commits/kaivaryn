@@ -82,4 +82,30 @@ body::before {
     text-transform: uppercase;
     color: var(--muted);
   }
+  .public-grid {
+    background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: linear-gradient(to bottom, black, transparent 85%);
+  }
+  .public-kicker {
+    @apply text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-500;
+  }
+  .public-heading {
+    @apply text-3xl font-semibold leading-tight tracking-[-0.03em] text-white sm:text-4xl;
+  }
+  .public-card {
+    @apply rounded-2xl border border-neutral-800 bg-neutral-950/80 transition duration-200 hover:-translate-y-0.5 hover:border-neutral-700;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 20px 60px rgba(0,0,0,.16);
+  }
+  .public-terminal {
+    background: linear-gradient(145deg, rgba(21,21,21,.96), rgba(7,7,7,.96));
+    border: 1px solid rgba(245,158,11,.22);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 30px 100px rgba(0,0,0,.45);
+  }
+  .public-button-primary {
+    @apply rounded-lg bg-amber-500 px-5 py-3 text-sm font-semibold text-neutral-950 transition hover:bg-amber-400 active:scale-[.98];
+  }
+  .public-button-secondary {
+    @apply rounded-lg border border-neutral-700 px-5 py-3 text-sm font-medium text-neutral-100 transition hover:border-neutral-500 hover:bg-white/[0.04] active:scale-[.98];
+  }
 }

@@ -4,27 +4,6 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "Operations Efficiency" };
 
 export default function OperationsEfficiencyPage() {
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
-      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-amber-500">Solution</p>
-      <h1 className="mt-3 text-3xl font-semibold text-white">Operations Efficiency</h1>
-      <p className="mt-4 text-neutral-400 leading-relaxed">
-        Identify process waste, rework, and queue delay. Flag automation candidates for human
-        approval — Kaivaryn does not auto-execute external actions against your systems.
-      </p>
-      <ul className="mt-8 space-y-3 text-sm text-neutral-300">
-        <li className="border-l-2 border-amber-500/60 pl-4">Inefficiency command center and analytics</li>
-        <li className="border-l-2 border-amber-500/60 pl-4">Annual waste vs recovered efficiency metrics</li>
-        <li className="border-l-2 border-amber-500/60 pl-4">Approval-gated automation candidates</li>
-      </ul>
-      <div className="mt-10 flex gap-3">
-        <Link href="/demo" className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950">
-          Book a Demo
-        </Link>
-        <Link href="/pricing" className="rounded-md border border-neutral-700 px-4 py-2 text-sm">
-          Pricing
-        </Link>
-      </div>
-    </div>
-  );
+  const features = [["Find recurring friction", "See rework, queue delay, manual repetition, and process waste where your teams feel it first."], ["Model the opportunity", "Keep estimated waste, projected savings, hours, and realized efficiency separate and explainable."], ["Govern the change", "Automation candidates are approval-gated. Kaivaryn records decisions; it never pretends an external action ran."]];
+  return <><section className="relative overflow-hidden border-b border-neutral-900"><div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24"><p className="public-kicker text-emerald-400">Solution / Operations Efficiency</p><h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-[-0.04em] text-white sm:text-6xl">Remove the friction your team has learned to work around.</h1><p className="mt-6 max-w-2xl text-base leading-7 text-neutral-400 sm:text-lg">Kaivaryn helps operations leaders turn repeatable waste into a visible improvement queue—without confusing automation potential for automation success.</p><div className="mt-8 flex flex-wrap gap-3"><Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link><Link href="/pricing" className="public-button-secondary">View pricing</Link></div></div></section><section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24"><div className="grid gap-5 lg:grid-cols-3">{features.map(([title, body], i) => <div key={title} className="public-card p-7 sm:p-8"><p className="font-mono text-xs text-emerald-400">0{i + 1}</p><h2 className="mt-5 text-xl font-semibold text-white">{title}</h2><p className="mt-3 text-sm leading-6 text-neutral-500">{body}</p></div>)}</div><div className="mt-14 grid gap-5 md:grid-cols-2"><div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] p-7"><p className="public-kicker text-emerald-400">Measured separately</p><p className="mt-3 text-2xl font-semibold text-white">Projected is not realized.</p><p className="mt-3 text-sm leading-6 text-neutral-400">Leaders see the opportunity, the work underway, and the efficiency that has actually landed.</p></div><div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-7"><p className="public-kicker">Governed by design</p><p className="mt-3 text-2xl font-semibold text-white">Every material action has a decision trail.</p><p className="mt-3 text-sm leading-6 text-neutral-400">Assign, approve, document, measure. No silent external execution.</p></div></div></section></>;
 }
