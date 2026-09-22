@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { registerUser } from "./actions";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  const callbackUrl = params.get("callbackUrl") || "/app";
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -23,7 +25,7 @@ export default function RegisterPage() {
       setError(res.error);
       return;
     }
-    router.push("/login?registered=1");
+    router.push(`/login?registered=1&callbackUrl=${encodeURIComponent(callbackUrl)}`);
   }
 
   return (
@@ -56,8 +58,12 @@ export default function RegisterPage() {
       </form>
       <p className="mt-4 text-center text-xs text-neutral-500">
         Already have an account?{" "}
-        <Link href="/login" className="text-amber-400 hover:text-amber-300">Sign in</Link>
+        <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-amber-400 hover:text-amber-300">Sign in</Link>
       </p>
     </>
   );
+}
+
+export default function RegisterPage() {
+  return <Suspense fallback={<p className="text-sm text-neutral-400">Loading…</p>}><RegisterForm /></Suspense>;
 }

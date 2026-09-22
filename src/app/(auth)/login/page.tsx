@@ -11,6 +11,7 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl") || "/app";
+  const registerHref = `/register?callbackUrl=${encodeURIComponent(callbackUrl)}`;
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -53,7 +54,7 @@ function LoginForm() {
       </form>
       <div className="mt-4 flex justify-between text-xs text-neutral-500">
         <Link href="/forgot-password" className="hover:text-neutral-300">Forgot password</Link>
-        <Link href="/register" className="hover:text-neutral-300">Create account</Link>
+        <Link href={registerHref} className="hover:text-neutral-300">Create account</Link>
       </div>
     </>
   );
