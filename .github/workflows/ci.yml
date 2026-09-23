@@ -53,6 +53,8 @@ jobs:
         run: npm run test:acquisition
       - name: Enterprise validation
         run: npm run test:enterprise
+      - name: Acquisition execution validation
+        run: npm run test:execution
       - name: Production readiness validation
         run: npm run test:readiness
       - name: Production build

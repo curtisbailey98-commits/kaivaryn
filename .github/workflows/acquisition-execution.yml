@@ -1,0 +1,28 @@
+name: Kaivaryn acquisition execution
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: kaivaryn-acquisition-execution
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run acquisition execution tick
+        env:
+          KAIVARYN_AUTOMATION_TOKEN: ${{ secrets.KAIVARYN_AUTOMATION_TOKEN }}
+        run: |
+          test -n "$KAIVARYN_AUTOMATION_TOKEN" || { echo "KAIVARYN_AUTOMATION_TOKEN repository secret is required" >&2; exit 1; }
+          curl --fail-with-body --silent --show-error \
+            --retry 2 \
+            --retry-all-errors \
+            --max-time 120 \
+            -X POST \
+            -H "Authorization: Bearer $KAIVARYN_AUTOMATION_TOKEN" \
+            https://kaivaryn.onrender.com/api/acquisition/automation/tick

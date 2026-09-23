@@ -46,9 +46,12 @@ export default async function AcquisitionCommandCenter() {
           <h1 className="mt-2 text-2xl font-semibold text-white">Intent → qualification → reverse selling → demo → onboarding</h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-400">Internal command center for accounts Kaivaryn is evaluating. Scores retain evidence; micro-audits separate fact from hypothesis; Stripe stays locked until a demo is completed.</p>
         </div>
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.05] px-4 py-3 text-right">
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500">Modeled pipeline</p>
-          <p className="mt-1 text-xl font-semibold text-amber-400">{formatCurrency((pipelineValue._sum.estimatedDealValueCents || 0) / 100)}</p>
+        <div className="flex items-center gap-3">
+          <Link href="/admin/acquisition/execution" className="rounded-md border border-amber-500/30 px-4 py-2 text-sm text-amber-300">Execution layer ↗</Link>
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.05] px-4 py-3 text-right">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Modeled pipeline</p>
+            <p className="mt-1 text-xl font-semibold text-amber-400">{formatCurrency((pipelineValue._sum.estimatedDealValueCents || 0) / 100)}</p>
+          </div>
         </div>
       </div>
 

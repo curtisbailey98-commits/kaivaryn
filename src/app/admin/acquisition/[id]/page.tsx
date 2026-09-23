@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { authorityScore, buildCheckoutLink, deriveAcquisitionDirective } from "@/lib/acquisition";
+import { getCallEligibility } from "@/lib/call-agent";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   addContactAction,
@@ -14,6 +15,9 @@ import {
   saveOutreachAction,
   saveResearchAction,
   saveSecondaryQualificationAction,
+  scheduleGoogleDemoAction,
+  sendOutreachEmailAction,
+  startCallAgentAction,
   updateAcquisitionAccount,
 } from "../actions";
 
@@ -36,6 +40,8 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
       outreachMessages: { orderBy: { createdAt: "desc" }, take: 10 },
       activities: { orderBy: { createdAt: "desc" }, take: 40 },
       paymentEvents: { orderBy: { createdAt: "desc" }, take: 10 },
+      calls: { orderBy: { createdAt: "desc" }, take: 10 },
+      inboundEvents: { orderBy: { receivedAt: "desc" }, take: 10 },
       demoRequest: true,
       onboardingOrganization: true,
     },
@@ -49,6 +55,10 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
   const dealValue = account.estimatedDealValueCents ? formatCurrency(account.estimatedDealValueCents / 100) : "Not modeled";
   const secondary = account.secondaryQualificationJson ? (() => { try { return JSON.parse(account.secondaryQualificationJson) as Record<string, unknown>; } catch { return {}; } })() : {};
   const latestResponseClass = account.outreachMessages.find((message) => message.responseClass)?.responseClass || null;
+  const googleConnection = await prisma.acquisitionProviderConnection.findUnique({ where: { provider: "GOOGLE_WORKSPACE" } });
+  const googleConnected = googleConnection?.status === "CONNECTED" && Boolean(googleConnection.accessTokenEncrypted || googleConnection.refreshTokenEncrypted);
+  const callContact = account.contacts.find((contact) => contact.isPrimary && contact.phone) || account.contacts.find((contact) => contact.phone) || null;
+  const callEligibility = callContact ? await getCallEligibility(account.id, callContact.id) : { eligible: false as const, reason: "Add a verified phone contact before calling." };
   const directive = deriveAcquisitionDirective({
     stage: account.stage,
     qualificationBand: account.qualificationBand,
@@ -131,14 +141,16 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
         <div className="si-panel p-5">
           <h2 className="font-semibold text-white">Decision-makers + enrichment</h2>
           <div className="mt-4 space-y-3">
-            {account.contacts.map((contact) => <div key={contact.id} className="rounded-lg border border-neutral-900 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-medium text-white">{contact.name || contact.email || "Unnamed contact"}</p><p className="mt-1 text-xs text-neutral-500">{contact.title || "Title unknown"}{contact.email ? ` · ${contact.email}` : ""}</p></div><span className="rounded-full border border-neutral-800 px-2 py-1 text-[10px] text-neutral-400">authority {contact.authorityScore}/10{contact.verified ? " · verified" : ""}</span></div>{contact.publicProfile ? <a href={contact.publicProfile} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-amber-400">Public profile ↗</a> : null}</div>)}
+            {account.contacts.map((contact) => <div key={contact.id} className="rounded-lg border border-neutral-900 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-medium text-white">{contact.name || contact.email || "Unnamed contact"}</p><p className="mt-1 text-xs text-neutral-500">{contact.title || "Title unknown"}{contact.email ? ` · ${contact.email}` : ""}</p><p className="mt-1 text-[11px] text-neutral-600">{contact.phone || "No phone"}{contact.timezone ? ` · ${contact.timezone}` : ""}{contact.phoneConsentAt ? " · phone consent recorded" : ""}{contact.doNotCallAt ? " · DO NOT CALL" : ""}</p></div><span className="rounded-full border border-neutral-800 px-2 py-1 text-[10px] text-neutral-400">authority {contact.authorityScore}/10{contact.verified ? " · verified" : ""}</span></div>{contact.publicProfile ? <a href={contact.publicProfile} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-amber-400">Public profile ↗</a> : null}</div>)}
             {!account.contacts.length ? <p className="text-sm text-neutral-500">No decision-makers enriched yet.</p> : null}
           </div>
         </div>
         <form action={addContactAction.bind(null, account.id)} className="si-panel p-5">
           <h2 className="font-semibold text-white">Add / update contact</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2"><input name="name" placeholder="Name" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="title" placeholder="Title" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="email" type="email" placeholder="Work email" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="phone" placeholder="Phone" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="publicProfile" type="url" placeholder="Public profile URL" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm sm:col-span-2" /></div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2"><input name="name" placeholder="Name" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="title" placeholder="Title" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="email" type="email" placeholder="Work email" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="phone" placeholder="Phone (+1...)" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="timezone" placeholder="Timezone (America/New_York)" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="phoneConsentSource" placeholder="Required consent source if AI calling is enabled" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="publicProfile" type="url" placeholder="Public profile URL" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm sm:col-span-2" /></div>
           <label className="mt-3 flex items-center gap-2 text-xs text-neutral-400"><input type="checkbox" name="verified" className="accent-amber-500" /> Contact data verified against a legitimate source</label>
+          <label className="mt-2 flex items-center gap-2 text-xs text-neutral-400"><input type="checkbox" name="phoneConsent" className="accent-amber-500" /> Recorded consent permits an automated AI voice call</label>
+          <label className="mt-2 flex items-center gap-2 text-xs text-red-300"><input type="checkbox" name="doNotCall" /> Add this contact to do-not-call</label>
           <input type="hidden" name="source" value="MANUAL_RESEARCH" />
           <button className="mt-3 rounded-md border border-neutral-700 px-4 py-2 text-sm text-white">Save contact + re-score</button>
         </form>
@@ -191,8 +203,27 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
 
         <div className="si-panel p-5">
           <h2 className="font-semibold text-white">Outreach / response intelligence</h2>
-          {latestOutreach ? <form action={saveOutreachAction.bind(null, account.id, latestOutreach.id)} className="mt-4"><input name="subject" defaultValue={latestOutreach.subject || ""} className="h-10 w-full rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><textarea name="body" defaultValue={latestOutreach.body} rows={9} className="mt-3 w-full rounded-md border border-neutral-800 bg-neutral-950 p-3 text-sm" /><div className="mt-3 grid gap-3 sm:grid-cols-2"><select name="status" defaultValue={latestOutreach.status} className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm">{["DRAFT","QUEUED","SENT","PAUSED","COMPLETED","UNSUBSCRIBED"].map(v => <option key={v}>{v}</option>)}</select><select name="responseClass" defaultValue={latestOutreach.responseClass || ""} className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"><option value="">No response classification</option>{["INTERESTED","CURIOUS","NEEDS_INFORMATION","PRICING","TECHNICAL","OBJECTION","NOT_NOW","REFERRAL","WRONG_PERSON","NOT_INTERESTED","UNSUBSCRIBE","MEETING_REQUEST","OTHER"].map(v => <option key={v}>{v}</option>)}</select></div><button className="mt-3 rounded-md border border-neutral-700 px-4 py-2 text-sm text-white">Save outreach state</button></form> : <p className="mt-4 text-sm text-neutral-500">A reverse-selling outreach draft is created with the micro-audit.</p>}
+          {latestOutreach ? <form action={saveOutreachAction.bind(null, account.id, latestOutreach.id)} className="mt-4"><input name="subject" defaultValue={latestOutreach.subject || ""} className="h-10 w-full rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><textarea name="body" defaultValue={latestOutreach.body} rows={9} className="mt-3 w-full rounded-md border border-neutral-800 bg-neutral-950 p-3 text-sm" /><div className="mt-3 grid gap-3 sm:grid-cols-2"><select name="status" defaultValue={latestOutreach.status} className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm">{["DRAFT","QUEUED","SENT","PAUSED","COMPLETED","UNSUBSCRIBED"].map(v => <option key={v}>{v}</option>)}</select><input name="scheduledAt" type="datetime-local" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" title="Optional execution time when status is QUEUED" /><select name="responseClass" defaultValue={latestOutreach.responseClass || ""} className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"><option value="">No response classification</option>{["INTERESTED","CURIOUS","NEEDS_INFORMATION","PRICING","TECHNICAL","OBJECTION","NOT_NOW","REFERRAL","WRONG_PERSON","NOT_INTERESTED","UNSUBSCRIBE","MEETING_REQUEST","OTHER"].map(v => <option key={v}>{v}</option>)}</select></div><button className="mt-3 rounded-md border border-neutral-700 px-4 py-2 text-sm text-white">Save outreach state</button></form> : <p className="mt-4 text-sm text-neutral-500">A reverse-selling outreach draft is created with the micro-audit.</p>}
+          {latestOutreach && ["DRAFT","QUEUED","PAUSED"].includes(latestOutreach.status) ? <form action={sendOutreachEmailAction.bind(null, account.id, latestOutreach.id)} className="mt-3"><button disabled={!googleConnected} className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950 disabled:cursor-not-allowed disabled:opacity-40">Send through Gmail now</button>{!googleConnected ? <p className="mt-2 text-xs text-neutral-500">Connect Google Workspace in Acquisition → Execution first.</p> : null}</form> : null}
         </div>
+      </div>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <div className="si-panel p-5">
+          <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold text-white">AI call agent</h2><p className="mt-1 text-xs text-neutral-500">Consent-gated voice qualification using the same V2 account context.</p></div><Link href="/admin/acquisition/execution" className="text-xs text-amber-400">Execution settings ↗</Link></div>
+          <p className={`mt-4 text-sm ${callEligibility.eligible ? "text-emerald-300" : "text-neutral-400"}`}>{callEligibility.reason}</p>
+          {callContact ? <div className="mt-3 rounded-lg border border-neutral-900 p-3 text-xs text-neutral-400"><p>{callContact.name || callContact.email || callContact.phone}</p><p className="mt-1">{callContact.phone} · authority {callContact.authorityScore}/10 · {callContact.timezone || "timezone missing"}</p></div> : null}
+          {callContact ? <form action={startCallAgentAction.bind(null, account.id, callContact.id)} className="mt-3"><button disabled={!callEligibility.eligible} className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950 disabled:cursor-not-allowed disabled:opacity-40">Start AI qualification call</button></form> : null}
+          {account.calls[0] ? <p className="mt-3 text-xs text-neutral-500">Latest call: {account.calls[0].status}{account.calls[0].disposition ? ` · ${account.calls[0].disposition}` : ""} · {formatDate(account.calls[0].createdAt)}</p> : null}
+        </div>
+
+        <form action={scheduleGoogleDemoAction.bind(null, account.id)} className="si-panel p-5">
+          <h2 className="font-semibold text-white">Google Calendar demo handoff</h2>
+          <p className="mt-1 text-xs text-neutral-500">Create the real calendar event and Google Meet link after the prospect agrees to meet.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2"><input name="attendeeEmail" type="email" defaultValue={account.primaryEmail || account.contacts.find(c => c.email)?.email || ""} placeholder="Prospect email" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="startsAtLocal" type="datetime-local" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="timeZone" defaultValue={callContact?.timezone || "America/New_York"} placeholder="America/New_York" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="durationMinutes" type="number" min="15" max="90" defaultValue="30" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /></div>
+          <button disabled={!googleConnected} className="mt-3 rounded-md border border-amber-500/50 px-4 py-2 text-sm text-amber-300 disabled:cursor-not-allowed disabled:opacity-40">Schedule demo + Meet</button>
+          {!googleConnected ? <p className="mt-2 text-xs text-neutral-500">Connect Google Workspace in Acquisition → Execution first.</p> : null}
+        </form>
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
@@ -203,6 +234,7 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
           <textarea required name="response" rows={7} placeholder="Paste inbound response here…" className="mt-3 w-full rounded-md border border-neutral-800 bg-neutral-950 p-3 text-sm" />
           <button className="mt-3 rounded-md border border-neutral-700 px-4 py-2 text-sm text-white">Classify + record response</button>
           {account.outreachMessages.find((m) => m.responseClass) ? <p className="mt-3 text-xs text-neutral-400">Latest classification: <span className="text-amber-400">{account.outreachMessages.find((m) => m.responseClass)?.responseClass}</span></p> : null}
+          {account.inboundEvents[0] ? <p className="mt-2 text-xs text-neutral-500">Latest provider-synced reply: {account.inboundEvents[0].responseClass || "OTHER"} · {formatDate(account.inboundEvents[0].receivedAt)}</p> : null}
         </form>
 
         <form action={saveSecondaryQualificationAction.bind(null, account.id)} className="si-panel p-5">

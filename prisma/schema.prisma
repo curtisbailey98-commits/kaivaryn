@@ -866,6 +866,8 @@ model AcquisitionAccount {
   outreachMessages       OutreachMessage[]
   activities             AcquisitionActivity[]
   paymentEvents          PaymentEvent[]
+  calls                  AcquisitionCall[]
+  inboundEvents          AcquisitionInboundEvent[]
 
   @@index([domain])
   @@index([primaryEmail])
@@ -887,11 +889,17 @@ model AcquisitionContact {
   isPrimary      Boolean  @default(false)
   source         String?
   verified       Boolean  @default(false)
+  timezone       String?
+  phoneConsentAt DateTime?
+  phoneConsentSource String?
+  doNotCallAt    DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   account          AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   outreachMessages OutreachMessage[]
+  calls            AcquisitionCall[]
+  inboundEvents    AcquisitionInboundEvent[]
 
   @@unique([accountId, email])
   @@index([accountId])
@@ -1002,6 +1010,75 @@ model OutreachMessage {
   @@index([accountId, status])
   @@index([contactId])
   @@index([scheduledAt])
+}
+
+
+model AcquisitionProviderConnection {
+  id                    String    @id @default(cuid())
+  provider              String    @unique
+  status                String    @default("DISCONNECTED")
+  accountLabel          String?
+  accessTokenEncrypted  String?
+  refreshTokenEncrypted String?
+  expiresAt             DateTime?
+  scopes                 String?
+  syncCursor             String?
+  lastSyncAt             DateTime?
+  lastError              String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([status])
+}
+
+model AcquisitionInboundEvent {
+  id              String   @id @default(cuid())
+  provider        String
+  providerEventId String
+  accountId       String
+  contactId       String?
+  channel         String   @default("EMAIL")
+  sender          String?
+  subject         String?
+  body            String
+  responseClass   String?
+  receivedAt      DateTime
+  createdAt       DateTime @default(now())
+
+  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact AcquisitionContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerEventId])
+  @@index([accountId, receivedAt])
+  @@index([contactId])
+}
+
+model AcquisitionCall {
+  id             String    @id @default(cuid())
+  accountId      String
+  contactId      String?
+  provider       String    @default("TWILIO")
+  providerCallId String?   @unique
+  direction      String    @default("OUTBOUND")
+  status         String    @default("QUEUED")
+  fromNumber     String?
+  toNumber       String
+  consentBasis   String
+  scriptVersion  String    @default("exec-v1")
+  turnsJson      String    @default("[]")
+  summary        String?
+  disposition    String?
+  startedAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact AcquisitionContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, createdAt])
+  @@index([contactId, createdAt])
+  @@index([status])
 }
 
 model AcquisitionActivity {

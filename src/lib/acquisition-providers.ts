@@ -75,3 +75,18 @@ export interface CalendarProvider {
 export interface CRMAdapter {
   upsertAccount(input: { accountId: string; company: string; stage: string }): Promise<{ providerRef: string }>;
 }
+export interface EmailProvider {
+  readonly name: string;
+  send(input: { to: string; subject: string; body: string; threadRef?: string | null }): Promise<{
+    providerMessageId: string;
+    threadRef?: string | null;
+  }>;
+}
+
+export interface VoiceCallProvider {
+  readonly name: string;
+  startCall(input: { callId: string; to: string }): Promise<{
+    providerCallId: string;
+    status: string;
+  }>;
+}

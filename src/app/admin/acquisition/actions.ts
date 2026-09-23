@@ -18,6 +18,9 @@ import {
   stageForResponse,
 } from "@/lib/acquisition";
 import { writeAudit } from "@/lib/audit";
+import { sendAcquisitionOutreachEmail, syncGmailReplies } from "@/lib/acquisition-execution";
+import { isE164Phone, startAcquisitionCall } from "@/lib/call-agent";
+import { createGoogleCalendarDemo } from "@/lib/providers/google-workspace";
 
 async function requireAdmin() {
   const ctx = await getSessionContext();
@@ -123,6 +126,12 @@ export async function saveOutreachAction(accountId: string, messageId: string, f
   const ctx = await requireAdmin();
   const status = text(formData, "status") || "DRAFT";
   const responseClass = text(formData, "responseClass") || null;
+  const scheduledAtRaw = text(formData, "scheduledAt");
+  const scheduledAt = scheduledAtRaw ? new Date(scheduledAtRaw) : null;
+  if (scheduledAtRaw && Number.isNaN(scheduledAt?.getTime())) throw new Error("Invalid outreach schedule time.");
+  const currentMessage = await prisma.outreachMessage.findUnique({ where: { id: messageId } });
+  if (!currentMessage || currentMessage.accountId !== accountId) throw new Error("Outreach message not found.");
+  if (status === "SENT" && !currentMessage.providerRef) throw new Error("Use Send through Gmail so SENT reflects a real provider delivery attempt.");
   const optedOut = status === "UNSUBSCRIBED" || responseClass === "UNSUBSCRIBE";
   await prisma.outreachMessage.update({
     where: { id: messageId },
@@ -130,10 +139,11 @@ export async function saveOutreachAction(accountId: string, messageId: string, f
       subject: text(formData, "subject") || null,
       body: text(formData, "body"),
       status,
-      sentAt: status === "SENT" ? new Date() : undefined,
+      sentAt: status === "SENT" ? (currentMessage.sentAt || new Date()) : undefined,
       repliedAt: responseClass ? new Date() : undefined,
       responseClass,
       optedOutAt: optedOut ? new Date() : undefined,
+      scheduledAt: status === "QUEUED" ? scheduledAt : status === "DRAFT" ? null : undefined,
     },
   });
   const account = await prisma.acquisitionAccount.findUnique({ where: { id: accountId } });
@@ -178,18 +188,32 @@ export async function markDemoBookedAction(accountId: string) {
 export async function addContactAction(accountId: string, formData: FormData) {
   const ctx = await requireAdmin();
   const email = text(formData, "email").toLowerCase() || null;
+  const phone = text(formData, "phone") || null;
   const title = text(formData, "title") || null;
-  const existing = email ? await prisma.acquisitionContact.findFirst({ where: { accountId, email } }) : null;
+  const phoneConsent = formData.get("phoneConsent") === "on";
+  const phoneConsentSource = text(formData, "phoneConsentSource") || null;
+  if (phone && !isE164Phone(phone)) throw new Error("Phone numbers used by the call agent must be E.164, for example +17045551212.");
+  if (phoneConsent && !phoneConsentSource) throw new Error("Record the source of automated-call consent before enabling AI voice calls.");
+  const account = await prisma.acquisitionAccount.findUnique({ where: { id: accountId } });
+  const existing = email
+    ? await prisma.acquisitionContact.findFirst({ where: { accountId, email } })
+    : phone
+      ? await prisma.acquisitionContact.findFirst({ where: { accountId, phone } })
+      : null;
   if (existing) {
     await prisma.acquisitionContact.update({
       where: { id: existing.id },
       data: {
         name: text(formData, "name") || existing.name,
         title: title || existing.title,
-        phone: text(formData, "phone") || existing.phone,
+        phone: phone || existing.phone,
         publicProfile: text(formData, "publicProfile") || existing.publicProfile,
         authorityScore: Math.max(existing.authorityScore, authorityScore(title)),
         verified: formData.get("verified") === "on" || existing.verified,
+        timezone: text(formData, "timezone") || existing.timezone,
+        phoneConsentAt: phoneConsent ? (existing.phoneConsentAt || new Date()) : existing.phoneConsentAt,
+        phoneConsentSource: phoneConsent ? phoneConsentSource : existing.phoneConsentSource,
+        doNotCallAt: formData.get("doNotCall") === "on" ? (existing.doNotCallAt || new Date()) : existing.doNotCallAt,
       },
     });
   } else {
@@ -199,11 +223,16 @@ export async function addContactAction(accountId: string, formData: FormData) {
         name: text(formData, "name") || null,
         email,
         title,
-        phone: text(formData, "phone") || null,
+        phone,
         publicProfile: text(formData, "publicProfile") || null,
         authorityScore: authorityScore(title),
         verified: formData.get("verified") === "on",
+        timezone: text(formData, "timezone") || null,
+        phoneConsentAt: phoneConsent ? new Date() : null,
+        phoneConsentSource: phoneConsent ? phoneConsentSource : null,
+        doNotCallAt: formData.get("doNotCall") === "on" ? new Date() : null,
         source: text(formData, "source") || "MANUAL_RESEARCH",
+        isPrimary: Boolean(email && account?.primaryEmail && email === account.primaryEmail),
       },
     });
   }
@@ -276,4 +305,84 @@ export async function recordInboundResponseAction(accountId: string, formData: F
   await writeAudit({ actorId: ctx.user.id, action: "acquisition.response_classified", entityType: "AcquisitionAccount", entityId: accountId, metadata: { responseClass } });
   revalidatePath(`/admin/acquisition/${accountId}`);
   revalidatePath("/admin/acquisition");
+}
+
+
+export async function sendOutreachEmailAction(accountId: string, messageId: string) {
+  const ctx = await requireAdmin();
+  await sendAcquisitionOutreachEmail(messageId);
+  await writeAudit({ actorId: ctx.user.id, action: "acquisition.gmail_sent", entityType: "OutreachMessage", entityId: messageId });
+  revalidatePath(`/admin/acquisition/${accountId}`);
+  revalidatePath("/admin/acquisition");
+}
+
+export async function syncGmailRepliesAction() {
+  const ctx = await requireAdmin();
+  const result = await syncGmailReplies(50);
+  await writeAudit({ actorId: ctx.user.id, action: "acquisition.gmail_sync", entityType: "AcquisitionProviderConnection", entityId: "GOOGLE_WORKSPACE", metadata: result });
+  revalidatePath("/admin/acquisition");
+  revalidatePath("/admin/acquisition/execution");
+}
+
+export async function startCallAgentAction(accountId: string, contactId: string) {
+  const ctx = await requireAdmin();
+  const call = await startAcquisitionCall(accountId, contactId);
+  await writeAudit({ actorId: ctx.user.id, action: "acquisition.ai_call_started", entityType: "AcquisitionCall", entityId: call.id, metadata: { accountId, contactId } });
+  revalidatePath(`/admin/acquisition/${accountId}`);
+  revalidatePath("/admin/acquisition/execution");
+}
+
+export async function scheduleGoogleDemoAction(accountId: string, formData: FormData) {
+  const ctx = await requireAdmin();
+  const account = await prisma.acquisitionAccount.findUnique({
+    where: { id: accountId },
+    include: { contacts: { orderBy: [{ isPrimary: "desc" }, { authorityScore: "desc" }] }, demoRequest: true },
+  });
+  if (!account) throw new Error("Acquisition account not found");
+  const attendee = text(formData, "attendeeEmail").toLowerCase() || account.primaryEmail || account.contacts.find((c) => c.email)?.email;
+  if (!attendee) throw new Error("A prospect email is required to schedule a Google Calendar demo.");
+  const startsAtLocal = text(formData, "startsAtLocal");
+  const timeZone = text(formData, "timeZone") || "America/New_York";
+  const duration = Number(text(formData, "durationMinutes") || "30");
+  if (!startsAtLocal) throw new Error("Demo start time is required.");
+  const event = await createGoogleCalendarDemo({
+    summary: `Kaivaryn executive demo — ${account.company}`,
+    description: `Kaivaryn executive demo for ${account.company}. Acquisition account: ${account.id}.`,
+    attendeeEmail: attendee,
+    startsAtLocal,
+    timeZone,
+    durationMinutes: Number.isFinite(duration) ? Math.min(90, Math.max(15, duration)) : 30,
+  });
+
+  let demoRequestId = account.demoRequestId;
+  if (account.demoRequest) {
+    await prisma.demoRequest.update({
+      where: { id: account.demoRequest.id },
+      data: { status: "SCHEDULED", zoomLink: event.meetUrl || event.htmlLink || account.demoRequest.zoomLink },
+    });
+  } else {
+    const demo = await prisma.demoRequest.create({
+      data: {
+        name: account.primaryName || account.contacts[0]?.name || "Prospect",
+        email: attendee,
+        company: account.company,
+        title: account.primaryTitle || account.contacts[0]?.title || null,
+        phone: account.phone || account.contacts[0]?.phone || null,
+        products: account.selectedProduct || "AI_CONSULTING",
+        companySize: account.companySize,
+        message: account.painSummary || "Scheduled from Acquisition Intelligence",
+        zoomLink: event.meetUrl || event.htmlLink,
+        status: "SCHEDULED",
+      },
+    });
+    demoRequestId = demo.id;
+  }
+  await prisma.acquisitionAccount.update({
+    where: { id: account.id },
+    data: { stage: "DEMO_BOOKED", demoRequestId },
+  });
+  await addAcquisitionActivity(account.id, "GOOGLE_DEMO_BOOKED", "Executive demo scheduled through Google Calendar.", { eventId: event.id, meetUrl: event.meetUrl, attendee });
+  await writeAudit({ actorId: ctx.user.id, action: "acquisition.google_demo_booked", entityType: "AcquisitionAccount", entityId: account.id, metadata: { eventId: event.id } });
+  revalidatePath(`/admin/acquisition/${account.id}`);
+  revalidatePath("/admin/demos");
 }
