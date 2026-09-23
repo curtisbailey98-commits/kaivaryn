@@ -1,0 +1,2185 @@
+diff --git a/.env.example b/.env.example
+index 898c141..9742f07 100644
+--- a/.env.example
++++ b/.env.example
+@@ -17,3 +17,22 @@ STRIPE_WEBHOOK_SECRET=""
+ ACQUISITION_INGEST_TOKEN=""
+ # Optional first concrete provider adapter: Clay webhook -> Kaivaryn intent engine
+ CLAY_WEBHOOK_SECRET=""
++
++# Acquisition execution layer — Google Workspace
++GOOGLE_CLIENT_ID=""
++GOOGLE_CLIENT_SECRET=""
++# Optional override; defaults to $NEXTAUTH_URL/api/integrations/google/acquisition/callback
++GOOGLE_ACQUISITION_REDIRECT_URI=""
++# Dedicated encryption secret for stored OAuth tokens. Falls back to NEXTAUTH_SECRET if omitted.
++ACQUISITION_TOKEN_ENCRYPTION_KEY=""
++ACQUISITION_SYNC_TOKEN=""
++ACQUISITION_AUTOMATION_TOKEN=""
++ACQUISITION_DAILY_EMAIL_LIMIT="25"
++ACQUISITION_CALL_MAX_TURNS="6"
++
++# Acquisition execution layer — consent-gated AI calls
++TWILIO_ACCOUNT_SID=""
++TWILIO_AUTH_TOKEN=""
++TWILIO_FROM_NUMBER=""
++OPENAI_API_KEY=""
++OPENAI_CALL_MODEL="gpt-5.6-luna"
+diff --git a/.github/workflows/acquisition-execution.yml b/.github/workflows/acquisition-execution.yml
+new file mode 100644
+index 0000000..a58dca3
+--- /dev/null
++++ b/.github/workflows/acquisition-execution.yml
+@@ -0,0 +1,28 @@
++name: Kaivaryn acquisition execution
++
++on:
++  schedule:
++    - cron: "*/20 * * * *"
++  workflow_dispatch:
++
++concurrency:
++  group: kaivaryn-acquisition-execution
++  cancel-in-progress: false
++
++jobs:
++  execute:
++    runs-on: ubuntu-latest
++    timeout-minutes: 5
++    steps:
++      - name: Run acquisition execution tick
++        env:
++          KAIVARYN_AUTOMATION_TOKEN: ${{ secrets.KAIVARYN_AUTOMATION_TOKEN }}
++        run: |
++          test -n "$KAIVARYN_AUTOMATION_TOKEN" || { echo "KAIVARYN_AUTOMATION_TOKEN repository secret is required" >&2; exit 1; }
++          curl --fail-with-body --silent --show-error \
++            --retry 2 \
++            --retry-all-errors \
++            --max-time 120 \
++            -X POST \
++            -H "Authorization: Bearer $KAIVARYN_AUTOMATION_TOKEN" \
++            https://kaivaryn.onrender.com/api/acquisition/automation/tick
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index dffa803..b340f32 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -53,6 +53,8 @@ jobs:
+         run: npm run test:acquisition
+       - name: Enterprise validation
+         run: npm run test:enterprise
++      - name: Acquisition execution validation
++        run: npm run test:execution
+       - name: Production readiness validation
+         run: npm run test:readiness
+       - name: Production build
+diff --git a/ACQUISITION_EXECUTION.md b/ACQUISITION_EXECUTION.md
+new file mode 100644
+index 0000000..4d9bce2
+--- /dev/null
++++ b/ACQUISITION_EXECUTION.md
+@@ -0,0 +1,136 @@
++# Kaivaryn Acquisition Execution Layer
++
++This layer turns Acquisition Intelligence V2 from a decision system into a controlled execution system.
++
++The operating path is:
++
++`intent → qualification → research → micro-audit → reverse-selling draft → Gmail send → Gmail reply sync → response intelligence → optional consented AI call → Google Calendar demo → completed demo → Stripe → onboarding`
++
++## Google Workspace
++
++Kaivaryn uses one connected Google Workspace account for acquisition email and calendar execution. The Gmail/Google Calendar connectors used inside ChatGPT are separate from Kaivaryn's deployed runtime authorization; after deployment, connect the same Google account once from `/admin/acquisition/execution` so Kaivaryn stores its own encrypted OAuth tokens.
++
++Required Render secrets:
++
++```text
++GOOGLE_CLIENT_ID
++GOOGLE_CLIENT_SECRET
++ACQUISITION_TOKEN_ENCRYPTION_KEY
++ACQUISITION_SYNC_TOKEN
++ACQUISITION_AUTOMATION_TOKEN
++```
++
++The OAuth callback defaults to:
++
++```text
++https://kaivaryn.onrender.com/api/integrations/google/acquisition/callback
++```
++
++If the public app URL changes, set `NEXTAUTH_URL` correctly or override with `GOOGLE_ACQUISITION_REDIRECT_URI`.
++
++OAuth scopes are intentionally limited to:
++
++- Gmail send
++- Gmail read-only
++- Google Calendar events
++- OpenID/email identity
++
++Provider tokens are encrypted at rest before they are written to PostgreSQL. `ACQUISITION_TOKEN_ENCRYPTION_KEY` is preferred; `NEXTAUTH_SECRET` is the fallback encryption secret.
++
++### Real email state
++
++`SENT` is no longer intended to mean “someone changed a dropdown.” The provider-backed send action writes a Gmail message/thread reference and a real send timestamp.
++
++Execution rules include:
++
++- verified acquisition contact required;
++- account score must be at least 55 and not `HOLD`;
++- stopped/opted-out accounts cannot send;
++- a 48-hour per-contact provider-send cooldown;
++- a global provider-backed daily send ceiling (default 25, configurable with `ACQUISITION_DAILY_EMAIL_LIMIT`);
++- a reply-stop opt-out line is added when the draft does not already contain one.
++
++Queued messages can be executed by:
++
++```http
++POST /api/acquisition/automation/tick
++Authorization: Bearer <ACQUISITION_AUTOMATION_TOKEN>
++```
++
++The execution tick also syncs Gmail replies before sending the next queued batch.
++
++A GitHub Actions workflow in `.github/workflows/acquisition-execution.yml` calls the tick every 20 minutes. It requires one repository secret named `KAIVARYN_AUTOMATION_TOKEN` whose value matches Render's `ACQUISITION_AUTOMATION_TOKEN`. Only outreach records already placed in `QUEUED` state are eligible for scheduled sending. AI calls are intentionally not started by the scheduler.
++
++### Reply intelligence
++
++Gmail reply sync only accepts messages from known acquisition contacts and only records them when they match a Gmail thread created by a Kaivaryn provider-backed outbound message. This avoids classifying unrelated inbox traffic as sales replies.
++
++Replies are deduplicated in `AcquisitionInboundEvent`, classified, and routed through the same V2 `stageForResponse` / `nextActionForResponse` logic already used by the command center.
++
++## Google Calendar
++
++From an acquisition account, the admin can create the real Google Calendar event and Google Meet link after the prospect agrees to meet.
++
++The event updates the linked `DemoRequest`, moves the acquisition account to `DEMO_BOOKED`, and preserves the existing demo → Stripe → onboarding gate.
++
++## AI call agent
++
++Telephony is implemented against Twilio Programmable Voice using speech gather turns. It does not pretend to be a human and opens by disclosing that it is an automated Kaivaryn AI assistant.
++
++Required Render secrets:
++
++```text
++TWILIO_ACCOUNT_SID
++TWILIO_AUTH_TOKEN
++TWILIO_FROM_NUMBER
++```
++
++Optional conversational-model secrets:
++
++```text
++OPENAI_API_KEY
++OPENAI_CALL_MODEL=gpt-5.6-luna
++```
++
++Without `OPENAI_API_KEY`, the agent still works with deterministic response routing. When an OpenAI model is configured, it produces short context-aware conversational turns while keeping hard stop/opt-out/meeting dispositions deterministic.
++
++### Call eligibility policy
++
++An automated call is blocked unless all of the following are true:
++
++- the contact has a phone number;
++- contact data is verified;
++- recorded automated-call consent exists with a consent source;
++- the contact is not do-not-call;
++- an IANA timezone is recorded;
++- the account is `PRIORITY` and scores at least 75;
++- the contact has authority score 6+;
++- the call occurs Monday–Friday from 09:00–17:00 in the contact timezone;
++- no call attempt has occurred for that contact within the prior 72 hours;
++- the acquisition stage is still in the callable pre-demo sales motion;
++- the phone number is valid E.164 format;
++- the call agent hands back to a human after a configurable turn ceiling (default 6 prospect turns).
++
++Every call is persisted in `AcquisitionCall`, including provider call id, status, turn transcript JSON, disposition, summary, and timestamps.
++
++### Voice webhooks
++
++Twilio calls back to:
++
++```text
++POST /api/acquisition/calls/twiml?callId=...
++POST /api/acquisition/calls/turn?callId=...
++POST /api/acquisition/calls/status?callId=...
++```
++
++All three validate the Twilio request signature before accepting call state or speech.
++
++## Admin UI
++
++Execution controls are under:
++
++```text
++/admin/acquisition/execution
++```
++
++Each acquisition account also exposes provider-backed Gmail sending, AI call eligibility/execution, and Google Calendar demo scheduling without replacing the existing V2 scoring/reverse-selling workflow.
+diff --git a/package.json b/package.json
+index 50c5fc1..9130d88 100644
+--- a/package.json
++++ b/package.json
+@@ -14,7 +14,8 @@
+     "test:enterprise": "tsx scripts/enterprise-validation.ts",
+     "test:acquisition": "tsx scripts/acquisition-validation.ts",
+     "test:readiness": "tsx scripts/production-readiness.ts",
+-    "db:studio": "prisma studio"
++    "db:studio": "prisma studio",
++    "test:execution": "tsx scripts/execution-validation.ts"
+   },
+   "dependencies": {
+     "@prisma/client": "^5.22.0",
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index 167924a..744637d 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -866,6 +866,8 @@ model AcquisitionAccount {
+   outreachMessages       OutreachMessage[]
+   activities             AcquisitionActivity[]
+   paymentEvents          PaymentEvent[]
++  calls                  AcquisitionCall[]
++  inboundEvents          AcquisitionInboundEvent[]
+ 
+   @@index([domain])
+   @@index([primaryEmail])
+@@ -887,11 +889,17 @@ model AcquisitionContact {
+   isPrimary      Boolean  @default(false)
+   source         String?
+   verified       Boolean  @default(false)
++  timezone       String?
++  phoneConsentAt DateTime?
++  phoneConsentSource String?
++  doNotCallAt    DateTime?
+   createdAt      DateTime @default(now())
+   updatedAt      DateTime @updatedAt
+ 
+   account          AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+   outreachMessages OutreachMessage[]
++  calls            AcquisitionCall[]
++  inboundEvents    AcquisitionInboundEvent[]
+ 
+   @@unique([accountId, email])
+   @@index([accountId])
+@@ -1004,6 +1012,75 @@ model OutreachMessage {
+   @@index([scheduledAt])
+ }
+ 
++
++model AcquisitionProviderConnection {
++  id                    String    @id @default(cuid())
++  provider              String    @unique
++  status                String    @default("DISCONNECTED")
++  accountLabel          String?
++  accessTokenEncrypted  String?
++  refreshTokenEncrypted String?
++  expiresAt             DateTime?
++  scopes                 String?
++  syncCursor             String?
++  lastSyncAt             DateTime?
++  lastError              String?
++  createdAt              DateTime  @default(now())
++  updatedAt              DateTime  @updatedAt
++
++  @@index([status])
++}
++
++model AcquisitionInboundEvent {
++  id              String   @id @default(cuid())
++  provider        String
++  providerEventId String
++  accountId       String
++  contactId       String?
++  channel         String   @default("EMAIL")
++  sender          String?
++  subject         String?
++  body            String
++  responseClass   String?
++  receivedAt      DateTime
++  createdAt       DateTime @default(now())
++
++  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
++  contact AcquisitionContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
++
++  @@unique([provider, providerEventId])
++  @@index([accountId, receivedAt])
++  @@index([contactId])
++}
++
++model AcquisitionCall {
++  id             String    @id @default(cuid())
++  accountId      String
++  contactId      String?
++  provider       String    @default("TWILIO")
++  providerCallId String?   @unique
++  direction      String    @default("OUTBOUND")
++  status         String    @default("QUEUED")
++  fromNumber     String?
++  toNumber       String
++  consentBasis   String
++  scriptVersion  String    @default("exec-v1")
++  turnsJson      String    @default("[]")
++  summary        String?
++  disposition    String?
++  startedAt      DateTime?
++  endedAt        DateTime?
++  createdAt      DateTime  @default(now())
++  updatedAt      DateTime  @updatedAt
++
++  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
++  contact AcquisitionContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
++
++  @@index([accountId, createdAt])
++  @@index([contactId, createdAt])
++  @@index([status])
++}
++
+ model AcquisitionActivity {
+   id        String   @id @default(cuid())
+   accountId String
+diff --git a/render.yaml b/render.yaml
+index 5dc28ff..1aeef79 100644
+--- a/render.yaml
++++ b/render.yaml
+@@ -28,3 +28,27 @@ services:
+         sync: false
+       - key: CLAY_WEBHOOK_SECRET
+         sync: false
++      - key: GOOGLE_CLIENT_ID
++        sync: false
++      - key: GOOGLE_CLIENT_SECRET
++        sync: false
++      - key: ACQUISITION_TOKEN_ENCRYPTION_KEY
++        generateValue: true
++      - key: ACQUISITION_SYNC_TOKEN
++        generateValue: true
++      - key: ACQUISITION_AUTOMATION_TOKEN
++        generateValue: true
++      - key: ACQUISITION_DAILY_EMAIL_LIMIT
++        value: 25
++      - key: ACQUISITION_CALL_MAX_TURNS
++        value: 6
++      - key: TWILIO_ACCOUNT_SID
++        sync: false
++      - key: TWILIO_AUTH_TOKEN
++        sync: false
++      - key: TWILIO_FROM_NUMBER
++        sync: false
++      - key: OPENAI_API_KEY
++        sync: false
++      - key: OPENAI_CALL_MODEL
++        value: gpt-5.6-luna
+diff --git a/scripts/execution-validation.ts b/scripts/execution-validation.ts
+new file mode 100644
+index 0000000..33cea51
+--- /dev/null
++++ b/scripts/execution-validation.ts
+@@ -0,0 +1,56 @@
++import assert from "node:assert/strict";
++import fs from "node:fs";
++
++const read = (path: string) => fs.readFileSync(path, "utf8");
++
++const schema = read("prisma/schema.prisma");
++const actions = read("src/app/admin/acquisition/actions.ts");
++const execution = read("src/lib/acquisition-execution.ts");
++const callAgent = read("src/lib/call-agent.ts");
++const google = read("src/lib/providers/google-workspace.ts");
++const twilio = read("src/lib/providers/twilio.ts");
++const render = read("render.yaml");
++const automationWorkflow = read(".github/workflows/acquisition-execution.yml");
++
++assert.match(schema, /model AcquisitionProviderConnection/);
++assert.match(schema, /model AcquisitionInboundEvent/);
++assert.match(schema, /model AcquisitionCall/);
++assert.match(schema, /phoneConsentAt\s+DateTime\?/);
++assert.match(schema, /doNotCallAt\s+DateTime\?/);
++
++assert.match(execution, /sendAcquisitionOutreachEmail/);
++assert.match(execution, /syncGmailReplies/);
++assert.match(execution, /48 \* 60 \* 60_000/);
++assert.match(execution, /Daily Gmail execution ceiling reached/);
++assert.match(actions, /Use Send through Gmail so SENT reflects a real provider delivery attempt/);
++
++assert.match(google, /gmail\.send/);
++assert.match(google, /gmail\.readonly/);
++assert.match(google, /calendar\.events/);
++assert.match(google, /createGoogleCalendarDemo/);
++
++assert.match(callAgent, /Automated AI voice calls require recorded phone consent/);
++assert.match(callAgent, /qualificationScore < 75/);
++assert.match(callAgent, /72 \* 60 \* 60_000/);
++assert.match(callAgent, /CALLABLE_STAGES/);
++assert.match(callAgent, /MAX_TURNS_HANDOFF/);
++assert.match(callAgent, /E\.164/);
++assert.match(callAgent, /do-not-call/i);
++assert.match(twilio, /validateTwilioWebhook/);
++assert.match(twilio, /StatusCallback/);
++
++for (const env of [
++  "GOOGLE_CLIENT_ID",
++  "GOOGLE_CLIENT_SECRET",
++  "ACQUISITION_TOKEN_ENCRYPTION_KEY",
++  "TWILIO_ACCOUNT_SID",
++  "TWILIO_AUTH_TOKEN",
++  "TWILIO_FROM_NUMBER",
++  "OPENAI_API_KEY",
++]) assert.match(render, new RegExp(env));
++
++assert.match(automationWorkflow, /\*\/20 \* \* \* \*/);
++assert.match(automationWorkflow, /KAIVARYN_AUTOMATION_TOKEN/);
++assert.match(automationWorkflow, /api\/acquisition\/automation\/tick/);
++
++console.log("Acquisition execution validation passed.");
+diff --git a/src/app/admin/acquisition/[id]/page.tsx b/src/app/admin/acquisition/[id]/page.tsx
+index 5a22115..655c631 100644
+--- a/src/app/admin/acquisition/[id]/page.tsx
++++ b/src/app/admin/acquisition/[id]/page.tsx
+@@ -2,6 +2,7 @@ import Link from "next/link";
+ import { notFound } from "next/navigation";
+ import { prisma } from "@/lib/prisma";
+ import { authorityScore, buildCheckoutLink, deriveAcquisitionDirective } from "@/lib/acquisition";
++import { getCallEligibility } from "@/lib/call-agent";
+ import { formatCurrency, formatDate } from "@/lib/utils";
+ import {
+   addContactAction,
+@@ -14,6 +15,9 @@ import {
+   saveOutreachAction,
+   saveResearchAction,
+   saveSecondaryQualificationAction,
++  scheduleGoogleDemoAction,
++  sendOutreachEmailAction,
++  startCallAgentAction,
+   updateAcquisitionAccount,
+ } from "../actions";
+ 
+@@ -36,6 +40,8 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
+       outreachMessages: { orderBy: { createdAt: "desc" }, take: 10 },
+       activities: { orderBy: { createdAt: "desc" }, take: 40 },
+       paymentEvents: { orderBy: { createdAt: "desc" }, take: 10 },
++      calls: { orderBy: { createdAt: "desc" }, take: 10 },
++      inboundEvents: { orderBy: { receivedAt: "desc" }, take: 10 },
+       demoRequest: true,
+       onboardingOrganization: true,
+     },
+@@ -49,6 +55,10 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
+   const dealValue = account.estimatedDealValueCents ? formatCurrency(account.estimatedDealValueCents / 100) : "Not modeled";
+   const secondary = account.secondaryQualificationJson ? (() => { try { return JSON.parse(account.secondaryQualificationJson) as Record<string, unknown>; } catch { return {}; } })() : {};
+   const latestResponseClass = account.outreachMessages.find((message) => message.responseClass)?.responseClass || null;
++  const googleConnection = await prisma.acquisitionProviderConnection.findUnique({ where: { provider: "GOOGLE_WORKSPACE" } });
++  const googleConnected = googleConnection?.status === "CONNECTED" && Boolean(googleConnection.accessTokenEncrypted || googleConnection.refreshTokenEncrypted);
++  const callContact = account.contacts.find((contact) => contact.isPrimary && contact.phone) || account.contacts.find((contact) => contact.phone) || null;
++  const callEligibility = callContact ? await getCallEligibility(account.id, callContact.id) : { eligible: false as const, reason: "Add a verified phone contact before calling." };
+   const directive = deriveAcquisitionDirective({
+     stage: account.stage,
+     qualificationBand: account.qualificationBand,
+@@ -131,14 +141,16 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
+         <div className="si-panel p-5">
+           <h2 className="font-semibold text-white">Decision-makers + enrichment</h2>
+           <div className="mt-4 space-y-3">
+-            {account.contacts.map((contact) => <div key={contact.id} className="rounded-lg border border-neutral-900 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-medium text-white">{contact.name || contact.email || "Unnamed contact"}</p><p className="mt-1 text-xs text-neutral-500">{contact.title || "Title unknown"}{contact.email ? ` · ${contact.email}` : ""}</p></div><span className="rounded-full border border-neutral-800 px-2 py-1 text-[10px] text-neutral-400">authority {contact.authorityScore}/10{contact.verified ? " · verified" : ""}</span></div>{contact.publicProfile ? <a href={contact.publicProfile} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-amber-400">Public profile ↗</a> : null}</div>)}
++            {account.contacts.map((contact) => <div key={contact.id} className="rounded-lg border border-neutral-900 p-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-medium text-white">{contact.name || contact.email || "Unnamed contact"}</p><p className="mt-1 text-xs text-neutral-500">{contact.title || "Title unknown"}{contact.email ? ` · ${contact.email}` : ""}</p><p className="mt-1 text-[11px] text-neutral-600">{contact.phone || "No phone"}{contact.timezone ? ` · ${contact.timezone}` : ""}{contact.phoneConsentAt ? " · phone consent recorded" : ""}{contact.doNotCallAt ? " · DO NOT CALL" : ""}</p></div><span className="rounded-full border border-neutral-800 px-2 py-1 text-[10px] text-neutral-400">authority {contact.authorityScore}/10{contact.verified ? " · verified" : ""}</span></div>{contact.publicProfile ? <a href={contact.publicProfile} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-amber-400">Public profile ↗</a> : null}</div>)}
+             {!account.contacts.length ? <p className="text-sm text-neutral-500">No decision-makers enriched yet.</p> : null}
+           </div>
+         </div>
+         <form action={addContactAction.bind(null, account.id)} className="si-panel p-5">
+           <h2 className="font-semibold text-white">Add / update contact</h2>
+-          <div className="mt-4 grid gap-3 sm:grid-cols-2"><input name="name" placeholder="Name" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="title" placeholder="Title" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="email" type="email" placeholder="Work email" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="phone" placeholder="Phone" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="publicProfile" type="url" placeholder="Public profile URL" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm sm:col-span-2" /></div>
++          <div className="mt-4 grid gap-3 sm:grid-cols-2"><input name="name" placeholder="Name" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="title" placeholder="Title" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="email" type="email" placeholder="Work email" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="phone" placeholder="Phone (+1...)" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="timezone" placeholder="Timezone (America/New_York)" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="phoneConsentSource" placeholder="Required consent source if AI calling is enabled" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="publicProfile" type="url" placeholder="Public profile URL" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm sm:col-span-2" /></div>
+           <label className="mt-3 flex items-center gap-2 text-xs text-neutral-400"><input type="checkbox" name="verified" className="accent-amber-500" /> Contact data verified against a legitimate source</label>
++          <label className="mt-2 flex items-center gap-2 text-xs text-neutral-400"><input type="checkbox" name="phoneConsent" className="accent-amber-500" /> Recorded consent permits an automated AI voice call</label>
++          <label className="mt-2 flex items-center gap-2 text-xs text-red-300"><input type="checkbox" name="doNotCall" /> Add this contact to do-not-call</label>
+           <input type="hidden" name="source" value="MANUAL_RESEARCH" />
+           <button className="mt-3 rounded-md border border-neutral-700 px-4 py-2 text-sm text-white">Save contact + re-score</button>
+         </form>
+@@ -191,10 +203,29 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
+ 
+         <div className="si-panel p-5">
+           <h2 className="font-semibold text-white">Outreach / response intelligence</h2>
+-          {latestOutreach ? <form action={saveOutreachAction.bind(null, account.id, latestOutreach.id)} className="mt-4"><input name="subject" defaultValue={latestOutreach.subject || ""} className="h-10 w-full rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><textarea name="body" defaultValue={latestOutreach.body} rows={9} className="mt-3 w-full rounded-md border border-neutral-800 bg-neutral-950 p-3 text-sm" /><div className="mt-3 grid gap-3 sm:grid-cols-2"><select name="status" defaultValue={latestOutreach.status} className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm">{["DRAFT","QUEUED","SENT","PAUSED","COMPLETED","UNSUBSCRIBED"].map(v => <option key={v}>{v}</option>)}</select><select name="responseClass" defaultValue={latestOutreach.responseClass || ""} className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"><option value="">No response classification</option>{["INTERESTED","CURIOUS","NEEDS_INFORMATION","PRICING","TECHNICAL","OBJECTION","NOT_NOW","REFERRAL","WRONG_PERSON","NOT_INTERESTED","UNSUBSCRIBE","MEETING_REQUEST","OTHER"].map(v => <option key={v}>{v}</option>)}</select></div><button className="mt-3 rounded-md border border-neutral-700 px-4 py-2 text-sm text-white">Save outreach state</button></form> : <p className="mt-4 text-sm text-neutral-500">A reverse-selling outreach draft is created with the micro-audit.</p>}
++          {latestOutreach ? <form action={saveOutreachAction.bind(null, account.id, latestOutreach.id)} className="mt-4"><input name="subject" defaultValue={latestOutreach.subject || ""} className="h-10 w-full rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><textarea name="body" defaultValue={latestOutreach.body} rows={9} className="mt-3 w-full rounded-md border border-neutral-800 bg-neutral-950 p-3 text-sm" /><div className="mt-3 grid gap-3 sm:grid-cols-2"><select name="status" defaultValue={latestOutreach.status} className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm">{["DRAFT","QUEUED","SENT","PAUSED","COMPLETED","UNSUBSCRIBED"].map(v => <option key={v}>{v}</option>)}</select><input name="scheduledAt" type="datetime-local" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" title="Optional execution time when status is QUEUED" /><select name="responseClass" defaultValue={latestOutreach.responseClass || ""} className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm"><option value="">No response classification</option>{["INTERESTED","CURIOUS","NEEDS_INFORMATION","PRICING","TECHNICAL","OBJECTION","NOT_NOW","REFERRAL","WRONG_PERSON","NOT_INTERESTED","UNSUBSCRIBE","MEETING_REQUEST","OTHER"].map(v => <option key={v}>{v}</option>)}</select></div><button className="mt-3 rounded-md border border-neutral-700 px-4 py-2 text-sm text-white">Save outreach state</button></form> : <p className="mt-4 text-sm text-neutral-500">A reverse-selling outreach draft is created with the micro-audit.</p>}
++          {latestOutreach && ["DRAFT","QUEUED","PAUSED"].includes(latestOutreach.status) ? <form action={sendOutreachEmailAction.bind(null, account.id, latestOutreach.id)} className="mt-3"><button disabled={!googleConnected} className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950 disabled:cursor-not-allowed disabled:opacity-40">Send through Gmail now</button>{!googleConnected ? <p className="mt-2 text-xs text-neutral-500">Connect Google Workspace in Acquisition → Execution first.</p> : null}</form> : null}
+         </div>
+       </div>
+ 
++      <div className="mt-5 grid gap-5 lg:grid-cols-2">
++        <div className="si-panel p-5">
++          <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold text-white">AI call agent</h2><p className="mt-1 text-xs text-neutral-500">Consent-gated voice qualification using the same V2 account context.</p></div><Link href="/admin/acquisition/execution" className="text-xs text-amber-400">Execution settings ↗</Link></div>
++          <p className={`mt-4 text-sm ${callEligibility.eligible ? "text-emerald-300" : "text-neutral-400"}`}>{callEligibility.reason}</p>
++          {callContact ? <div className="mt-3 rounded-lg border border-neutral-900 p-3 text-xs text-neutral-400"><p>{callContact.name || callContact.email || callContact.phone}</p><p className="mt-1">{callContact.phone} · authority {callContact.authorityScore}/10 · {callContact.timezone || "timezone missing"}</p></div> : null}
++          {callContact ? <form action={startCallAgentAction.bind(null, account.id, callContact.id)} className="mt-3"><button disabled={!callEligibility.eligible} className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950 disabled:cursor-not-allowed disabled:opacity-40">Start AI qualification call</button></form> : null}
++          {account.calls[0] ? <p className="mt-3 text-xs text-neutral-500">Latest call: {account.calls[0].status}{account.calls[0].disposition ? ` · ${account.calls[0].disposition}` : ""} · {formatDate(account.calls[0].createdAt)}</p> : null}
++        </div>
++
++        <form action={scheduleGoogleDemoAction.bind(null, account.id)} className="si-panel p-5">
++          <h2 className="font-semibold text-white">Google Calendar demo handoff</h2>
++          <p className="mt-1 text-xs text-neutral-500">Create the real calendar event and Google Meet link after the prospect agrees to meet.</p>
++          <div className="mt-4 grid gap-3 sm:grid-cols-2"><input name="attendeeEmail" type="email" defaultValue={account.primaryEmail || account.contacts.find(c => c.email)?.email || ""} placeholder="Prospect email" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="startsAtLocal" type="datetime-local" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="timeZone" defaultValue={callContact?.timezone || "America/New_York"} placeholder="America/New_York" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /><input name="durationMinutes" type="number" min="15" max="90" defaultValue="30" className="h-10 rounded-md border border-neutral-800 bg-neutral-950 px-3 text-sm" /></div>
++          <button disabled={!googleConnected} className="mt-3 rounded-md border border-amber-500/50 px-4 py-2 text-sm text-amber-300 disabled:cursor-not-allowed disabled:opacity-40">Schedule demo + Meet</button>
++          {!googleConnected ? <p className="mt-2 text-xs text-neutral-500">Connect Google Workspace in Acquisition → Execution first.</p> : null}
++        </form>
++      </div>
++
+       <div className="mt-5 grid gap-5 lg:grid-cols-2">
+         <form action={recordInboundResponseAction.bind(null, account.id)} className="si-panel p-5">
+           <h2 className="font-semibold text-white">Inbound response intelligence</h2>
+@@ -203,6 +234,7 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
+           <textarea required name="response" rows={7} placeholder="Paste inbound response here…" className="mt-3 w-full rounded-md border border-neutral-800 bg-neutral-950 p-3 text-sm" />
+           <button className="mt-3 rounded-md border border-neutral-700 px-4 py-2 text-sm text-white">Classify + record response</button>
+           {account.outreachMessages.find((m) => m.responseClass) ? <p className="mt-3 text-xs text-neutral-400">Latest classification: <span className="text-amber-400">{account.outreachMessages.find((m) => m.responseClass)?.responseClass}</span></p> : null}
++          {account.inboundEvents[0] ? <p className="mt-2 text-xs text-neutral-500">Latest provider-synced reply: {account.inboundEvents[0].responseClass || "OTHER"} · {formatDate(account.inboundEvents[0].receivedAt)}</p> : null}
+         </form>
+ 
+         <form action={saveSecondaryQualificationAction.bind(null, account.id)} className="si-panel p-5">
+diff --git a/src/app/admin/acquisition/actions.ts b/src/app/admin/acquisition/actions.ts
+index 4d72cf2..97cff4b 100644
+--- a/src/app/admin/acquisition/actions.ts
++++ b/src/app/admin/acquisition/actions.ts
+@@ -18,6 +18,9 @@ import {
+   stageForResponse,
+ } from "@/lib/acquisition";
+ import { writeAudit } from "@/lib/audit";
++import { sendAcquisitionOutreachEmail, syncGmailReplies } from "@/lib/acquisition-execution";
++import { isE164Phone, startAcquisitionCall } from "@/lib/call-agent";
++import { createGoogleCalendarDemo } from "@/lib/providers/google-workspace";
+ 
+ async function requireAdmin() {
+   const ctx = await getSessionContext();
+@@ -123,6 +126,12 @@ export async function saveOutreachAction(accountId: string, messageId: string, f
+   const ctx = await requireAdmin();
+   const status = text(formData, "status") || "DRAFT";
+   const responseClass = text(formData, "responseClass") || null;
++  const scheduledAtRaw = text(formData, "scheduledAt");
++  const scheduledAt = scheduledAtRaw ? new Date(scheduledAtRaw) : null;
++  if (scheduledAtRaw && Number.isNaN(scheduledAt?.getTime())) throw new Error("Invalid outreach schedule time.");
++  const currentMessage = await prisma.outreachMessage.findUnique({ where: { id: messageId } });
++  if (!currentMessage || currentMessage.accountId !== accountId) throw new Error("Outreach message not found.");
++  if (status === "SENT" && !currentMessage.providerRef) throw new Error("Use Send through Gmail so SENT reflects a real provider delivery attempt.");
+   const optedOut = status === "UNSUBSCRIBED" || responseClass === "UNSUBSCRIBE";
+   await prisma.outreachMessage.update({
+     where: { id: messageId },
+@@ -130,10 +139,11 @@ export async function saveOutreachAction(accountId: string, messageId: string, f
+       subject: text(formData, "subject") || null,
+       body: text(formData, "body"),
+       status,
+-      sentAt: status === "SENT" ? new Date() : undefined,
++      sentAt: status === "SENT" ? (currentMessage.sentAt || new Date()) : undefined,
+       repliedAt: responseClass ? new Date() : undefined,
+       responseClass,
+       optedOutAt: optedOut ? new Date() : undefined,
++      scheduledAt: status === "QUEUED" ? scheduledAt : status === "DRAFT" ? null : undefined,
+     },
+   });
+   const account = await prisma.acquisitionAccount.findUnique({ where: { id: accountId } });
+@@ -178,18 +188,32 @@ export async function markDemoBookedAction(accountId: string) {
+ export async function addContactAction(accountId: string, formData: FormData) {
+   const ctx = await requireAdmin();
+   const email = text(formData, "email").toLowerCase() || null;
++  const phone = text(formData, "phone") || null;
+   const title = text(formData, "title") || null;
+-  const existing = email ? await prisma.acquisitionContact.findFirst({ where: { accountId, email } }) : null;
++  const phoneConsent = formData.get("phoneConsent") === "on";
++  const phoneConsentSource = text(formData, "phoneConsentSource") || null;
++  if (phone && !isE164Phone(phone)) throw new Error("Phone numbers used by the call agent must be E.164, for example +17045551212.");
++  if (phoneConsent && !phoneConsentSource) throw new Error("Record the source of automated-call consent before enabling AI voice calls.");
++  const account = await prisma.acquisitionAccount.findUnique({ where: { id: accountId } });
++  const existing = email
++    ? await prisma.acquisitionContact.findFirst({ where: { accountId, email } })
++    : phone
++      ? await prisma.acquisitionContact.findFirst({ where: { accountId, phone } })
++      : null;
+   if (existing) {
+     await prisma.acquisitionContact.update({
+       where: { id: existing.id },
+       data: {
+         name: text(formData, "name") || existing.name,
+         title: title || existing.title,
+-        phone: text(formData, "phone") || existing.phone,
++        phone: phone || existing.phone,
+         publicProfile: text(formData, "publicProfile") || existing.publicProfile,
+         authorityScore: Math.max(existing.authorityScore, authorityScore(title)),
+         verified: formData.get("verified") === "on" || existing.verified,
++        timezone: text(formData, "timezone") || existing.timezone,
++        phoneConsentAt: phoneConsent ? (existing.phoneConsentAt || new Date()) : existing.phoneConsentAt,
++        phoneConsentSource: phoneConsent ? phoneConsentSource : existing.phoneConsentSource,
++        doNotCallAt: formData.get("doNotCall") === "on" ? (existing.doNotCallAt || new Date()) : existing.doNotCallAt,
+       },
+     });
+   } else {
+@@ -199,11 +223,16 @@ export async function addContactAction(accountId: string, formData: FormData) {
+         name: text(formData, "name") || null,
+         email,
+         title,
+-        phone: text(formData, "phone") || null,
++        phone,
+         publicProfile: text(formData, "publicProfile") || null,
+         authorityScore: authorityScore(title),
+         verified: formData.get("verified") === "on",
++        timezone: text(formData, "timezone") || null,
++        phoneConsentAt: phoneConsent ? new Date() : null,
++        phoneConsentSource: phoneConsent ? phoneConsentSource : null,
++        doNotCallAt: formData.get("doNotCall") === "on" ? new Date() : null,
+         source: text(formData, "source") || "MANUAL_RESEARCH",
++        isPrimary: Boolean(email && account?.primaryEmail && email === account.primaryEmail),
+       },
+     });
+   }
+@@ -277,3 +306,83 @@ export async function recordInboundResponseAction(accountId: string, formData: F
+   revalidatePath(`/admin/acquisition/${accountId}`);
+   revalidatePath("/admin/acquisition");
+ }
++
++
++export async function sendOutreachEmailAction(accountId: string, messageId: string) {
++  const ctx = await requireAdmin();
++  await sendAcquisitionOutreachEmail(messageId);
++  await writeAudit({ actorId: ctx.user.id, action: "acquisition.gmail_sent", entityType: "OutreachMessage", entityId: messageId });
++  revalidatePath(`/admin/acquisition/${accountId}`);
++  revalidatePath("/admin/acquisition");
++}
++
++export async function syncGmailRepliesAction() {
++  const ctx = await requireAdmin();
++  const result = await syncGmailReplies(50);
++  await writeAudit({ actorId: ctx.user.id, action: "acquisition.gmail_sync", entityType: "AcquisitionProviderConnection", entityId: "GOOGLE_WORKSPACE", metadata: result });
++  revalidatePath("/admin/acquisition");
++  revalidatePath("/admin/acquisition/execution");
++}
++
++export async function startCallAgentAction(accountId: string, contactId: string) {
++  const ctx = await requireAdmin();
++  const call = await startAcquisitionCall(accountId, contactId);
++  await writeAudit({ actorId: ctx.user.id, action: "acquisition.ai_call_started", entityType: "AcquisitionCall", entityId: call.id, metadata: { accountId, contactId } });
++  revalidatePath(`/admin/acquisition/${accountId}`);
++  revalidatePath("/admin/acquisition/execution");
++}
++
++export async function scheduleGoogleDemoAction(accountId: string, formData: FormData) {
++  const ctx = await requireAdmin();
++  const account = await prisma.acquisitionAccount.findUnique({
++    where: { id: accountId },
++    include: { contacts: { orderBy: [{ isPrimary: "desc" }, { authorityScore: "desc" }] }, demoRequest: true },
++  });
++  if (!account) throw new Error("Acquisition account not found");
++  const attendee = text(formData, "attendeeEmail").toLowerCase() || account.primaryEmail || account.contacts.find((c) => c.email)?.email;
++  if (!attendee) throw new Error("A prospect email is required to schedule a Google Calendar demo.");
++  const startsAtLocal = text(formData, "startsAtLocal");
++  const timeZone = text(formData, "timeZone") || "America/New_York";
++  const duration = Number(text(formData, "durationMinutes") || "30");
++  if (!startsAtLocal) throw new Error("Demo start time is required.");
++  const event = await createGoogleCalendarDemo({
++    summary: `Kaivaryn executive demo — ${account.company}`,
++    description: `Kaivaryn executive demo for ${account.company}. Acquisition account: ${account.id}.`,
++    attendeeEmail: attendee,
++    startsAtLocal,
++    timeZone,
++    durationMinutes: Number.isFinite(duration) ? Math.min(90, Math.max(15, duration)) : 30,
++  });
++
++  let demoRequestId = account.demoRequestId;
++  if (account.demoRequest) {
++    await prisma.demoRequest.update({
++      where: { id: account.demoRequest.id },
++      data: { status: "SCHEDULED", zoomLink: event.meetUrl || event.htmlLink || account.demoRequest.zoomLink },
++    });
++  } else {
++    const demo = await prisma.demoRequest.create({
++      data: {
++        name: account.primaryName || account.contacts[0]?.name || "Prospect",
++        email: attendee,
++        company: account.company,
++        title: account.primaryTitle || account.contacts[0]?.title || null,
++        phone: account.phone || account.contacts[0]?.phone || null,
++        products: account.selectedProduct || "AI_CONSULTING",
++        companySize: account.companySize,
++        message: account.painSummary || "Scheduled from Acquisition Intelligence",
++        zoomLink: event.meetUrl || event.htmlLink,
++        status: "SCHEDULED",
++      },
++    });
++    demoRequestId = demo.id;
++  }
++  await prisma.acquisitionAccount.update({
++    where: { id: account.id },
++    data: { stage: "DEMO_BOOKED", demoRequestId },
++  });
++  await addAcquisitionActivity(account.id, "GOOGLE_DEMO_BOOKED", "Executive demo scheduled through Google Calendar.", { eventId: event.id, meetUrl: event.meetUrl, attendee });
++  await writeAudit({ actorId: ctx.user.id, action: "acquisition.google_demo_booked", entityType: "AcquisitionAccount", entityId: account.id, metadata: { eventId: event.id } });
++  revalidatePath(`/admin/acquisition/${account.id}`);
++  revalidatePath("/admin/demos");
++}
+diff --git a/src/app/admin/acquisition/execution/page.tsx b/src/app/admin/acquisition/execution/page.tsx
+new file mode 100644
+index 0000000..4f843ac
+--- /dev/null
++++ b/src/app/admin/acquisition/execution/page.tsx
+@@ -0,0 +1,90 @@
++import Link from "next/link";
++import { prisma } from "@/lib/prisma";
++import { googleOAuthConfigured } from "@/lib/providers/google-workspace";
++import { twilioConfigured } from "@/lib/providers/twilio";
++import { formatDate } from "@/lib/utils";
++import { syncGmailRepliesAction } from "../actions";
++
++export const dynamic = "force-dynamic";
++
++export default async function AcquisitionExecutionPage({ searchParams }: { searchParams?: { google?: string } }) {
++  const [google, recentCalls, queuedEmails] = await Promise.all([
++    prisma.acquisitionProviderConnection.findUnique({ where: { provider: "GOOGLE_WORKSPACE" } }),
++    prisma.acquisitionCall.findMany({
++      include: { account: true, contact: true },
++      orderBy: { createdAt: "desc" },
++      take: 20,
++    }),
++    prisma.outreachMessage.count({ where: { status: "QUEUED" } }),
++  ]);
++  const googleClientReady = googleOAuthConfigured();
++  const googleConnected = google?.status === "CONNECTED" && Boolean(google.refreshTokenEncrypted || google.accessTokenEncrypted);
++  const twilioReady = twilioConfigured();
++  const modelReady = Boolean(process.env.OPENAI_API_KEY);
++  const automationReady = Boolean(process.env.ACQUISITION_AUTOMATION_TOKEN);
++
++  return (
++    <div>
++      <div className="flex flex-wrap items-end justify-between gap-4">
++        <div>
++          <Link href="/admin/acquisition" className="text-xs text-neutral-500 hover:text-white">← Acquisition command center</Link>
++          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-amber-400">Execution layer</p>
++          <h1 className="mt-2 text-3xl font-semibold text-white">Acquisition channels + call agent</h1>
++          <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-400">The V2 intelligence engine decides the next commercial step. This layer executes Gmail outreach, ingests replies, schedules Google Calendar demos, and runs consent-gated AI voice calls.</p>
++        </div>
++      </div>
++
++      {searchParams?.google ? <div className="mt-5 rounded-lg border border-amber-500/20 bg-amber-500/[0.04] p-3 text-sm text-amber-200">Google connection status: {searchParams.google}</div> : null}
++
++      <div className="mt-6 grid gap-5 lg:grid-cols-2">
++        <div className="si-panel p-5">
++          <div className="flex items-start justify-between gap-4">
++            <div><h2 className="font-semibold text-white">Google Workspace</h2><p className="mt-1 text-xs text-neutral-500">Gmail send/read + Google Calendar events</p></div>
++            <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase ${googleConnected ? "border-emerald-500/30 text-emerald-300" : "border-neutral-800 text-neutral-500"}`}>{googleConnected ? "Connected" : "Disconnected"}</span>
++          </div>
++          <div className="mt-4 space-y-2 text-sm text-neutral-400">
++            <p>OAuth client: <span className={googleClientReady ? "text-emerald-300" : "text-amber-300"}>{googleClientReady ? "configured" : "needs GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET"}</span></p>
++            <p>Mailbox: <span className="text-neutral-200">{google?.accountLabel || "not connected"}</span></p>
++            <p>Last reply sync: <span className="text-neutral-200">{google?.lastSyncAt ? formatDate(google.lastSyncAt) : "never"}</span></p>
++            {google?.lastError ? <p className="text-red-300">Last error: {google.lastError}</p> : null}
++          </div>
++          <div className="mt-4 flex flex-wrap gap-2">
++            {googleClientReady && !googleConnected ? <a href="/api/integrations/google/acquisition/connect" className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-neutral-950">Connect Gmail + Calendar</a> : null}
++            {googleConnected ? <form action={syncGmailRepliesAction}><button className="rounded-md border border-neutral-700 px-4 py-2 text-sm text-white">Sync replies now</button></form> : null}
++            {googleConnected ? <form action="/api/integrations/google/acquisition/disconnect" method="post"><button className="rounded-md border border-neutral-800 px-4 py-2 text-sm text-neutral-400">Disconnect</button></form> : null}
++          </div>
++        </div>
++
++        <div className="si-panel p-5">
++          <div className="flex items-start justify-between gap-4">
++            <div><h2 className="font-semibold text-white">AI call agent</h2><p className="mt-1 text-xs text-neutral-500">Twilio telephony + Kaivaryn qualification context</p></div>
++            <span className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase ${twilioReady ? "border-emerald-500/30 text-emerald-300" : "border-neutral-800 text-neutral-500"}`}>{twilioReady ? "Telephony ready" : "Needs Twilio"}</span>
++          </div>
++          <div className="mt-4 space-y-2 text-sm text-neutral-400">
++            <p>Conversation brain: <span className={modelReady ? "text-emerald-300" : "text-amber-300"}>{modelReady ? `OpenAI ${process.env.OPENAI_CALL_MODEL || "gpt-5.6-luna"}` : "deterministic fallback only"}</span></p>
++            <p>Automation tick: <span className={automationReady ? "text-emerald-300" : "text-neutral-500"}>{automationReady ? "token configured" : "manual execution only"}</span></p>
++            <p>Queued emails: <span className="text-neutral-200">{queuedEmails}</span></p>
++          </div>
++          <div className="mt-4 rounded-lg border border-neutral-900 bg-black/20 p-3 text-xs leading-5 text-neutral-400">
++            Calls are restricted to verified PRIORITY decision-makers, recorded phone consent, a known timezone, weekday business hours, and a 72-hour attempt cooldown. The agent discloses that it is automated and honors do-not-call immediately.
++          </div>
++        </div>
++      </div>
++
++      <div className="si-panel mt-5 overflow-hidden">
++        <div className="border-b border-neutral-900 px-5 py-4"><h2 className="font-semibold text-white">Recent AI calls</h2></div>
++        <div className="divide-y divide-neutral-900">
++          {recentCalls.map((call) => (
++            <Link key={call.id} href={`/admin/acquisition/${call.accountId}`} className="grid gap-2 px-5 py-4 hover:bg-white/[0.02] sm:grid-cols-[1.4fr_1fr_.8fr_.8fr]">
++              <div><p className="text-sm font-medium text-white">{call.account.company}</p><p className="mt-1 text-xs text-neutral-500">{call.contact?.name || call.toNumber}</p></div>
++              <p className="text-xs text-neutral-400">{call.disposition || "No disposition"}</p>
++              <p className="text-xs text-neutral-400">{call.status}</p>
++              <p className="text-xs text-neutral-500">{formatDate(call.createdAt)}</p>
++            </Link>
++          ))}
++          {!recentCalls.length ? <p className="px-5 py-6 text-sm text-neutral-500">No call attempts yet.</p> : null}
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/app/admin/acquisition/page.tsx b/src/app/admin/acquisition/page.tsx
+index 4544a03..e6e8428 100644
+--- a/src/app/admin/acquisition/page.tsx
++++ b/src/app/admin/acquisition/page.tsx
+@@ -46,9 +46,12 @@ export default async function AcquisitionCommandCenter() {
+           <h1 className="mt-2 text-2xl font-semibold text-white">Intent → qualification → reverse selling → demo → onboarding</h1>
+           <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-400">Internal command center for accounts Kaivaryn is evaluating. Scores retain evidence; micro-audits separate fact from hypothesis; Stripe stays locked until a demo is completed.</p>
+         </div>
+-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.05] px-4 py-3 text-right">
+-          <p className="text-[10px] uppercase tracking-wider text-neutral-500">Modeled pipeline</p>
+-          <p className="mt-1 text-xl font-semibold text-amber-400">{formatCurrency((pipelineValue._sum.estimatedDealValueCents || 0) / 100)}</p>
++        <div className="flex items-center gap-3">
++          <Link href="/admin/acquisition/execution" className="rounded-md border border-amber-500/30 px-4 py-2 text-sm text-amber-300">Execution layer ↗</Link>
++          <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.05] px-4 py-3 text-right">
++            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Modeled pipeline</p>
++            <p className="mt-1 text-xl font-semibold text-amber-400">{formatCurrency((pipelineValue._sum.estimatedDealValueCents || 0) / 100)}</p>
++          </div>
+         </div>
+       </div>
+ 
+diff --git a/src/app/admin/health/page.tsx b/src/app/admin/health/page.tsx
+index 9466270..6de5083 100644
+--- a/src/app/admin/health/page.tsx
++++ b/src/app/admin/health/page.tsx
+@@ -22,6 +22,12 @@ export default async function AdminHealthPage() {
+   const databaseUrl = process.env.DATABASE_URL || "";
+   const postgres = /^postgres(ql)?:\/\//i.test(databaseUrl);
+   const clay = Boolean(process.env.CLAY_WEBHOOK_SECRET);
++  const googleConnection = await prisma.acquisitionProviderConnection.findUnique({ where: { provider: "GOOGLE_WORKSPACE" } }).catch(() => null);
++  const googleClient = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
++  const googleConnected = googleConnection?.status === "CONNECTED";
++  const twilio = Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER);
++  const callModel = Boolean(process.env.OPENAI_API_KEY);
++  const automation = Boolean(process.env.ACQUISITION_AUTOMATION_TOKEN);
+ 
+   const rows: Array<[string, boolean | "warn", string]> = [
+     ["API / app", true, "Application is rendering."],
+@@ -31,6 +37,11 @@ export default async function AdminHealthPage() {
+     ["Intent provider ingestion", intentIngest, intentIngest ? "Protected /api/acquisition/ingest endpoint enabled." : "Set ACQUISITION_INGEST_TOKEN before connecting intent providers."],
+     ["Clay provider adapter", clay ? true : "warn", clay ? "Protected Clay webhook adapter is configured." : "Optional: set CLAY_WEBHOOK_SECRET to connect Clay as the first concrete provider."],
+     ["Production persistence", postgres, postgres ? "Persistent PostgreSQL URL detected." : "DATABASE_URL must point to persistent PostgreSQL before relying on acquisition/payment records in production."],
++    ["Google OAuth client", googleClient ? true : "warn", googleClient ? "Google Workspace OAuth client is configured." : "Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to connect Gmail and Calendar."],
++    ["Google Workspace acquisition account", googleConnected ? true : "warn", googleConnected ? `Connected as ${googleConnection?.accountLabel || "Google account"}.` : "Connect Gmail + Calendar from Acquisition → Execution."],
++    ["Twilio call transport", twilio ? true : "warn", twilio ? "Outbound AI call transport is configured." : "Set Twilio credentials before voice execution."],
++    ["AI call conversation model", callModel ? true : "warn", callModel ? `OpenAI call model enabled (${process.env.OPENAI_CALL_MODEL || "gpt-5.6-luna"}).` : "Without OPENAI_API_KEY the call agent uses deterministic fallback dialogue."],
++    ["Acquisition automation token", automation ? true : "warn", automation ? "Protected execution tick is enabled." : "Set ACQUISITION_AUTOMATION_TOKEN for scheduled queue execution."],
+   ];
+ 
+   return (
+diff --git a/src/app/admin/layout.tsx b/src/app/admin/layout.tsx
+index aa70c27..a36fb03 100644
+--- a/src/app/admin/layout.tsx
++++ b/src/app/admin/layout.tsx
+@@ -13,6 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
+     { href: "/admin/orgs", label: "Organizations" },
+     { href: "/admin/users", label: "Users" },
+     { href: "/admin/acquisition", label: "Acquisition" },
++    { href: "/admin/acquisition/execution", label: "Execution" },
+     { href: "/admin/demos", label: "Demo leads" },
+     { href: "/admin/pricing", label: "Pricing" },
+     { href: "/admin/audit", label: "Audit" },
+diff --git a/src/app/api/acquisition/automation/tick/route.ts b/src/app/api/acquisition/automation/tick/route.ts
+new file mode 100644
+index 0000000..927b663
+--- /dev/null
++++ b/src/app/api/acquisition/automation/tick/route.ts
+@@ -0,0 +1,18 @@
++import { NextResponse } from "next/server";
++import { runQueuedEmailExecution, syncGmailReplies } from "@/lib/acquisition-execution";
++
++export const runtime = "nodejs";
++
++function authorized(request: Request) {
++  const token = process.env.ACQUISITION_AUTOMATION_TOKEN;
++  if (!token) return false;
++  return request.headers.get("authorization") === `Bearer ${token}` || request.headers.get("x-acquisition-automation-token") === token;
++}
++
++export async function POST(request: Request) {
++  if (!process.env.ACQUISITION_AUTOMATION_TOKEN) return NextResponse.json({ error: "Acquisition automation is not configured." }, { status: 503 });
++  if (!authorized(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++  const sync = await syncGmailReplies(50).catch((error) => ({ error: error instanceof Error ? error.message : "sync failed" }));
++  const sent = await runQueuedEmailExecution(10);
++  return NextResponse.json({ ok: true, sync, emailExecution: sent });
++}
+diff --git a/src/app/api/acquisition/calls/status/route.ts b/src/app/api/acquisition/calls/status/route.ts
+new file mode 100644
+index 0000000..715ced1
+--- /dev/null
++++ b/src/app/api/acquisition/calls/status/route.ts
+@@ -0,0 +1,22 @@
++import { markCallStatus } from "@/lib/call-agent";
++import { validateTwilioWebhook } from "@/lib/providers/twilio";
++
++export const runtime = "nodejs";
++
++function asParams(form: FormData) {
++  const out: Record<string, string> = {};
++  for (const [key, value] of form.entries()) if (typeof value === "string") out[key] = value;
++  return out;
++}
++
++export async function POST(request: Request) {
++  const url = new URL(request.url);
++  const callId = url.searchParams.get("callId");
++  if (!callId) return new Response("Missing callId", { status: 400 });
++  const form = await request.formData();
++  const params = asParams(form);
++  const publicUrl = new URL(`${url.pathname}${url.search}`, process.env.NEXTAUTH_URL || url.origin).toString();
++  if (!validateTwilioWebhook(publicUrl, params, request.headers.get("x-twilio-signature"))) return new Response("Unauthorized", { status: 401 });
++  await markCallStatus(callId, { callSid: params.CallSid, callStatus: params.CallStatus, duration: params.CallDuration });
++  return new Response("ok");
++}
+diff --git a/src/app/api/acquisition/calls/turn/route.ts b/src/app/api/acquisition/calls/turn/route.ts
+new file mode 100644
+index 0000000..3cf1e0b
+--- /dev/null
++++ b/src/app/api/acquisition/calls/turn/route.ts
+@@ -0,0 +1,32 @@
++import { callAgentContext, processCallTurn } from "@/lib/call-agent";
++import { twimlSayAndGather, validateTwilioWebhook } from "@/lib/providers/twilio";
++
++export const runtime = "nodejs";
++
++function asParams(form: FormData) {
++  const out: Record<string, string> = {};
++  for (const [key, value] of form.entries()) if (typeof value === "string") out[key] = value;
++  return out;
++}
++
++export async function POST(request: Request) {
++  const url = new URL(request.url);
++  const callId = url.searchParams.get("callId");
++  if (!callId) return new Response("Missing callId", { status: 400 });
++  const form = await request.formData();
++  const params = asParams(form);
++  const publicUrl = new URL(`${url.pathname}${url.search}`, process.env.NEXTAUTH_URL || url.origin).toString();
++  if (!validateTwilioWebhook(publicUrl, params, request.headers.get("x-twilio-signature"))) return new Response("Unauthorized", { status: 401 });
++  const speech = String(params.SpeechResult || "").trim();
++  const digits = String(params.Digits || "").trim();
++  const utterance = speech || (digits === "9" ? "do not call me again" : digits ? `DTMF ${digits}` : "");
++  if (!utterance) {
++    const ctx = await callAgentContext(callId);
++    const xml = twimlSayAndGather({ text: "I didn't catch that. Could you repeat that briefly?", actionUrl: ctx.turnUrl });
++    return new Response(xml, { headers: { "content-type": "text/xml; charset=utf-8" } });
++  }
++  const result = await processCallTurn(callId, utterance);
++  const ctx = await callAgentContext(callId);
++  const xml = twimlSayAndGather({ text: result.text, actionUrl: ctx.turnUrl, finish: result.finish });
++  return new Response(xml, { headers: { "content-type": "text/xml; charset=utf-8" } });
++}
+diff --git a/src/app/api/acquisition/calls/twiml/route.ts b/src/app/api/acquisition/calls/twiml/route.ts
+new file mode 100644
+index 0000000..a0e9f6b
+--- /dev/null
++++ b/src/app/api/acquisition/calls/twiml/route.ts
+@@ -0,0 +1,24 @@
++import { getCallOpening, callAgentContext, markCallStatus } from "@/lib/call-agent";
++import { twimlSayAndGather, validateTwilioWebhook } from "@/lib/providers/twilio";
++
++export const runtime = "nodejs";
++
++function asParams(form: FormData) {
++  const out: Record<string, string> = {};
++  for (const [key, value] of form.entries()) if (typeof value === "string") out[key] = value;
++  return out;
++}
++
++export async function POST(request: Request) {
++  const url = new URL(request.url);
++  const callId = url.searchParams.get("callId");
++  if (!callId) return new Response("Missing callId", { status: 400 });
++  const form = await request.formData();
++  const params = asParams(form);
++  const publicUrl = new URL(`${url.pathname}${url.search}`, process.env.NEXTAUTH_URL || url.origin).toString();
++  if (!validateTwilioWebhook(publicUrl, params, request.headers.get("x-twilio-signature"))) return new Response("Unauthorized", { status: 401 });
++  await markCallStatus(callId, { callSid: params.CallSid, callStatus: params.CallStatus || "answered" });
++  const [opening, ctx] = await Promise.all([getCallOpening(callId), callAgentContext(callId)]);
++  const xml = twimlSayAndGather({ text: opening, actionUrl: ctx.turnUrl });
++  return new Response(xml, { headers: { "content-type": "text/xml; charset=utf-8" } });
++}
+diff --git a/src/app/api/acquisition/providers/gmail/sync/route.ts b/src/app/api/acquisition/providers/gmail/sync/route.ts
+new file mode 100644
+index 0000000..cbef107
+--- /dev/null
++++ b/src/app/api/acquisition/providers/gmail/sync/route.ts
+@@ -0,0 +1,24 @@
++import { NextResponse } from "next/server";
++import { getSessionContext } from "@/lib/tenant";
++import { syncGmailReplies } from "@/lib/acquisition-execution";
++
++export const runtime = "nodejs";
++
++async function authorized(request: Request) {
++  const token = process.env.ACQUISITION_SYNC_TOKEN;
++  const bearer = request.headers.get("authorization");
++  const header = request.headers.get("x-acquisition-sync-token");
++  if (token && (bearer === `Bearer ${token}` || header === token)) return true;
++  const ctx = await getSessionContext();
++  return Boolean(ctx?.isSuperAdmin);
++}
++
++export async function POST(request: Request) {
++  if (!(await authorized(request))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++  try {
++    const result = await syncGmailReplies(50);
++    return NextResponse.json({ ok: true, ...result });
++  } catch (error) {
++    return NextResponse.json({ error: error instanceof Error ? error.message : "Gmail sync failed" }, { status: 503 });
++  }
++}
+diff --git a/src/app/api/health/route.ts b/src/app/api/health/route.ts
+index 1b2049f..391ecdc 100644
+--- a/src/app/api/health/route.ts
++++ b/src/app/api/health/route.ts
+@@ -6,6 +6,7 @@ export async function GET() {
+   const postgres = /^postgres(ql)?:\/\//i.test(databaseUrl);
+   try {
+     await prisma.$queryRaw`SELECT 1`;
++    const google = await prisma.acquisitionProviderConnection.findUnique({ where: { provider: "GOOGLE_WORKSPACE" } }).catch(() => null);
+     const readiness = {
+       databasePersistent: postgres,
+       intentIngestConfigured: Boolean(process.env.ACQUISITION_INGEST_TOKEN),
+@@ -13,6 +14,16 @@ export async function GET() {
+       stripeWebhookConfigured: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+       stripePaymentLinkConfigured: Boolean(process.env.STRIPE_PAYMENT_LINK?.includes("buy.stripe.com")),
+     };
++    const execution = {
++      googleOAuthClientConfigured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
++      googleWorkspaceConnected: google?.status === "CONNECTED",
++      gmailSyncTokenConfigured: Boolean(process.env.ACQUISITION_SYNC_TOKEN),
++      automationTokenConfigured: Boolean(process.env.ACQUISITION_AUTOMATION_TOKEN),
++      twilioConfigured: Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER),
++      aiCallModelConfigured: Boolean(process.env.OPENAI_API_KEY),
++      dailyEmailLimit: Number(process.env.ACQUISITION_DAILY_EMAIL_LIMIT || "25"),
++      callMaxTurns: Number(process.env.ACQUISITION_CALL_MAX_TURNS || "6"),
++    };
+     return NextResponse.json({
+       status: "ok",
+       service: "kaivaryn",
+@@ -23,6 +34,7 @@ export async function GET() {
+         .filter(([key]) => key !== "clayAdapterConfigured")
+         .every(([, value]) => value),
+       acquisition: readiness,
++      acquisitionExecution: execution,
+     });
+   } catch (e) {
+     return NextResponse.json(
+diff --git a/src/app/api/integrations/google/acquisition/callback/route.ts b/src/app/api/integrations/google/acquisition/callback/route.ts
+new file mode 100644
+index 0000000..bb85be1
+--- /dev/null
++++ b/src/app/api/integrations/google/acquisition/callback/route.ts
+@@ -0,0 +1,26 @@
++import { NextResponse } from "next/server";
++import { getSessionContext } from "@/lib/tenant";
++import { verifyAcquisitionOAuthState } from "@/lib/acquisition-oauth-state";
++import { connectGoogleWorkspaceFromCode } from "@/lib/providers/google-workspace";
++
++export const runtime = "nodejs";
++
++export async function GET(request: Request) {
++  const base = process.env.NEXTAUTH_URL || new URL(request.url).origin;
++  const url = new URL(request.url);
++  const error = url.searchParams.get("error");
++  if (error) return NextResponse.redirect(new URL(`/admin/acquisition/execution?google=${encodeURIComponent(error)}`, base));
++  const code = url.searchParams.get("code");
++  const stateRaw = url.searchParams.get("state");
++  if (!code || !stateRaw) return NextResponse.redirect(new URL("/admin/acquisition/execution?google=invalid-callback", base));
++  try {
++    const state = verifyAcquisitionOAuthState(stateRaw);
++    const ctx = await getSessionContext();
++    if (!ctx?.isSuperAdmin || ctx.user.id !== state.userId) throw new Error("OAuth session does not match the initiating administrator.");
++    await connectGoogleWorkspaceFromCode(code);
++    return NextResponse.redirect(new URL("/admin/acquisition/execution?google=connected", base));
++  } catch (err) {
++    const message = err instanceof Error ? err.message : "connection-failed";
++    return NextResponse.redirect(new URL(`/admin/acquisition/execution?google=${encodeURIComponent(message.slice(0, 120))}`, base));
++  }
++}
+diff --git a/src/app/api/integrations/google/acquisition/connect/route.ts b/src/app/api/integrations/google/acquisition/connect/route.ts
+new file mode 100644
+index 0000000..462a83f
+--- /dev/null
++++ b/src/app/api/integrations/google/acquisition/connect/route.ts
+@@ -0,0 +1,14 @@
++import { NextResponse } from "next/server";
++import { getSessionContext } from "@/lib/tenant";
++import { signAcquisitionOAuthState } from "@/lib/acquisition-oauth-state";
++import { buildGoogleWorkspaceAuthorizationUrl, googleOAuthConfigured } from "@/lib/providers/google-workspace";
++
++export const runtime = "nodejs";
++
++export async function GET() {
++  const ctx = await getSessionContext();
++  if (!ctx?.isSuperAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
++  if (!googleOAuthConfigured()) return NextResponse.redirect(new URL("/admin/acquisition/execution?google=not-configured", process.env.NEXTAUTH_URL || "http://localhost:3000"));
++  const state = signAcquisitionOAuthState(ctx.user.id);
++  return NextResponse.redirect(buildGoogleWorkspaceAuthorizationUrl(state));
++}
+diff --git a/src/app/api/integrations/google/acquisition/disconnect/route.ts b/src/app/api/integrations/google/acquisition/disconnect/route.ts
+new file mode 100644
+index 0000000..203e21f
+--- /dev/null
++++ b/src/app/api/integrations/google/acquisition/disconnect/route.ts
+@@ -0,0 +1,12 @@
++import { NextResponse } from "next/server";
++import { getSessionContext } from "@/lib/tenant";
++import { disconnectGoogleWorkspace } from "@/lib/providers/google-workspace";
++
++export const runtime = "nodejs";
++
++export async function POST(request: Request) {
++  const ctx = await getSessionContext();
++  if (!ctx?.isSuperAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
++  await disconnectGoogleWorkspace();
++  return NextResponse.redirect(new URL("/admin/acquisition/execution?google=disconnected", process.env.NEXTAUTH_URL || new URL(request.url).origin), 303);
++}
+diff --git a/src/lib/acquisition-execution.ts b/src/lib/acquisition-execution.ts
+new file mode 100644
+index 0000000..64466bb
+--- /dev/null
++++ b/src/lib/acquisition-execution.ts
+@@ -0,0 +1,198 @@
++import { prisma } from "@/lib/prisma";
++import {
++  addAcquisitionActivity,
++  classifyResponseText,
++  nextActionForResponse,
++  stageForResponse,
++} from "@/lib/acquisition";
++import {
++  listRecentGmailInboxMessages,
++  noteGoogleSyncSuccess,
++  sendGoogleWorkspaceEmail,
++} from "@/lib/providers/google-workspace";
++
++
++function dailyEmailLimit() {
++  const raw = Number(process.env.ACQUISITION_DAILY_EMAIL_LIMIT || "25");
++  return Number.isFinite(raw) ? Math.min(250, Math.max(1, Math.floor(raw))) : 25;
++}
++
++function parseProviderRef(value?: string | null) {
++  if (!value?.startsWith("gmail:")) return { messageId: null, threadId: null };
++  const [, messageId, threadId] = value.split(":");
++  return { messageId: messageId || null, threadId: threadId || null };
++}
++
++export async function sendAcquisitionOutreachEmail(messageId: string) {
++  const message = await prisma.outreachMessage.findUnique({
++    where: { id: messageId },
++    include: { account: true, contact: true },
++  });
++  if (!message) throw new Error("Outreach message not found.");
++  if (message.optedOutAt || message.status === "UNSUBSCRIBED") throw new Error("This contact has opted out.");
++  if (["UNSUBSCRIBED", "NOT_INTERESTED", "CLOSED_LOST", "DISQUALIFIED"].includes(message.account.stage)) {
++    throw new Error(`Active outreach is blocked while account is ${message.account.stage}.`);
++  }
++  if (message.account.qualificationScore < 55 || message.account.qualificationBand === "HOLD") {
++    throw new Error("Account is below the evidence threshold for provider-backed outreach.");
++  }
++  const to = message.contact?.email || message.account.primaryEmail;
++  if (!to) throw new Error("A verified work email is required before sending outreach.");
++  if (!message.contact || !message.contact.verified) throw new Error("A verified acquisition contact is required before sending provider-backed outreach.");
++  const sentSince = new Date(Date.now() - 24 * 60 * 60_000);
++  const sentToday = await prisma.outreachMessage.count({
++    where: { status: "SENT", sentAt: { gte: sentSince }, providerRef: { startsWith: "gmail:" } },
++  });
++  if (sentToday >= dailyEmailLimit()) throw new Error(`Daily Gmail execution ceiling reached (${dailyEmailLimit()}).`);
++
++  const recent = await prisma.outreachMessage.findFirst({
++    where: {
++      accountId: message.accountId,
++      contactId: message.contact.id,
++      id: { not: message.id },
++      status: "SENT",
++      sentAt: { gte: new Date(Date.now() - 48 * 60 * 60_000) },
++    },
++    orderBy: { sentAt: "desc" },
++  });
++  if (recent) throw new Error("A provider-backed email was already sent to this contact within the last 48 hours.");
++  const subject = message.subject || `A question about ${message.account.company}`;
++  const optOut = /reply\s+(stop|unsubscribe)|opt[- ]?out|rather not hear/i.test(message.body)
++    ? ""
++    : "\n\nIf you'd rather not hear from Kaivaryn, reply stop and we'll close the outreach.";
++  const result = await sendGoogleWorkspaceEmail({ to, subject, body: `${message.body}${optOut}` });
++  await prisma.outreachMessage.update({
++    where: { id: message.id },
++    data: {
++      status: "SENT",
++      sentAt: message.sentAt || new Date(),
++      providerRef: `gmail:${result.id}:${result.threadId || ""}`,
++    },
++  });
++  const late = ["DEMO_BOOKED", "DEMO_COMPLETED", "CHECKOUT_READY", "PAYMENT_SUCCEEDED", "ONBOARDING", "ACTIVE"].includes(message.account.stage);
++  if (!late) {
++    await prisma.acquisitionAccount.update({ where: { id: message.accountId }, data: { stage: "CONTACTED" } });
++  }
++  await addAcquisitionActivity(message.accountId, "EMAIL_SENT", `Reverse-selling outreach sent through Gmail to ${to}.`, {
++    outreachMessageId: message.id,
++    providerMessageId: result.id,
++    threadId: result.threadId,
++  });
++  return result;
++}
++
++export async function syncGmailReplies(limit = 50) {
++  const messages = await listRecentGmailInboxMessages(limit);
++  let matched = 0;
++  let recorded = 0;
++
++  for (const incoming of messages) {
++    if (!incoming.fromEmail || !incoming.body) continue;
++    const existing = await prisma.acquisitionInboundEvent.findUnique({
++      where: { provider_providerEventId: { provider: "GMAIL", providerEventId: incoming.id } },
++    });
++    if (existing) continue;
++
++    const contact = await prisma.acquisitionContact.findFirst({
++      where: { email: incoming.fromEmail },
++      include: { account: true },
++      orderBy: { updatedAt: "desc" },
++    });
++    const account = contact?.account || await prisma.acquisitionAccount.findFirst({
++      where: { primaryEmail: incoming.fromEmail },
++      orderBy: { updatedAt: "desc" },
++    });
++    if (!account) continue;
++
++    const recentOutreach = await prisma.outreachMessage.findFirst({
++      where: {
++        accountId: account.id,
++        status: "SENT",
++        providerRef: { startsWith: "gmail:" },
++        sentAt: { not: null },
++        ...(contact?.id ? { OR: [{ contactId: contact.id }, { contactId: null }] } : {}),
++      },
++      orderBy: { sentAt: "desc" },
++    });
++    if (!recentOutreach) continue;
++    const ref = parseProviderRef(recentOutreach.providerRef);
++    if (ref.threadId && incoming.threadId && ref.threadId !== incoming.threadId) continue;
++    matched += 1;
++
++    const responseClass = classifyResponseText(incoming.body);
++    await prisma.acquisitionInboundEvent.create({
++      data: {
++        provider: "GMAIL",
++        providerEventId: incoming.id,
++        accountId: account.id,
++        contactId: contact?.id || null,
++        channel: "EMAIL",
++        sender: incoming.fromEmail,
++        subject: incoming.subject,
++        body: incoming.body,
++        responseClass,
++        receivedAt: incoming.receivedAt,
++      },
++    });
++
++    await prisma.outreachMessage.update({
++      where: { id: recentOutreach.id },
++      data: {
++        repliedAt: incoming.receivedAt,
++        responseClass,
++        responseJson: JSON.stringify({
++          provider: "GMAIL",
++          providerEventId: incoming.id,
++          threadId: incoming.threadId,
++          classifiedBy: "deterministic-v2",
++          syncedAt: new Date().toISOString(),
++        }),
++      },
++    });
++
++    const nextStage = stageForResponse(account.stage, responseClass);
++    await prisma.acquisitionAccount.update({
++      where: { id: account.id },
++      data: { stage: nextStage, nextAction: nextActionForResponse(responseClass) },
++    });
++    if (responseClass === "UNSUBSCRIBE") {
++      await prisma.outreachMessage.update({ where: { id: recentOutreach.id }, data: { optedOutAt: incoming.receivedAt, status: "UNSUBSCRIBED" } });
++      if (contact) await prisma.acquisitionContact.update({ where: { id: contact.id }, data: { doNotCallAt: contact.doNotCallAt || new Date() } });
++    }
++    await addAcquisitionActivity(account.id, "GMAIL_REPLY_SYNCED", `Gmail reply classified as ${responseClass}.`, {
++      providerEventId: incoming.id,
++      sender: incoming.fromEmail,
++      subject: incoming.subject,
++      threadId: incoming.threadId,
++    });
++    recorded += 1;
++  }
++
++  await noteGoogleSyncSuccess();
++  return { inspected: messages.length, matched, recorded };
++}
++
++export async function runQueuedEmailExecution(max = 10) {
++  const queued = await prisma.outreachMessage.findMany({
++    where: {
++      status: "QUEUED",
++      optedOutAt: null,
++      OR: [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }],
++    },
++    orderBy: { scheduledAt: "asc" },
++    take: Math.min(25, Math.max(1, max)),
++  });
++  const results: Array<{ id: string; ok: boolean; error?: string }> = [];
++  for (const message of queued) {
++    try {
++      await sendAcquisitionOutreachEmail(message.id);
++      results.push({ id: message.id, ok: true });
++    } catch (error) {
++      const reason = error instanceof Error ? error.message : "unknown send failure";
++      await prisma.outreachMessage.update({ where: { id: message.id }, data: { status: "PAUSED" } }).catch(() => undefined);
++      await addAcquisitionActivity(message.accountId, "EMAIL_SEND_BLOCKED", reason, { outreachMessageId: message.id }).catch(() => undefined);
++      results.push({ id: message.id, ok: false, error: reason });
++    }
++  }
++  return results;
++}
+diff --git a/src/lib/acquisition-oauth-state.ts b/src/lib/acquisition-oauth-state.ts
+new file mode 100644
+index 0000000..95a0eac
+--- /dev/null
++++ b/src/lib/acquisition-oauth-state.ts
+@@ -0,0 +1,24 @@
++import { createHmac, timingSafeEqual } from "crypto";
++
++function secret() {
++  const value = process.env.NEXTAUTH_SECRET;
++  if (!value) throw new Error("NEXTAUTH_SECRET is required for OAuth state signing.");
++  return value;
++}
++
++export function signAcquisitionOAuthState(userId: string) {
++  const payload = Buffer.from(JSON.stringify({ userId, exp: Date.now() + 10 * 60_000 }), "utf8").toString("base64url");
++  const sig = createHmac("sha256", secret()).update(payload).digest("base64url");
++  return `${payload}.${sig}`;
++}
++
++export function verifyAcquisitionOAuthState(value: string) {
++  const [payload, sig] = value.split(".");
++  if (!payload || !sig) throw new Error("Invalid OAuth state.");
++  const expected = createHmac("sha256", secret()).update(payload).digest();
++  const actual = Buffer.from(sig, "base64url");
++  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) throw new Error("Invalid OAuth state signature.");
++  const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { userId: string; exp: number };
++  if (!decoded.userId || decoded.exp < Date.now()) throw new Error("Expired OAuth state.");
++  return decoded;
++}
+diff --git a/src/lib/acquisition-providers.ts b/src/lib/acquisition-providers.ts
+index fac9f30..a381beb 100644
+--- a/src/lib/acquisition-providers.ts
++++ b/src/lib/acquisition-providers.ts
+@@ -75,3 +75,18 @@ export interface CalendarProvider {
+ export interface CRMAdapter {
+   upsertAccount(input: { accountId: string; company: string; stage: string }): Promise<{ providerRef: string }>;
+ }
++export interface EmailProvider {
++  readonly name: string;
++  send(input: { to: string; subject: string; body: string; threadRef?: string | null }): Promise<{
++    providerMessageId: string;
++    threadRef?: string | null;
++  }>;
++}
++
++export interface VoiceCallProvider {
++  readonly name: string;
++  startCall(input: { callId: string; to: string }): Promise<{
++    providerCallId: string;
++    status: string;
++  }>;
++}
+diff --git a/src/lib/call-agent.ts b/src/lib/call-agent.ts
+new file mode 100644
+index 0000000..4c8459c
+--- /dev/null
++++ b/src/lib/call-agent.ts
+@@ -0,0 +1,295 @@
++import { prisma } from "@/lib/prisma";
++import {
++  addAcquisitionActivity,
++  classifyResponseText,
++  nextActionForResponse,
++  stageForResponse,
++} from "@/lib/acquisition";
++import { createTwilioOutboundCall, twilioBaseUrl } from "@/lib/providers/twilio";
++import { getPricingConfig } from "@/lib/pricing";
++
++const CALLABLE_STAGES = new Set(["PREQUALIFIED", "QUALIFIED", "AUDITED", "OUTREACH_READY", "CONTACTED", "ENGAGED", "SALES_QUALIFIED"]);
++
++function maxCallTurns() {
++  const raw = Number(process.env.ACQUISITION_CALL_MAX_TURNS || "6");
++  return Number.isFinite(raw) ? Math.min(10, Math.max(2, Math.floor(raw))) : 6;
++}
++
++export function isE164Phone(value?: string | null) {
++  return Boolean(value && /^\+[1-9]\d{7,14}$/.test(value.trim()));
++}
++
++function safeJsonArray(value?: string | null): unknown[] {
++  if (!value) return [];
++  try { const parsed = JSON.parse(value); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
++}
++
++function contactLocalHour(timeZone: string, now = new Date()) {
++  const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone, hour: "2-digit", hour12: false }).format(now));
++  const weekday = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(now);
++  return { hour, weekday };
++}
++
++export async function getCallEligibility(accountId: string, contactId?: string | null) {
++  const account = await prisma.acquisitionAccount.findUnique({
++    where: { id: accountId },
++    include: { contacts: true, calls: { orderBy: { createdAt: "desc" }, take: 10 } },
++  });
++  if (!account) return { eligible: false, reason: "Account not found." } as const;
++  const contact = contactId
++    ? account.contacts.find((item) => item.id === contactId)
++    : account.contacts.find((item) => item.isPrimary) || account.contacts.find((item) => item.phone);
++  if (!contact?.phone) return { eligible: false, reason: "A contact phone number is required." } as const;
++  if (!isE164Phone(contact.phone)) return { eligible: false, reason: "Phone number must use E.164 format, for example +17045551212." } as const;
++  if (!contact.verified) return { eligible: false, reason: "Verify the contact before provider-backed calling." } as const;
++  if (contact.doNotCallAt) return { eligible: false, reason: "Contact is on the do-not-call list." } as const;
++  if (!contact.phoneConsentAt || !contact.phoneConsentSource) {
++    return { eligible: false, reason: "Automated AI voice calls require recorded phone consent and its source." } as const;
++  }
++  if (!contact.timezone) return { eligible: false, reason: "Contact timezone is required before an automated call." } as const;
++  if (!CALLABLE_STAGES.has(account.stage)) return { eligible: false, reason: `Account stage ${account.stage} is not eligible for acquisition calling.` } as const;
++  if (account.qualificationScore < 75 || account.qualificationBand !== "PRIORITY") {
++    return { eligible: false, reason: "AI calling is restricted to PRIORITY accounts scoring at least 75." } as const;
++  }
++  if (contact.authorityScore < 6) return { eligible: false, reason: "AI calling is restricted to decision-makers with authority score 6+." } as const;
++  let local;
++  try { local = contactLocalHour(contact.timezone); } catch { return { eligible: false, reason: "Contact timezone is invalid. Use an IANA timezone such as America/New_York." } as const; }
++  const { hour, weekday } = local;
++  if (["Sat", "Sun"].includes(weekday) || hour < 9 || hour >= 17) {
++    return { eligible: false, reason: `Outside the configured weekday 9:00–17:00 calling window in ${contact.timezone}.` } as const;
++  }
++  const recent = account.calls.find((call) => call.contactId === contact.id && call.createdAt.getTime() > Date.now() - 72 * 60 * 60_000);
++  if (recent) return { eligible: false, reason: "A call attempt already occurred within the last 72 hours." } as const;
++  return { eligible: true, reason: "Qualified, verified, consented decision-maker within the call window.", account, contact } as const;
++}
++
++export async function startAcquisitionCall(accountId: string, contactId?: string | null) {
++  const eligibility = await getCallEligibility(accountId, contactId);
++  if (!eligibility.eligible) throw new Error(eligibility.reason);
++  const { account, contact } = eligibility;
++  const call = await prisma.acquisitionCall.create({
++    data: {
++      accountId: account.id,
++      contactId: contact.id,
++      provider: "TWILIO",
++      status: "QUEUED",
++      toNumber: contact.phone!,
++      consentBasis: `${contact.phoneConsentSource} @ ${contact.phoneConsentAt!.toISOString()}`,
++    },
++  });
++  try {
++    const result = await createTwilioOutboundCall({ callId: call.id, to: contact.phone! });
++    const updated = await prisma.acquisitionCall.update({
++      where: { id: call.id },
++      data: { providerCallId: result.sid, status: result.status.toUpperCase(), fromNumber: result.from },
++    });
++    await addAcquisitionActivity(account.id, "AI_CALL_STARTED", `Consent-gated AI call started for ${contact.name || contact.email || contact.phone}.`, {
++      callId: call.id,
++      providerCallId: result.sid,
++    });
++    return updated;
++  } catch (error) {
++    await prisma.acquisitionCall.update({ where: { id: call.id }, data: { status: "FAILED", endedAt: new Date() } }).catch(() => undefined);
++    throw error;
++  }
++}
++
++export async function getCallOpening(callId: string) {
++  const call = await prisma.acquisitionCall.findUnique({
++    where: { id: callId },
++    include: {
++      account: { include: { microAudits: { orderBy: { createdAt: "desc" }, take: 1 } } },
++      contact: true,
++    },
++  });
++  if (!call) throw new Error("Call not found.");
++  const firstName = call.contact?.name?.split(/\s+/)[0] || "there";
++  const signal = call.account.microAudits[0]?.observation || call.account.painSummary || "your current workflow";
++  return `Hi ${firstName}, this is Kaivaryn's AI assistant. This is an automated business call. I wanted to ask one quick question about ${signal.replace(/^Observable signal:\s*/i, "").replace(/[.]+$/, "")}. Is now a bad time for a brief question?`;
++}
++
++function deterministicCallReply(classification: string, account: { company: string }, currentPriceCents: number) {
++  switch (classification) {
++    case "UNSUBSCRIBE": return { text: "Understood. I will mark this number do-not-call and end the outreach. Take care.", finish: true, disposition: "DO_NOT_CALL" };
++    case "NOT_INTERESTED": return { text: "Understood. I won't keep you. Thank you for the clear answer, and have a good day.", finish: true, disposition: "NOT_INTERESTED" };
++    case "NOT_NOW": return { text: "That makes sense. I’ll note that the timing is not right and leave this for a later follow-up rather than pushing now. Thanks for your time.", finish: true, disposition: "NURTURE" };
++    case "MEETING_REQUEST": return { text: "Absolutely. I’ll mark this for an executive demo and have the calendar invitation handled through the verified contact information on file. Thank you.", finish: true, disposition: "MEETING_REQUEST" };
++    case "PRICING": {
++      const price = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(currentPriceCents / 100);
++      return { text: `The current Kaivaryn engagement price is ${price} per month, but we do not recommend implementation until the economics justify it. Roughly how often does the problem happen and what does it cost when it does?`, finish: false, disposition: "ENGAGED" };
++    }
++    case "TECHNICAL": return { text: "That is a fair diligence question. I’ll keep the answer tied to the actual architecture rather than guess. What is the specific integration, security, or data concern you need resolved first?", finish: false, disposition: "ENGAGED" };
++    case "OBJECTION": return { text: "Understood. I don’t want to argue past the blocker. What is the main issue for you: the business case, implementation risk, timing, or your current vendor?", finish: false, disposition: "ENGAGED" };
++    case "INTERESTED":
++    case "CURIOUS": return { text: `Good. The useful question for ${account.company} is whether the observed issue is economically material. How often does it happen in a normal month, and what is the operational or revenue impact when it does?`, finish: false, disposition: "ENGAGED" };
++    default: return { text: `Thanks. I want to keep this specific to ${account.company}. What would have to be true for solving this problem to be worth an executive demo?`, finish: false, disposition: "ENGAGED" };
++  }
++}
++
++async function generateModelReply(input: {
++  company: string;
++  contactName: string | null;
++  painSummary: string | null;
++  economicHypothesis: string | null;
++  latestAudit: string | null;
++  currentPriceCents: number;
++  conversation: Array<{ speaker: string; text: string }>;
++  prospectText: string;
++  deterministicFallback: string;
++}) {
++  const apiKey = process.env.OPENAI_API_KEY;
++  if (!apiKey) return input.deterministicFallback;
++  const model = process.env.OPENAI_CALL_MODEL || "gpt-5.6-luna";
++  const system = [
++    "You are Kaivaryn's disclosed AI business-development call assistant.",
++    "Speak naturally and briefly: one or two sentences, then one focused question at most.",
++    "Never pretend to be human. Never invent facts, customer results, losses, urgency, discounts, integrations, or authority.",
++    "Use reverse selling: validate the economics before recommending implementation.",
++    "If the prospect asks to stop, says do not call, or opts out, acknowledge and end immediately.",
++    "Do not collect payment, card numbers, passwords, secrets, SSNs, medical information, or other sensitive data.",
++    "Do not pressure the prospect. If they are not interested or timing is wrong, end politely.",
++    "If they request a meeting, confirm that a calendar follow-up will be sent; do not invent a booked time.",
++  ].join(" ");
++  const context = JSON.stringify({
++    company: input.company,
++    contactName: input.contactName,
++    painSummary: input.painSummary,
++    economicHypothesis: input.economicHypothesis,
++    latestAudit: input.latestAudit,
++    currentPriceCents: input.currentPriceCents,
++    recentConversation: input.conversation.slice(-6),
++    latestProspectUtterance: input.prospectText,
++  });
++  try {
++    const response = await fetch("https://api.openai.com/v1/responses", {
++      method: "POST",
++      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
++      body: JSON.stringify({
++        model,
++        instructions: system,
++        input: context,
++        max_output_tokens: 120,
++        reasoning: { effort: "none" },
++      }),
++      cache: "no-store",
++    });
++    const payload = await response.json().catch(() => ({}));
++    if (!response.ok) return input.deterministicFallback;
++    const direct = typeof payload?.output_text === "string" ? payload.output_text.trim() : "";
++    if (direct) return direct;
++    const parts = Array.isArray(payload?.output) ? payload.output.flatMap((item: { content?: Array<{ text?: string }> }) => item.content || []) : [];
++    const text = parts.map((part: { text?: string }) => part.text || "").join(" ").trim();
++    return text || input.deterministicFallback;
++  } catch {
++    return input.deterministicFallback;
++  }
++}
++
++export async function processCallTurn(callId: string, prospectText: string) {
++  const call = await prisma.acquisitionCall.findUnique({
++    where: { id: callId },
++    include: {
++      account: { include: { microAudits: { orderBy: { createdAt: "desc" }, take: 1 } } },
++      contact: true,
++    },
++  });
++  if (!call) throw new Error("Call not found.");
++  const classification = classifyResponseText(prospectText);
++  const existingTurns = safeJsonArray(call.turnsJson) as Array<{ speaker: string; text: string; at?: string }>;
++  const prospectTurnCount = existingTurns.filter((turn) => turn.speaker === "prospect").length;
++  if (prospectTurnCount >= maxCallTurns() && !["UNSUBSCRIBE", "NOT_INTERESTED", "NOT_NOW", "MEETING_REQUEST"].includes(classification)) {
++    const handoffText = "Thanks for the context. I have enough to hand this back to the Kaivaryn team rather than keep you on an automated call. We’ll follow up only through the contact path you’ve agreed to.";
++    const cappedTurns = [...existingTurns,
++      { speaker: "prospect", text: prospectText, at: new Date().toISOString() },
++      { speaker: "kaivaryn_ai", text: handoffText, at: new Date().toISOString() },
++    ];
++    await prisma.acquisitionCall.update({
++      where: { id: call.id },
++      data: { turnsJson: JSON.stringify(cappedTurns), disposition: "MAX_TURNS_HANDOFF", status: "COMPLETED", endedAt: new Date(), summary: `Call reached the ${maxCallTurns()}-turn automation ceiling.` },
++    });
++    await prisma.acquisitionAccount.update({ where: { id: call.accountId }, data: { nextAction: "Review the AI call transcript and choose the next human follow-up step." } });
++    await addAcquisitionActivity(call.accountId, "AI_CALL_HANDOFF", "AI call reached its configured turn ceiling and handed the conversation back for review.", { callId: call.id });
++    return { text: handoffText, finish: true, classification, disposition: "MAX_TURNS_HANDOFF" };
++  }
++  const [pricing, paidClients] = await Promise.all([
++    getPricingConfig(),
++    prisma.acquisitionAccount.count({ where: { paymentStatus: "PAID" } }),
++  ]);
++  const currentPriceCents = paidClients < pricing.introductorySeats ? pricing.introductoryPriceCents : pricing.standardPriceCents;
++  const turns = existingTurns;
++  turns.push({ speaker: "prospect", text: prospectText, at: new Date().toISOString() });
++  const fallback = deterministicCallReply(classification, call.account, currentPriceCents);
++  const highPriorityFinish = ["UNSUBSCRIBE", "NOT_INTERESTED", "NOT_NOW", "MEETING_REQUEST"].includes(classification);
++  const replyText = highPriorityFinish ? fallback.text : await generateModelReply({
++    company: call.account.company,
++    contactName: call.contact?.name || null,
++    painSummary: call.account.painSummary,
++    economicHypothesis: call.account.economicHypothesis,
++    latestAudit: call.account.microAudits[0]?.reverseSellMessage || null,
++    currentPriceCents,
++    conversation: turns,
++    prospectText,
++    deterministicFallback: fallback.text,
++  });
++  turns.push({ speaker: "kaivaryn_ai", text: replyText, at: new Date().toISOString() });
++
++  const finish = highPriorityFinish || fallback.finish;
++  const disposition = fallback.disposition || classification;
++  await prisma.acquisitionCall.update({
++    where: { id: call.id },
++    data: {
++      turnsJson: JSON.stringify(turns),
++      disposition,
++      status: finish ? "COMPLETED" : "IN_PROGRESS",
++      endedAt: finish ? new Date() : undefined,
++      summary: `Latest response classified as ${classification}.`,
++    },
++  });
++
++  const nextStage = stageForResponse(call.account.stage, classification);
++  await prisma.acquisitionAccount.update({
++    where: { id: call.accountId },
++    data: { stage: nextStage, nextAction: nextActionForResponse(classification) },
++  });
++  if (classification === "UNSUBSCRIBE" && call.contactId) {
++    await prisma.acquisitionContact.update({ where: { id: call.contactId }, data: { doNotCallAt: new Date() } });
++  }
++  await addAcquisitionActivity(call.accountId, "AI_CALL_TURN", `Call response classified as ${classification}.`, {
++    callId: call.id,
++    classification,
++    finish,
++  });
++  return { text: replyText, finish, classification, disposition };
++}
++
++export async function markCallStatus(callId: string, input: { callSid?: string | null; callStatus?: string | null; duration?: string | null }) {
++  const current = await prisma.acquisitionCall.findUnique({ where: { id: callId } });
++  if (!current) return null;
++  const status = (input.callStatus || current.status).toUpperCase();
++  const startedAt = ["IN-PROGRESS", "IN_PROGRESS", "ANSWERED"].includes(status) && !current.startedAt ? new Date() : current.startedAt;
++  const terminal = ["COMPLETED", "BUSY", "NO-ANSWER", "NO_ANSWER", "FAILED", "CANCELED"].includes(status);
++  const updated = await prisma.acquisitionCall.update({
++    where: { id: callId },
++    data: {
++      providerCallId: current.providerCallId || input.callSid || undefined,
++      status,
++      startedAt,
++      endedAt: terminal ? current.endedAt || new Date() : current.endedAt,
++    },
++  });
++  if (terminal) {
++    await addAcquisitionActivity(updated.accountId, "AI_CALL_STATUS", `AI call ended with status ${status}.`, { callId, providerCallId: updated.providerCallId });
++  }
++  return updated;
++}
++
++export async function callAgentContext(callId: string) {
++  const call = await prisma.acquisitionCall.findUnique({ where: { id: callId }, include: { account: true, contact: true } });
++  if (!call) throw new Error("Call not found.");
++  const pricing = await getPricingConfig();
++  return {
++    call,
++    pricing,
++    turnUrl: `${twilioBaseUrl()}/api/acquisition/calls/turn?callId=${encodeURIComponent(callId)}`,
++  };
++}
+diff --git a/src/lib/providers/google-workspace.ts b/src/lib/providers/google-workspace.ts
+new file mode 100644
+index 0000000..fc50dd9
+--- /dev/null
++++ b/src/lib/providers/google-workspace.ts
+@@ -0,0 +1,383 @@
++import { prisma } from "@/lib/prisma";
++import { openSecret, sealSecret } from "@/lib/secret-box";
++
++const PROVIDER = "GOOGLE_WORKSPACE";
++const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
++const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
++const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
++const GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
++const CALENDAR_BASE = "https://www.googleapis.com/calendar/v3";
++
++const GOOGLE_SCOPES = [
++  "openid",
++  "email",
++  "https://www.googleapis.com/auth/gmail.send",
++  "https://www.googleapis.com/auth/gmail.readonly",
++  "https://www.googleapis.com/auth/calendar.events",
++].join(" ");
++
++function oauthConfig() {
++  const clientId = process.env.GOOGLE_CLIENT_ID;
++  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
++  const base = process.env.NEXTAUTH_URL?.replace(/\/$/, "");
++  const redirectUri = process.env.GOOGLE_ACQUISITION_REDIRECT_URI || (base ? `${base}/api/integrations/google/acquisition/callback` : null);
++  if (!clientId || !clientSecret || !redirectUri) return null;
++  return { clientId, clientSecret, redirectUri };
++}
++
++export function googleOAuthConfigured() {
++  return Boolean(oauthConfig());
++}
++
++export function buildGoogleWorkspaceAuthorizationUrl(state: string) {
++  const cfg = oauthConfig();
++  if (!cfg) throw new Error("Google OAuth is not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
++  const url = new URL(GOOGLE_AUTH_URL);
++  url.searchParams.set("client_id", cfg.clientId);
++  url.searchParams.set("redirect_uri", cfg.redirectUri);
++  url.searchParams.set("response_type", "code");
++  url.searchParams.set("scope", GOOGLE_SCOPES);
++  url.searchParams.set("access_type", "offline");
++  url.searchParams.set("prompt", "consent");
++  url.searchParams.set("include_granted_scopes", "true");
++  url.searchParams.set("state", state);
++  return url.toString();
++}
++
++type TokenResponse = {
++  access_token: string;
++  expires_in?: number;
++  refresh_token?: string;
++  scope?: string;
++  token_type?: string;
++};
++
++async function tokenRequest(params: URLSearchParams): Promise<TokenResponse> {
++  const response = await fetch(GOOGLE_TOKEN_URL, {
++    method: "POST",
++    headers: { "content-type": "application/x-www-form-urlencoded" },
++    body: params,
++    cache: "no-store",
++  });
++  const payload = await response.json().catch(() => ({}));
++  if (!response.ok || !payload?.access_token) {
++    throw new Error(`Google token exchange failed (${response.status}): ${payload?.error_description || payload?.error || "unknown"}`);
++  }
++  return payload as TokenResponse;
++}
++
++export async function connectGoogleWorkspaceFromCode(code: string) {
++  const cfg = oauthConfig();
++  if (!cfg) throw new Error("Google OAuth is not configured.");
++  const token = await tokenRequest(new URLSearchParams({
++    code,
++    client_id: cfg.clientId,
++    client_secret: cfg.clientSecret,
++    redirect_uri: cfg.redirectUri,
++    grant_type: "authorization_code",
++  }));
++
++  const userResponse = await fetch(GOOGLE_USERINFO_URL, {
++    headers: { authorization: `Bearer ${token.access_token}` },
++    cache: "no-store",
++  });
++  const userInfo = await userResponse.json().catch(() => ({}));
++  const email = typeof userInfo?.email === "string" ? userInfo.email.toLowerCase() : null;
++
++  const existing = await prisma.acquisitionProviderConnection.findUnique({ where: { provider: PROVIDER } });
++  const refresh = token.refresh_token
++    ? sealSecret(token.refresh_token)
++    : existing?.refreshTokenEncrypted || null;
++
++  const row = await prisma.acquisitionProviderConnection.upsert({
++    where: { provider: PROVIDER },
++    update: {
++      status: "CONNECTED",
++      accountLabel: email,
++      accessTokenEncrypted: sealSecret(token.access_token),
++      refreshTokenEncrypted: refresh,
++      expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
++      scopes: token.scope || GOOGLE_SCOPES,
++      lastError: null,
++    },
++    create: {
++      provider: PROVIDER,
++      status: "CONNECTED",
++      accountLabel: email,
++      accessTokenEncrypted: sealSecret(token.access_token),
++      refreshTokenEncrypted: refresh,
++      expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
++      scopes: token.scope || GOOGLE_SCOPES,
++    },
++  });
++  return row;
++}
++
++export async function disconnectGoogleWorkspace() {
++  return prisma.acquisitionProviderConnection.upsert({
++    where: { provider: PROVIDER },
++    update: {
++      status: "DISCONNECTED",
++      accessTokenEncrypted: null,
++      refreshTokenEncrypted: null,
++      expiresAt: null,
++      syncCursor: null,
++      lastError: null,
++    },
++    create: { provider: PROVIDER, status: "DISCONNECTED" },
++  });
++}
++
++export async function getGoogleWorkspaceConnection() {
++  return prisma.acquisitionProviderConnection.findUnique({ where: { provider: PROVIDER } });
++}
++
++async function markGoogleError(message: string) {
++  await prisma.acquisitionProviderConnection.upsert({
++    where: { provider: PROVIDER },
++    update: { lastError: message, status: "ERROR" },
++    create: { provider: PROVIDER, status: "ERROR", lastError: message },
++  }).catch(() => undefined);
++}
++
++export async function getGoogleAccessToken() {
++  const row = await getGoogleWorkspaceConnection();
++  if (!row || row.status === "DISCONNECTED" || !row.accessTokenEncrypted) throw new Error("Google Workspace is not connected.");
++  const stillFresh = row.expiresAt && row.expiresAt.getTime() > Date.now() + 90_000;
++  if (stillFresh) return openSecret(row.accessTokenEncrypted);
++  if (!row.refreshTokenEncrypted) throw new Error("Google refresh token is unavailable. Reconnect Google Workspace.");
++
++  const cfg = oauthConfig();
++  if (!cfg) throw new Error("Google OAuth client is not configured.");
++  try {
++    const token = await tokenRequest(new URLSearchParams({
++      client_id: cfg.clientId,
++      client_secret: cfg.clientSecret,
++      refresh_token: openSecret(row.refreshTokenEncrypted),
++      grant_type: "refresh_token",
++    }));
++    await prisma.acquisitionProviderConnection.update({
++      where: { provider: PROVIDER },
++      data: {
++        status: "CONNECTED",
++        accessTokenEncrypted: sealSecret(token.access_token),
++        expiresAt: token.expires_in ? new Date(Date.now() + token.expires_in * 1000) : null,
++        scopes: token.scope || row.scopes,
++        lastError: null,
++      },
++    });
++    return token.access_token;
++  } catch (error) {
++    const message = error instanceof Error ? error.message : "Google token refresh failed";
++    await markGoogleError(message);
++    throw error;
++  }
++}
++
++async function googleFetch(url: string, init?: RequestInit) {
++  const token = await getGoogleAccessToken();
++  const response = await fetch(url, {
++    ...init,
++    headers: {
++      authorization: `Bearer ${token}`,
++      ...(init?.headers || {}),
++    },
++    cache: "no-store",
++  });
++  if (response.status === 401) {
++    await prisma.acquisitionProviderConnection.update({ where: { provider: PROVIDER }, data: { expiresAt: new Date(0) } }).catch(() => undefined);
++  }
++  return response;
++}
++
++function headerSafe(value: string) {
++  return value.replace(/[\r\n]+/g, " ").trim();
++}
++
++export async function sendGoogleWorkspaceEmail(input: {
++  to: string;
++  subject: string;
++  body: string;
++  replyToMessageId?: string | null;
++  threadId?: string | null;
++}) {
++  const connection = await getGoogleWorkspaceConnection();
++  if (!connection?.accountLabel) throw new Error("Connected Google account email is unavailable.");
++  const headers = [
++    `From: ${headerSafe(connection.accountLabel)}`,
++    `To: ${headerSafe(input.to)}`,
++    `Subject: ${headerSafe(input.subject)}`,
++    "MIME-Version: 1.0",
++    'Content-Type: text/plain; charset="UTF-8"',
++    "Content-Transfer-Encoding: 8bit",
++  ];
++  if (input.replyToMessageId) {
++    headers.push(`In-Reply-To: ${headerSafe(input.replyToMessageId)}`);
++    headers.push(`References: ${headerSafe(input.replyToMessageId)}`);
++  }
++  const raw = Buffer.from(`${headers.join("\r\n")}\r\n\r\n${input.body}`, "utf8").toString("base64url");
++  const response = await googleFetch(`${GMAIL_BASE}/messages/send`, {
++    method: "POST",
++    headers: { "content-type": "application/json" },
++    body: JSON.stringify({ raw, ...(input.threadId ? { threadId: input.threadId } : {}) }),
++  });
++  const payload = await response.json().catch(() => ({}));
++  if (!response.ok || !payload?.id) throw new Error(`Gmail send failed (${response.status}): ${payload?.error?.message || "unknown"}`);
++  return { id: String(payload.id), threadId: payload.threadId ? String(payload.threadId) : null };
++}
++
++type GmailHeader = { name?: string; value?: string };
++type GmailPart = {
++  mimeType?: string;
++  body?: { data?: string };
++  parts?: GmailPart[];
++};
++
++type GmailMessage = {
++  id: string;
++  threadId?: string;
++  internalDate?: string;
++  payload?: GmailPart & { headers?: GmailHeader[] };
++};
++
++function gmailHeader(message: GmailMessage, name: string) {
++  return message.payload?.headers?.find((header) => header.name?.toLowerCase() === name.toLowerCase())?.value || null;
++}
++
++function decodeGmailData(data?: string) {
++  if (!data) return "";
++  try { return Buffer.from(data, "base64url").toString("utf8"); } catch { return ""; }
++}
++
++function plainBody(part?: GmailPart): string {
++  if (!part) return "";
++  if (part.mimeType === "text/plain" && part.body?.data) return decodeGmailData(part.body.data);
++  for (const child of part.parts || []) {
++    const value = plainBody(child);
++    if (value) return value;
++  }
++  if (part.body?.data) return decodeGmailData(part.body.data);
++  return "";
++}
++
++function cleanReplyBody(value: string) {
++  return value
++    .split(/\nOn .+ wrote:\s*$/im)[0]
++    .split(/\n-{2,}Original Message-{2,}/i)[0]
++    .split(/\nFrom:\s.+\nSent:/i)[0]
++    .replace(/^>.*$/gm, "")
++    .trim();
++}
++
++export function extractEmailAddress(value?: string | null) {
++  if (!value) return null;
++  const match = value.match(/<([^>]+)>/) || value.match(/([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i);
++  return (match?.[1] || match?.[0] || "").trim().toLowerCase() || null;
++}
++
++export async function listRecentGmailInboxMessages(maxResults = 50) {
++  const params = new URLSearchParams({ q: "in:inbox newer_than:30d", maxResults: String(Math.min(100, Math.max(1, maxResults))) });
++  const listResponse = await googleFetch(`${GMAIL_BASE}/messages?${params.toString()}`);
++  const listPayload = await listResponse.json().catch(() => ({}));
++  if (!listResponse.ok) throw new Error(`Gmail list failed (${listResponse.status}): ${listPayload?.error?.message || "unknown"}`);
++  const ids = Array.isArray(listPayload?.messages) ? listPayload.messages.map((m: { id?: string }) => m.id).filter(Boolean) : [];
++  const messages: Array<{
++    id: string;
++    threadId: string | null;
++    messageIdHeader: string | null;
++    inReplyTo: string | null;
++    from: string | null;
++    fromEmail: string | null;
++    subject: string | null;
++    body: string;
++    receivedAt: Date;
++  }> = [];
++  for (const id of ids) {
++    const response = await googleFetch(`${GMAIL_BASE}/messages/${encodeURIComponent(String(id))}?format=full`);
++    if (!response.ok) continue;
++    const message = await response.json() as GmailMessage;
++    messages.push({
++      id: message.id,
++      threadId: message.threadId || null,
++      messageIdHeader: gmailHeader(message, "Message-ID"),
++      inReplyTo: gmailHeader(message, "In-Reply-To"),
++      from: gmailHeader(message, "From"),
++      fromEmail: extractEmailAddress(gmailHeader(message, "From")),
++      subject: gmailHeader(message, "Subject"),
++      body: cleanReplyBody(plainBody(message.payload)),
++      receivedAt: message.internalDate ? new Date(Number(message.internalDate)) : new Date(),
++    });
++  }
++  return messages;
++}
++
++function timeZoneOffsetMs(date: Date, timeZone: string) {
++  const parts = new Intl.DateTimeFormat("en-US", {
++    timeZone,
++    year: "numeric",
++    month: "2-digit",
++    day: "2-digit",
++    hour: "2-digit",
++    minute: "2-digit",
++    second: "2-digit",
++    hour12: false,
++  }).formatToParts(date);
++  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
++  const asUtc = Date.UTC(value("year"), value("month") - 1, value("day"), value("hour") % 24, value("minute"), value("second"));
++  return asUtc - date.getTime();
++}
++
++function zonedLocalToDate(localDateTime: string, timeZone: string) {
++  const match = localDateTime.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
++  if (!match) throw new Error("Invalid local date/time.");
++  // Validate the IANA timezone before using it in Google Calendar.
++  new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
++  const [, year, month, day, hour, minute, second = "00"] = match;
++  const wallUtc = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second));
++  let candidate = new Date(wallUtc);
++  let offset = timeZoneOffsetMs(candidate, timeZone);
++  candidate = new Date(wallUtc - offset);
++  const refined = timeZoneOffsetMs(candidate, timeZone);
++  if (refined !== offset) candidate = new Date(wallUtc - refined);
++  return candidate;
++}
++
++export async function createGoogleCalendarDemo(input: {
++  summary: string;
++  description: string;
++  attendeeEmail: string;
++  startsAtLocal: string;
++  timeZone: string;
++  durationMinutes: number;
++}) {
++  const start = zonedLocalToDate(input.startsAtLocal, input.timeZone);
++  const end = new Date(start.getTime() + input.durationMinutes * 60_000);
++  const requestId = `kaivaryn-${Date.now()}-${Math.random().toString(36).slice(2)}`;
++  const response = await googleFetch(`${CALENDAR_BASE}/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all`, {
++    method: "POST",
++    headers: { "content-type": "application/json" },
++    body: JSON.stringify({
++      summary: input.summary,
++      description: input.description,
++      start: { dateTime: start.toISOString(), timeZone: input.timeZone },
++      end: { dateTime: end.toISOString(), timeZone: input.timeZone },
++      attendees: [{ email: input.attendeeEmail }],
++      conferenceData: { createRequest: { requestId, conferenceSolutionKey: { type: "hangoutsMeet" } } },
++    }),
++  });
++  const payload = await response.json().catch(() => ({}));
++  if (!response.ok || !payload?.id) throw new Error(`Google Calendar create failed (${response.status}): ${payload?.error?.message || "unknown"}`);
++  const meetUrl = payload?.hangoutLink || payload?.conferenceData?.entryPoints?.find((p: { entryPointType?: string }) => p.entryPointType === "video")?.uri || null;
++  return {
++    id: String(payload.id),
++    htmlLink: payload.htmlLink ? String(payload.htmlLink) : null,
++    meetUrl: meetUrl ? String(meetUrl) : null,
++  };
++}
++
++export async function noteGoogleSyncSuccess() {
++  await prisma.acquisitionProviderConnection.update({
++    where: { provider: PROVIDER },
++    data: { status: "CONNECTED", lastSyncAt: new Date(), lastError: null },
++  }).catch(() => undefined);
++}
+diff --git a/src/lib/providers/twilio.ts b/src/lib/providers/twilio.ts
+new file mode 100644
+index 0000000..749845d
+--- /dev/null
++++ b/src/lib/providers/twilio.ts
+@@ -0,0 +1,78 @@
++import { createHmac, timingSafeEqual } from "crypto";
++
++function config() {
++  const accountSid = process.env.TWILIO_ACCOUNT_SID;
++  const authToken = process.env.TWILIO_AUTH_TOKEN;
++  const fromNumber = process.env.TWILIO_FROM_NUMBER;
++  const baseUrl = (process.env.NEXTAUTH_URL || "").replace(/\/$/, "");
++  if (!accountSid || !authToken || !fromNumber || !baseUrl) return null;
++  return { accountSid, authToken, fromNumber, baseUrl };
++}
++
++export function twilioConfigured() {
++  return Boolean(config());
++}
++
++export function twilioBaseUrl() {
++  const cfg = config();
++  if (!cfg) throw new Error("Twilio is not configured.");
++  return cfg.baseUrl;
++}
++
++export async function createTwilioOutboundCall(input: { callId: string; to: string }) {
++  const cfg = config();
++  if (!cfg) throw new Error("Twilio is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER.");
++  const body = new URLSearchParams({
++    To: input.to,
++    From: cfg.fromNumber,
++    Url: `${cfg.baseUrl}/api/acquisition/calls/twiml?callId=${encodeURIComponent(input.callId)}`,
++    Method: "POST",
++    StatusCallback: `${cfg.baseUrl}/api/acquisition/calls/status?callId=${encodeURIComponent(input.callId)}`,
++    StatusCallbackMethod: "POST",
++  });
++  for (const event of ["initiated", "ringing", "answered", "completed"]) body.append("StatusCallbackEvent", event);
++  const auth = Buffer.from(`${cfg.accountSid}:${cfg.authToken}`).toString("base64");
++  const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(cfg.accountSid)}/Calls.json`, {
++    method: "POST",
++    headers: {
++      authorization: `Basic ${auth}`,
++      "content-type": "application/x-www-form-urlencoded",
++    },
++    body,
++    cache: "no-store",
++  });
++  const payload = await response.json().catch(() => ({}));
++  if (!response.ok || !payload?.sid) throw new Error(`Twilio call creation failed (${response.status}): ${payload?.message || "unknown"}`);
++  return { sid: String(payload.sid), status: String(payload.status || "queued"), from: cfg.fromNumber };
++}
++
++function normalizeWebhookUrl(url: string) {
++  return url.replace(/\/+$/, "");
++}
++
++export function validateTwilioWebhook(url: string, params: Record<string, string>, signature: string | null) {
++  const cfg = config();
++  if (!cfg || !signature) return false;
++  let data = normalizeWebhookUrl(url);
++  for (const key of Object.keys(params).sort()) data += key + params[key];
++  const expected = createHmac("sha1", cfg.authToken).update(data).digest("base64");
++  const a = Buffer.from(expected);
++  const b = Buffer.from(signature);
++  return a.length === b.length && timingSafeEqual(a, b);
++}
++
++export function xmlEscape(value: string) {
++  return value
++    .replace(/&/g, "&amp;")
++    .replace(/</g, "&lt;")
++    .replace(/>/g, "&gt;")
++    .replace(/"/g, "&quot;")
++    .replace(/'/g, "&apos;");
++}
++
++export function twimlSayAndGather(input: { text: string; actionUrl: string; finish?: boolean }) {
++  const say = `<Say voice="Polly.Joanna">${xmlEscape(input.text)}</Say>`;
++  if (input.finish) return `<?xml version="1.0" encoding="UTF-8"?><Response>${say}<Hangup/></Response>`;
++  const gather = `<Gather input="speech dtmf" speechTimeout="auto" timeout="7" numDigits="1" action="${xmlEscape(input.actionUrl)}" method="POST">${say}</Gather>`;
++  return `<?xml version="1.0" encoding="UTF-8"?><Response>${gather}<Say voice="Polly.Joanna">I didn't catch that. I'll let you go. Have a good day.</Say><Hangup/></Response>`;
++}
+diff --git a/src/lib/secret-box.ts b/src/lib/secret-box.ts
+new file mode 100644
+index 0000000..7ff6f67
+--- /dev/null
++++ b/src/lib/secret-box.ts
+@@ -0,0 +1,26 @@
++import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
++
++function key() {
++  const secret = process.env.ACQUISITION_TOKEN_ENCRYPTION_KEY || process.env.NEXTAUTH_SECRET;
++  if (!secret) throw new Error("ACQUISITION_TOKEN_ENCRYPTION_KEY or NEXTAUTH_SECRET is required to protect provider tokens.");
++  return createHash("sha256").update(secret).digest();
++}
++
++export function sealSecret(value: string) {
++  const iv = randomBytes(12);
++  const cipher = createCipheriv("aes-256-gcm", key(), iv);
++  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
++  const tag = cipher.getAuthTag();
++  return [iv, tag, encrypted].map((part) => part.toString("base64url")).join(".");
++}
++
++export function openSecret(value: string) {
++  const [ivRaw, tagRaw, bodyRaw] = value.split(".");
++  if (!ivRaw || !tagRaw || !bodyRaw) throw new Error("Invalid encrypted secret payload.");
++  const decipher = createDecipheriv("aes-256-gcm", key(), Buffer.from(ivRaw, "base64url"));
++  decipher.setAuthTag(Buffer.from(tagRaw, "base64url"));
++  return Buffer.concat([
++    decipher.update(Buffer.from(bodyRaw, "base64url")),
++    decipher.final(),
++  ]).toString("utf8");
++}
