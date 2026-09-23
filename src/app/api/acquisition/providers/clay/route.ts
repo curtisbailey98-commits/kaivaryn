@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addIntentSignal, authorityScore, findOrCreateAcquisitionAccount, scoreAcquisitionAccount } from "@/lib/acquisition";
+import { addIntentSignal, authorityScore, findOrCreateAcquisitionAccount, getAcquisitionDirective, scoreAcquisitionAccount } from "@/lib/acquisition";
 import { prisma } from "@/lib/prisma";
 import { clayWebhookSchema, mapClayCompany, mapClayContact, mapClaySignal } from "@/lib/providers/clay";
 
@@ -92,6 +92,7 @@ export async function POST(request: Request) {
     occurredAt: signal.occurredAt,
   });
   const qualification = await scoreAcquisitionAccount(account.id);
+  const nextBestAction = await getAcquisitionDirective(account.id);
 
   return NextResponse.json({
     ok: true,
@@ -99,5 +100,6 @@ export async function POST(request: Request) {
     accountId: account.id,
     signalId: intent.id,
     qualification,
+    nextBestAction,
   });
 }

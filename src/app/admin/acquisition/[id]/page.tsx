@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { buildCheckoutLink } from "@/lib/acquisition";
+import { authorityScore, buildCheckoutLink, deriveAcquisitionDirective } from "@/lib/acquisition";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   addContactAction,
@@ -48,6 +48,22 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
   const latestOutreach = account.outreachMessages[0];
   const dealValue = account.estimatedDealValueCents ? formatCurrency(account.estimatedDealValueCents / 100) : "Not modeled";
   const secondary = account.secondaryQualificationJson ? (() => { try { return JSON.parse(account.secondaryQualificationJson) as Record<string, unknown>; } catch { return {}; } })() : {};
+  const latestResponseClass = account.outreachMessages.find((message) => message.responseClass)?.responseClass || null;
+  const directive = deriveAcquisitionDirective({
+    stage: account.stage,
+    qualificationBand: account.qualificationBand,
+    qualificationScore: account.qualificationScore,
+    hasDecisionMaker: account.contacts.some((contact) => contact.authorityScore >= 6) || authorityScore(account.primaryTitle) >= 6,
+    hasResearch: account.research?.status === "COMPLETE",
+    hasAudit: Boolean(latestAudit),
+    hasOutreach: account.outreachMessages.some((message) => !message.responseClass),
+    latestResponseClass,
+    salesQualified: secondary.salesQualified === true,
+    demoCompleted: Boolean(account.demoCompletedAt),
+    checkoutReady: Boolean(account.checkoutReadyAt),
+    paymentStatus: account.paymentStatus,
+    onboardingProvisioned: Boolean(account.onboardingOrganizationId),
+  });
 
   return (
     <div>
@@ -62,6 +78,18 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
           <div className="si-panel px-4 py-3"><p className="text-[10px] uppercase text-neutral-500">Intent</p><p className="mt-1 text-xl font-semibold">{account.intentScore}</p></div>
           <div className="si-panel px-4 py-3"><p className="text-[10px] uppercase text-neutral-500">Qualification</p><p className="mt-1 text-xl font-semibold">{account.qualificationScore}</p></div>
           <div className="si-panel px-4 py-3"><p className="text-[10px] uppercase text-neutral-500">Deal</p><p className="mt-1 text-sm font-semibold">{dealValue}</p></div>
+        </div>
+      </div>
+
+      <div className="si-panel mt-5 border border-amber-500/20 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-400">Next best action</p>
+            <h2 className="mt-2 text-lg font-semibold text-white">{directive.action}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-400">{directive.reason}</p>
+            {account.nextAction ? <p className="mt-3 text-xs text-neutral-500">Recorded response action: <span className="text-neutral-300">{account.nextAction}</span></p> : null}
+          </div>
+          <span className="rounded-full border border-amber-500/30 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300">{directive.priority}</span>
         </div>
       </div>
 

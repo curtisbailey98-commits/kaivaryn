@@ -72,6 +72,187 @@ function safeArray(value?: string | null): string[] {
   }
 }
 
+export function calculateIntentMomentum(
+  signals: Array<{ strength: number; confidence: number; occurredAt: Date; category: string; source: string }>,
+  now = new Date(),
+) {
+  const dayMs = 86_400_000;
+  const scored = signals
+    .map((signal) => {
+      const ageDays = Math.max(0, (now.getTime() - signal.occurredAt.getTime()) / dayMs);
+      const recencyMultiplier = ageDays <= 7 ? 1 : ageDays <= 14 ? 0.85 : ageDays <= 30 ? 0.6 : ageDays <= 60 ? 0.35 : 0.15;
+      const raw = Math.max(0, Math.min(100, (signal.strength * signal.confidence) / 100));
+      return {
+        adjusted: Math.round(raw * recencyMultiplier),
+        ageDays,
+        category: signal.category,
+        source: signal.source,
+      };
+    })
+    .sort((a, b) => b.adjusted - a.adjusted);
+
+  if (!scored.length) {
+    return { score: 0, base: 0, corroboration: 0, recentSignalCount: 0, sourceCount: 0, categoryCount: 0, strongestAdjusted: 0 };
+  }
+
+  const weights = [0.6, 0.25, 0.15];
+  const top = scored.slice(0, 3);
+  const weightTotal = top.reduce((sum, _, index) => sum + weights[index], 0);
+  const base = Math.round(top.reduce((sum, signal, index) => sum + signal.adjusted * weights[index], 0) / weightTotal);
+  const recent = scored.filter((signal) => signal.ageDays <= 30);
+  const sourceCount = new Set(recent.map((signal) => signal.source.toLowerCase())).size;
+  const categoryCount = new Set(recent.map((signal) => signal.category.toLowerCase())).size;
+  const corroboration = Math.min(
+    15,
+    Math.max(0, sourceCount - 1) * 3 +
+      Math.max(0, categoryCount - 1) * 4 +
+      Math.max(0, recent.length - 1) * 2,
+  );
+
+  return {
+    score: Math.min(100, base + corroboration),
+    base,
+    corroboration,
+    recentSignalCount: recent.length,
+    sourceCount,
+    categoryCount,
+    strongestAdjusted: scored[0]?.adjusted || 0,
+  };
+}
+
+export function stageForResponse(currentStage: string, responseClass?: string | null) {
+  const protectedLateStage = ["DEMO_BOOKED", "DEMO_COMPLETED", "CHECKOUT_READY", "PAYMENT_SUCCEEDED", "ONBOARDING", "ACTIVE"].includes(currentStage);
+  if (protectedLateStage || !responseClass) return currentStage;
+  if (responseClass === "UNSUBSCRIBE") return "UNSUBSCRIBED";
+  if (responseClass === "NOT_INTERESTED") return "NOT_INTERESTED";
+  if (responseClass === "NOT_NOW") return "NURTURE";
+  if (["INTERESTED", "CURIOUS", "MEETING_REQUEST", "PRICING", "TECHNICAL", "NEEDS_INFORMATION", "OBJECTION", "REFERRAL"].includes(responseClass)) return "ENGAGED";
+  return currentStage;
+}
+
+export function nextActionForResponse(responseClass?: string | null) {
+  switch (responseClass) {
+    case "UNSUBSCRIBE": return "Stop active outreach and preserve the opt-out.";
+    case "NOT_INTERESTED": return "Close active outreach and record the stated reason without further cadence.";
+    case "NOT_NOW": return "Move the account to nurture and schedule a future evidence-based follow-up.";
+    case "REFERRAL":
+    case "WRONG_PERSON": return "Resolve the referred economic decision-maker before continuing the sales motion.";
+    case "MEETING_REQUEST": return "Book the executive demo and frame it around the validated business problem.";
+    case "PRICING": return "Validate economic value, budget signal, and buying authority before quoting implementation.";
+    case "TECHNICAL": return "Resolve the specific technical diligence question, then return to economic qualification.";
+    case "NEEDS_INFORMATION": return "Answer the exact information request and continue conversational qualification.";
+    case "INTERESTED":
+    case "CURIOUS": return "Run secondary qualification: need, economics, authority, timing, constraints, and next step.";
+    case "OBJECTION": return "Isolate the objection, test whether it is factual or commercial, and address only that blocker.";
+    default: return "Review the response, classify the buying signal, and choose the next evidence-based step.";
+  }
+}
+
+export function deriveAcquisitionDirective(input: {
+  stage: string;
+  qualificationBand: string;
+  qualificationScore: number;
+  hasDecisionMaker: boolean;
+  hasResearch: boolean;
+  hasAudit: boolean;
+  hasOutreach: boolean;
+  latestResponseClass?: string | null;
+  salesQualified: boolean;
+  demoCompleted: boolean;
+  checkoutReady: boolean;
+  paymentStatus: string;
+  onboardingProvisioned: boolean;
+}) {
+  const stopped = ["DISQUALIFIED", "NOT_INTERESTED", "UNSUBSCRIBED", "CLOSED_LOST"];
+  if (stopped.includes(input.stage)) {
+    return { priority: "STOP", action: "Stop active outreach", reason: `Account is in ${input.stage}; preserve the disposition and do not continue the cadence.` };
+  }
+  if (input.stage === "ACTIVE") {
+    return { priority: "LOW", action: "Hand off to client success", reason: "Acquisition is complete; protect the client experience and measure realized value." };
+  }
+  if (input.stage === "NURTURE") {
+    return { priority: "LOW", action: "Hold until the next legitimate trigger", reason: "The prospect said not now. Preserve context and wait for the agreed follow-up window or a new evidence-backed signal." };
+  }
+  if (input.stage === "HOLD") {
+    return { priority: "LOW", action: "Continue research without active outreach", reason: "The account is below the current evidence threshold for a high-value outbound motion." };
+  }
+  if (input.paymentStatus === "PAID" && !input.onboardingProvisioned) {
+    return { priority: "URGENT", action: "Provision onboarding workspace", reason: "Payment is verified but the client workspace has not been attached yet." };
+  }
+  if (input.stage === "PAYMENT_SUCCEEDED" || input.stage === "ONBOARDING" || input.onboardingProvisioned) {
+    return { priority: "HIGH", action: "Complete activation and onboarding", reason: "The commercial decision is complete; remove friction between payment and first value." };
+  }
+  if (input.demoCompleted || input.checkoutReady || input.stage === "CHECKOUT_READY") {
+    return { priority: "HIGH", action: "Advance the private post-demo checkout", reason: "The demo gate is complete. Resolve final commercial questions and move the qualified buyer into verified payment." };
+  }
+  if (input.stage === "DEMO_BOOKED") {
+    return { priority: "HIGH", action: "Run the executive demo around validated economics", reason: "The meeting is booked; prove the intervention against the prospect's own workflow, value, and constraints." };
+  }
+  if (input.salesQualified || input.stage === "SALES_QUALIFIED" || input.latestResponseClass === "MEETING_REQUEST") {
+    return { priority: "HIGH", action: "Book the executive demo", reason: "Need and buying intent are sufficiently developed to move from diagnosis into a commercial demonstration." };
+  }
+  if (input.latestResponseClass === "PRICING") {
+    return { priority: "HIGH", action: "Validate economics and buying authority", reason: "Pricing interest is a buying signal; anchor the conversation to economic value before quoting implementation." };
+  }
+  if (input.latestResponseClass === "TECHNICAL" || input.latestResponseClass === "NEEDS_INFORMATION") {
+    return { priority: "MEDIUM", action: nextActionForResponse(input.latestResponseClass), reason: "The prospect is engaged. Address the concrete blocker without widening the pitch." };
+  }
+  if (input.latestResponseClass === "REFERRAL" || !input.hasDecisionMaker) {
+    return { priority: "HIGH", action: "Resolve the economic decision-maker", reason: "Kaivaryn should not burn a high-value motion on a contact without sufficient authority." };
+  }
+  if (input.qualificationBand === "HOLD" || input.qualificationScore < 55) {
+    return { priority: "MEDIUM", action: "Enrich and research before outreach", reason: "The account does not yet have enough verified fit, intent, pain, or authority evidence for a high-value outbound motion." };
+  }
+  if (!input.hasResearch) {
+    return { priority: "HIGH", action: "Complete evidence-backed account research", reason: "Intent is present; now separate verified facts from hypotheses before writing outreach." };
+  }
+  if (!input.hasAudit) {
+    return { priority: "HIGH", action: "Generate the micro-audit", reason: "The account is researched and qualified enough to turn evidence into a diagnostic point of view." };
+  }
+  if (!input.hasOutreach) {
+    return { priority: "HIGH", action: "Create reverse-selling outreach", reason: "Lead with the observed problem and an economic validation question instead of a generic capability pitch." };
+  }
+  if (input.stage === "CONTACTED") {
+    return { priority: "MEDIUM", action: "Run a restrained evidence-led follow-up", reason: "No qualifying response is recorded yet; continue the diagnostic thread without manufacturing urgency." };
+  }
+  if (input.latestResponseClass) {
+    return { priority: "MEDIUM", action: nextActionForResponse(input.latestResponseClass), reason: "Use the prospect's response to determine the smallest credible next commercial step." };
+  }
+  return { priority: "MEDIUM", action: "Capture response intelligence and qualify conversationally", reason: "Use the prospect's response to validate need, economics, authority, timing, constraints, and the next commercial step." };
+}
+
+export async function getAcquisitionDirective(accountId: string) {
+  const account = await prisma.acquisitionAccount.findUnique({
+    where: { id: accountId },
+    include: {
+      contacts: true,
+      research: true,
+      microAudits: { orderBy: { createdAt: "desc" }, take: 1 },
+      outreachMessages: { orderBy: { createdAt: "desc" }, take: 20 },
+    },
+  });
+  if (!account) throw new Error("Acquisition account not found");
+  let secondary: Record<string, unknown> = {};
+  try { secondary = account.secondaryQualificationJson ? JSON.parse(account.secondaryQualificationJson) : {}; } catch { secondary = {}; }
+  const latestResponse = account.outreachMessages.find((message) => message.responseClass)?.responseClass || null;
+  const hasDecisionMaker = account.contacts.some((contact) => contact.authorityScore >= 6) || authorityScore(account.primaryTitle) >= 6;
+  return deriveAcquisitionDirective({
+    stage: account.stage,
+    qualificationBand: account.qualificationBand,
+    qualificationScore: account.qualificationScore,
+    hasDecisionMaker,
+    hasResearch: account.research?.status === "COMPLETE",
+    hasAudit: Boolean(account.microAudits[0]),
+    hasOutreach: account.outreachMessages.some((message) => !message.responseClass),
+    latestResponseClass: latestResponse,
+    salesQualified: secondary.salesQualified === true,
+    demoCompleted: Boolean(account.demoCompletedAt),
+    checkoutReady: Boolean(account.checkoutReadyAt),
+    paymentStatus: account.paymentStatus,
+    onboardingProvisioned: Boolean(account.onboardingOrganizationId),
+  });
+}
+
 function newestStage(current: string, candidate: AcquisitionStage) {
   const currentRank = stageRank.get(current);
   const candidateRank = stageRank.get(candidate) ?? 0;
@@ -254,10 +435,8 @@ export async function scoreAcquisitionAccount(accountId: string) {
 
   const size = companySizeScore(account.companySize);
   const icpFit = size.icp;
-  const weightedSignal = account.intentSignals.reduce((best, signal) => {
-    const weighted = Math.round((signal.strength * signal.confidence) / 100);
-    return Math.max(best, weighted);
-  }, 0);
+  const intentMomentum = calculateIntentMomentum(account.intentSignals);
+  const weightedSignal = intentMomentum.score;
   const intentStrength = Math.min(25, Math.round(weightedSignal * 0.25));
   const researchHypotheses = safeArray(account.research?.painHypothesesJson);
   const painOpportunity = Math.min(20, (account.painSummary ? 12 : 6) + Math.min(8, researchHypotheses.length * 2));
@@ -273,7 +452,7 @@ export async function scoreAcquisitionAccount(accountId: string) {
   const band = total >= 75 ? "PRIORITY" : total >= 55 ? "NURTURE" : "HOLD";
   const reasoning = {
     icpFit: `Company-size fit contributed ${icpFit}/25.`,
-    intentStrength: `${account.intentSignals.length} recorded intent signal(s); strongest confidence-weighted signal ${weightedSignal}/100.`,
+    intentStrength: `${account.intentSignals.length} recorded intent signal(s); momentum ${weightedSignal}/100 = base ${intentMomentum.base} + corroboration ${intentMomentum.corroboration}, across ${intentMomentum.sourceCount} recent source(s) and ${intentMomentum.categoryCount} recent category(ies).`,
     painOpportunity: account.painSummary || researchHypotheses.length ? "Pain/opportunity evidence is present." : "Pain remains mostly unverified and should be researched.",
     economicValue: `Economic-fit contribution ${economicValue}/15 based on known revenue/size evidence.`,
     decisionMakerAccess: bestAuthority ? `Best known authority score ${bestAuthority}/10.` : "No senior decision-maker is confirmed yet.",
@@ -281,7 +460,7 @@ export async function scoreAcquisitionAccount(accountId: string) {
   };
 
   await prisma.qualificationSnapshot.create({
-    data: { accountId, icpFit, intentStrength, painOpportunity, economicValue, decisionMakerAccess, timingUrgency, total, band, reasoningJson: JSON.stringify(reasoning), version: "v1" },
+    data: { accountId, icpFit, intentStrength, painOpportunity, economicValue, decisionMakerAccess, timingUrgency, total, band, reasoningJson: JSON.stringify(reasoning), version: "v2" },
   });
 
   const nextStage = band === "PRIORITY" ? newestStage(account.stage, "PREQUALIFIED") : account.stage;
@@ -398,7 +577,7 @@ export async function generateMicroAudit(accountId: string) {
     : account.selectedProduct?.includes("REVENUE")
       ? "Validate the leakage point, baseline conversion/recovery economics, then model a Revenue Recovery intervention."
       : "Validate whether Revenue Recovery, Operations Efficiency, or a combined intervention best matches the economics.";
-  const reverseSellMessage = `${account.primaryName ? `${account.primaryName}, ` : ""}we noticed ${observation.replace(/^Observable signal:\s*/i, "").replace(/\.$/, "")}. Based on what is observable, there may be an opportunity worth validating—but we would not recommend implementation until the economics prove it. If the underlying numbers are material, we can show you exactly where Kaivaryn would intervene. The first question is simple: how often does this happen, and what does it cost when it does?`;
+  const reverseSellMessage = `${account.primaryName ? `${account.primaryName}, ` : ""}we noticed ${observation.replace(/^Observable signal:\s*/i, "").replace(/\.$/, "")}. Before talking software, we would want to test whether this is expensive enough to matter. If the economics are small, Kaivaryn is probably the wrong move. If they are material, we can map the intervention against your current workflow and show exactly where value could be recovered. Roughly how often does this happen in a normal month, and what happens downstream when it does?`;
 
   const audit = await prisma.microAudit.create({
     data: {

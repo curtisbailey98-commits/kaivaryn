@@ -12,8 +12,10 @@ import {
   findOrCreateAcquisitionAccount,
   generateMicroAudit,
   markDemoCompleted,
+  nextActionForResponse,
   saveAccountResearch,
   scoreAcquisitionAccount,
+  stageForResponse,
 } from "@/lib/acquisition";
 import { writeAudit } from "@/lib/audit";
 
@@ -121,7 +123,7 @@ export async function saveOutreachAction(accountId: string, messageId: string, f
   const ctx = await requireAdmin();
   const status = text(formData, "status") || "DRAFT";
   const responseClass = text(formData, "responseClass") || null;
-  const optedOut = status === "UNSUBSCRIBED";
+  const optedOut = status === "UNSUBSCRIBED" || responseClass === "UNSUBSCRIBE";
   await prisma.outreachMessage.update({
     where: { id: messageId },
     data: {
@@ -139,9 +141,14 @@ export async function saveOutreachAction(accountId: string, messageId: string, f
     let stage = account.stage;
     const protectedLateStage = ["DEMO_BOOKED", "DEMO_COMPLETED", "CHECKOUT_READY", "PAYMENT_SUCCEEDED", "ONBOARDING", "ACTIVE"].includes(account.stage);
     if (!protectedLateStage && status === "SENT") stage = "CONTACTED";
-    if (!protectedLateStage && responseClass && ["INTERESTED", "CURIOUS", "MEETING_REQUEST"].includes(responseClass)) stage = "ENGAGED";
-    if (responseClass === "UNSUBSCRIBE" || optedOut) stage = "UNSUBSCRIBED";
-    await prisma.acquisitionAccount.update({ where: { id: accountId }, data: { stage } });
+    stage = stageForResponse(stage, responseClass || (optedOut ? "UNSUBSCRIBE" : null));
+    await prisma.acquisitionAccount.update({
+      where: { id: accountId },
+      data: {
+        stage,
+        nextAction: responseClass ? nextActionForResponse(responseClass) : account.nextAction,
+      },
+    });
   }
   await addAcquisitionActivity(accountId, "OUTREACH_UPDATED", `Outreach ${status}${responseClass ? `; response ${responseClass}` : ""}.`);
   await writeAudit({ actorId: ctx.user.id, action: "acquisition.outreach_updated", entityType: "OutreachMessage", entityId: messageId });
@@ -256,15 +263,15 @@ export async function recordInboundResponseAction(accountId: string, formData: F
     },
   });
   const current = await prisma.acquisitionAccount.findUnique({ where: { id: accountId } });
-  const protectedLateStage = current && ["DEMO_BOOKED", "DEMO_COMPLETED", "CHECKOUT_READY", "PAYMENT_SUCCEEDED", "ONBOARDING", "ACTIVE"].includes(current.stage);
-  const nextStage = responseClass === "UNSUBSCRIBE"
-    ? "UNSUBSCRIBED"
-    : responseClass === "NOT_INTERESTED"
-      ? "NOT_INTERESTED"
-      : !protectedLateStage && ["INTERESTED", "MEETING_REQUEST", "PRICING", "TECHNICAL", "NEEDS_INFORMATION"].includes(responseClass)
-        ? "ENGAGED"
-        : undefined;
-  if (nextStage) await prisma.acquisitionAccount.update({ where: { id: accountId }, data: { stage: nextStage } });
+  if (!current) throw new Error("Acquisition account not found");
+  const nextStage = stageForResponse(current.stage, responseClass);
+  await prisma.acquisitionAccount.update({
+    where: { id: accountId },
+    data: {
+      stage: nextStage,
+      nextAction: nextActionForResponse(responseClass),
+    },
+  });
   await addAcquisitionActivity(accountId, "INBOUND_RESPONSE", `Inbound response classified as ${responseClass}.`, { responseClass });
   await writeAudit({ actorId: ctx.user.id, action: "acquisition.response_classified", entityType: "AcquisitionAccount", entityId: accountId, metadata: { responseClass } });
   revalidatePath(`/admin/acquisition/${accountId}`);

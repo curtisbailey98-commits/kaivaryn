@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { addIntentSignal, findOrCreateAcquisitionAccount, scoreAcquisitionAccount } from "@/lib/acquisition";
+import { addIntentSignal, findOrCreateAcquisitionAccount, getAcquisitionDirective, scoreAcquisitionAccount } from "@/lib/acquisition";
 
 export const runtime = "nodejs";
 
@@ -70,5 +70,6 @@ export async function POST(request: Request) {
     occurredAt: input.signal.occurredAt ? new Date(input.signal.occurredAt) : undefined,
   });
   const qualification = await scoreAcquisitionAccount(account.id);
-  return NextResponse.json({ ok: true, accountId: account.id, signalId: signal.id, qualification });
+  const nextBestAction = await getAcquisitionDirective(account.id);
+  return NextResponse.json({ ok: true, accountId: account.id, signalId: signal.id, qualification, nextBestAction });
 }

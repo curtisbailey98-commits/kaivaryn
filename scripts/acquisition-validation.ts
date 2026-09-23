@@ -3,15 +3,48 @@ import { prisma } from "../src/lib/prisma";
 import {
   addIntentSignal,
   buildCheckoutLink,
+  calculateIntentMomentum,
+  deriveAcquisitionDirective,
   findOrCreateAcquisitionAccount,
+  getAcquisitionDirective,
   generateMicroAudit,
   markDemoCompleted,
   recordStripePayment,
   scoreAcquisitionAccount,
+  stageForResponse,
+  nextActionForResponse,
 } from "../src/lib/acquisition";
 import { clayWebhookSchema, mapClayContact, mapClaySignal } from "../src/lib/providers/clay";
 
 async function main() {
+  const now = new Date("2026-09-23T12:00:00.000Z");
+  const momentum = calculateIntentMomentum([
+    { strength: 90, confidence: 90, occurredAt: new Date("2026-09-22T12:00:00.000Z"), category: "HIRING", source: "CAREERS" },
+    { strength: 78, confidence: 95, occurredAt: new Date("2026-09-21T12:00:00.000Z"), category: "RESEARCH", source: "FIRST_PARTY" },
+  ], now);
+  assert(momentum.corroboration > 0, "Distinct fresh sources/categories should add corroboration");
+  assert(momentum.score > momentum.strongestAdjusted, "Corroborated intent should outrank a single adjusted signal");
+
+  const routed = deriveAcquisitionDirective({
+    stage: "ENGAGED",
+    qualificationBand: "PRIORITY",
+    qualificationScore: 82,
+    hasDecisionMaker: true,
+    hasResearch: true,
+    hasAudit: true,
+    hasOutreach: true,
+    latestResponseClass: "MEETING_REQUEST",
+    salesQualified: false,
+    demoCompleted: false,
+    checkoutReady: false,
+    paymentStatus: "NOT_READY",
+    onboardingProvisioned: false,
+  });
+  assert.equal(routed.action, "Book the executive demo");
+  assert.equal(stageForResponse("CONTACTED", "NOT_NOW"), "NURTURE", "A legitimate not-now response should leave active cadence and enter nurture");
+  assert.equal(stageForResponse("ACTIVE", "UNSUBSCRIBE"), "ACTIVE", "A late client-stage response must not regress acquisition state");
+  assert.match(nextActionForResponse("PRICING"), /economic value/i, "Pricing interest should route through value validation rather than a generic pitch");
+
   const suffix = Date.now().toString(36);
   const account = await findOrCreateAcquisitionAccount({
     company: `[VALIDATION] Intent Co ${suffix}`,
@@ -49,6 +82,8 @@ async function main() {
     const score = await scoreAcquisitionAccount(account.id);
     assert(score.total >= 55, `Expected meaningful qualification score, got ${score.total}`);
     assert(["PRIORITY", "NURTURE", "HOLD"].includes(score.band));
+    const directiveBeforeResearch = await getAcquisitionDirective(account.id);
+    assert(directiveBeforeResearch.action.length > 0, "Qualified accounts should expose a next-best-action directive");
 
     const audit = await generateMicroAudit(account.id);
     assert(audit.reverseSellMessage.includes("economics"), "Reverse-selling draft should lead with validation of economics");
@@ -96,6 +131,7 @@ async function main() {
     assert(stored);
     assert.equal(stored.intentSignals.length, 1, "Deduplication should keep one signal");
     assert(stored.qualificationSnapshots.length >= 1, "Qualification evidence should be persisted");
+    assert(stored.qualificationSnapshots.some((snapshot) => snapshot.version === "v2"), "V2 qualification snapshots should be persisted");
     assert(stored.microAudits.length >= 1, "Micro-audit should be persisted");
     assert(stored.outreachMessages.length >= 1, "Reverse-selling outreach draft should be persisted");
     assert.equal(stored.paymentEvents.length, 1, "Duplicate Stripe webhook delivery should create one PaymentEvent");

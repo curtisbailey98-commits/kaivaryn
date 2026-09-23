@@ -11,9 +11,9 @@ Kaivaryn's internal acquisition system lives under `/admin/acquisition` and is d
 - Intent signal model with SHA-256 signal fingerprints to prevent duplicate ingestion.
 - Provider-neutral intent ingestion API: `POST /api/acquisition/ingest`.
 - Concrete Clay webhook adapter: `POST /api/acquisition/providers/clay` (disabled until `CLAY_WEBHOOK_SECRET` is set).
-- Configurable-in-code V1 pre-qualification model (100 points):
+- Configurable-in-code V2 pre-qualification model (100 points):
   - ICP fit 25
-  - Intent strength 25
+  - Intent strength 25 (recency-decayed signal momentum + corroboration across distinct recent sources/categories)
   - Pain/opportunity 20
   - Economic value 15
   - Decision-maker access 10
@@ -21,7 +21,8 @@ Kaivaryn's internal acquisition system lives under `/admin/acquisition` and is d
 - Account research store that keeps verified facts separate from analyst/model hypotheses.
 - Evidence-backed micro-audit generation.
 - Reverse-selling outreach generation that leads with observed evidence and an economic validation question rather than a generic pitch.
-- Outreach state, opt-out state, inbound response capture, deterministic reply classification, and secondary qualification.
+- Outreach state, opt-out state, inbound response capture, deterministic reply classification, response-specific next-action routing, and secondary qualification.
+- Executive next-best-action directive that routes each account to enrichment, research, micro-audit, reverse selling, secondary qualification, demo, checkout, onboarding, or stop state.
 - Demo lifecycle integration with existing `DemoRequest` records.
 - Private post-demo engagement URLs under `/engage/[token]`.
 - Existing Stripe Payment Link is exposed only after demo completion.
@@ -100,7 +101,7 @@ Example payload:
 }
 ```
 
-The endpoint resolves/deduplicates the account, fingerprints the signal, persists evidence, and immediately produces a pre-qualification snapshot.
+The endpoint resolves/deduplicates the account, fingerprints the signal, persists evidence, immediately produces a V2 pre-qualification snapshot, and returns a machine-readable `nextBestAction` directive.
 
 ## Validation
 
