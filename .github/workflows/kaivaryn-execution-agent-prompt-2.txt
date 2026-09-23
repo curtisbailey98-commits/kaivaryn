@@ -1,0 +1,44 @@
+You are working inside the existing Kaivaryn repository.
+
+Goal: deploy the Acquisition Execution Layer on top of the current live V2 acquisition system without redesigning or replacing the existing architecture.
+
+Required steps:
+1. Pull the latest `main` branch.
+2. Locate `kaivaryn-acquisition-execution.patch` in the repository root.
+3. Apply the patch cleanly to the current repository.
+4. Preserve the existing Kaivaryn V2 acquisition architecture and sequence:
+   intent → resolution → pre-qualification → research → micro-audit → reverse selling → outreach → response intelligence → secondary qualification → demo → Stripe → verified payment → immediate onboarding.
+5. Do not modify unrelated files or remove existing production functionality.
+6. Remove `kaivaryn-acquisition-execution.patch` after it has been successfully applied.
+7. Review the resulting diff and fix only genuine merge/apply issues caused by the current repository state.
+8. Keep the execution-layer additions intact, including:
+   - Gmail outbound execution and reply synchronization
+   - Google Calendar demo booking integration
+   - acquisition execution scheduling
+   - execution limits/cooldowns
+   - call-agent provider layer
+   - Twilio-compatible outbound calling
+   - AI disclosure and DNC/opt-out handling
+   - consent and verified-contact requirements
+   - E.164 phone validation
+   - qualification/authority/call-stage gating
+   - call attempt cooldowns
+   - local business-hour calling restrictions
+   - max-turn handoff behavior
+   - acquisition activity/transcript logging
+   - protection of NURTURE, late-stage, paid, onboarding, active, unsubscribed, and closed accounts from inappropriate calling
+9. Do not invent provider credentials or hardcode secrets.
+10. Keep Google and Twilio credentials environment-variable driven.
+11. Do not weaken existing Stripe payment verification, tenant isolation, authentication, or acquisition safeguards.
+12. Commit all applied execution-layer changes with exactly this commit message:
+
+feat: deploy acquisition execution layer
+
+13. Push the resulting commit to `origin main`.
+
+If the push cannot be completed automatically but the commit succeeds locally, stop after the commit and clearly report that the local branch is ahead of `origin/main` so the user can use Codespaces “Sync Changes”.
+
+Do not create a new branch unless `main` cannot be updated safely.
+Do not create a pull request unless direct push to `main` is blocked.
+Do not redesign Kaivaryn.
+Do not substitute mock integrations for real provider adapters.
