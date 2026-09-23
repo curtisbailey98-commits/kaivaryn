@@ -1,4 +1,5 @@
-# Kaivaryn — free web service (native Node, SQLite on disk)
+# Kaivaryn — Next.js web service backed by persistent PostgreSQL.
+# DATABASE_URL is intentionally not committed. Point it at Supabase/Neon/Render Postgres.
 services:
   - type: web
     name: kaivaryn
@@ -12,10 +13,18 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        value: file:./data/kaivaryn.db
+        sync: false
       - key: NEXTAUTH_SECRET
         generateValue: true
       - key: NEXTAUTH_URL
         sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        generateValue: true
       - key: STRIPE_PAYMENT_LINK
         value: https://buy.stripe.com/14AaEZgJsdDNeTFePLeUU01
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: ACQUISITION_INGEST_TOKEN
+        sync: false
+      - key: CLAY_WEBHOOK_SECRET
+        sync: false

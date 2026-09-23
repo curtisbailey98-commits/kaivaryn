@@ -1,4 +1,4 @@
-# Kaivaryn — Next.js 14 + Prisma SQLite (single free web service)
+# Kaivaryn — Next.js 14 + Prisma + persistent PostgreSQL
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
@@ -10,7 +10,8 @@ FROM deps AS build
 WORKDIR /app
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL="file:./prod.db"
+# Prisma generate only needs a syntactically valid URL during image build.
+ENV DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/kaivaryn_build?schema=public"
 RUN npx prisma generate && npm run build
 
 FROM node:20-bookworm-slim AS runner
@@ -28,9 +29,7 @@ COPY --from=build /app/public ./public
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/next.config.mjs ./
 COPY --from=build /app/packages ./packages
-# Ensure data dir for SQLite
-RUN mkdir -p /app/data && chown -R nextjs:nodejs /app
+RUN chown -R nextjs:nodejs /app
 USER nextjs
 EXPOSE 3000
-# db push + seed on boot if empty, then start
-CMD ["sh", "-c", "export DATABASE_URL=\"${DATABASE_URL:-file:/app/data/kaivaryn.db}\" && npx prisma db push && npx tsx prisma/seed.ts && npx next start -p ${PORT:-3000}"]
+CMD ["sh", "-c", "test -n "$DATABASE_URL" || (echo 'DATABASE_URL is required' >&2; exit 1); npx prisma db push && npx tsx prisma/seed.ts && npx next start -p ${PORT:-3000}"]
