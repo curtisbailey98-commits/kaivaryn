@@ -1,0 +1,505 @@
+diff --git a/ACQUISITION_ENGINE.md b/ACQUISITION_ENGINE.md
+index 3fbf870..1bd7673 100644
+--- a/ACQUISITION_ENGINE.md
++++ b/ACQUISITION_ENGINE.md
+@@ -11,9 +11,9 @@ Kaivaryn's internal acquisition system lives under `/admin/acquisition` and is d
+ - Intent signal model with SHA-256 signal fingerprints to prevent duplicate ingestion.
+ - Provider-neutral intent ingestion API: `POST /api/acquisition/ingest`.
+ - Concrete Clay webhook adapter: `POST /api/acquisition/providers/clay` (disabled until `CLAY_WEBHOOK_SECRET` is set).
+-- Configurable-in-code V1 pre-qualification model (100 points):
++- Configurable-in-code V2 pre-qualification model (100 points):
+   - ICP fit 25
+-  - Intent strength 25
++  - Intent strength 25 (recency-decayed signal momentum + corroboration across distinct recent sources/categories)
+   - Pain/opportunity 20
+   - Economic value 15
+   - Decision-maker access 10
+@@ -21,7 +21,8 @@ Kaivaryn's internal acquisition system lives under `/admin/acquisition` and is d
+ - Account research store that keeps verified facts separate from analyst/model hypotheses.
+ - Evidence-backed micro-audit generation.
+ - Reverse-selling outreach generation that leads with observed evidence and an economic validation question rather than a generic pitch.
+-- Outreach state, opt-out state, inbound response capture, deterministic reply classification, and secondary qualification.
++- Outreach state, opt-out state, inbound response capture, deterministic reply classification, response-specific next-action routing, and secondary qualification.
++- Executive next-best-action directive that routes each account to enrichment, research, micro-audit, reverse selling, secondary qualification, demo, checkout, onboarding, or stop state.
+ - Demo lifecycle integration with existing `DemoRequest` records.
+ - Private post-demo engagement URLs under `/engage/[token]`.
+ - Existing Stripe Payment Link is exposed only after demo completion.
+@@ -100,7 +101,7 @@ Example payload:
+ }
+ ```
+ 
+-The endpoint resolves/deduplicates the account, fingerprints the signal, persists evidence, and immediately produces a pre-qualification snapshot.
++The endpoint resolves/deduplicates the account, fingerprints the signal, persists evidence, immediately produces a V2 pre-qualification snapshot, and returns a machine-readable `nextBestAction` directive.
+ 
+ ## Validation
+ 
+diff --git a/scripts/acquisition-validation.ts b/scripts/acquisition-validation.ts
+index eec4430..1f3ce83 100644
+--- a/scripts/acquisition-validation.ts
++++ b/scripts/acquisition-validation.ts
+@@ -3,15 +3,48 @@ import { prisma } from "../src/lib/prisma";
+ import {
+   addIntentSignal,
+   buildCheckoutLink,
++  calculateIntentMomentum,
++  deriveAcquisitionDirective,
+   findOrCreateAcquisitionAccount,
++  getAcquisitionDirective,
+   generateMicroAudit,
+   markDemoCompleted,
+   recordStripePayment,
+   scoreAcquisitionAccount,
++  stageForResponse,
++  nextActionForResponse,
+ } from "../src/lib/acquisition";
+ import { clayWebhookSchema, mapClayContact, mapClaySignal } from "../src/lib/providers/clay";
+ 
+ async function main() {
++  const now = new Date("2026-09-23T12:00:00.000Z");
++  const momentum = calculateIntentMomentum([
++    { strength: 90, confidence: 90, occurredAt: new Date("2026-09-22T12:00:00.000Z"), category: "HIRING", source: "CAREERS" },
++    { strength: 78, confidence: 95, occurredAt: new Date("2026-09-21T12:00:00.000Z"), category: "RESEARCH", source: "FIRST_PARTY" },
++  ], now);
++  assert(momentum.corroboration > 0, "Distinct fresh sources/categories should add corroboration");
++  assert(momentum.score > momentum.strongestAdjusted, "Corroborated intent should outrank a single adjusted signal");
++
++  const routed = deriveAcquisitionDirective({
++    stage: "ENGAGED",
++    qualificationBand: "PRIORITY",
++    qualificationScore: 82,
++    hasDecisionMaker: true,
++    hasResearch: true,
++    hasAudit: true,
++    hasOutreach: true,
++    latestResponseClass: "MEETING_REQUEST",
++    salesQualified: false,
++    demoCompleted: false,
++    checkoutReady: false,
++    paymentStatus: "NOT_READY",
++    onboardingProvisioned: false,
++  });
++  assert.equal(routed.action, "Book the executive demo");
++  assert.equal(stageForResponse("CONTACTED", "NOT_NOW"), "NURTURE", "A legitimate not-now response should leave active cadence and enter nurture");
++  assert.equal(stageForResponse("ACTIVE", "UNSUBSCRIBE"), "ACTIVE", "A late client-stage response must not regress acquisition state");
++  assert.match(nextActionForResponse("PRICING"), /economic value/i, "Pricing interest should route through value validation rather than a generic pitch");
++
+   const suffix = Date.now().toString(36);
+   const account = await findOrCreateAcquisitionAccount({
+     company: `[VALIDATION] Intent Co ${suffix}`,
+@@ -49,6 +82,8 @@ async function main() {
+     const score = await scoreAcquisitionAccount(account.id);
+     assert(score.total >= 55, `Expected meaningful qualification score, got ${score.total}`);
+     assert(["PRIORITY", "NURTURE", "HOLD"].includes(score.band));
++    const directiveBeforeResearch = await getAcquisitionDirective(account.id);
++    assert(directiveBeforeResearch.action.length > 0, "Qualified accounts should expose a next-best-action directive");
+ 
+     const audit = await generateMicroAudit(account.id);
+     assert(audit.reverseSellMessage.includes("economics"), "Reverse-selling draft should lead with validation of economics");
+@@ -96,6 +131,7 @@ async function main() {
+     assert(stored);
+     assert.equal(stored.intentSignals.length, 1, "Deduplication should keep one signal");
+     assert(stored.qualificationSnapshots.length >= 1, "Qualification evidence should be persisted");
++    assert(stored.qualificationSnapshots.some((snapshot) => snapshot.version === "v2"), "V2 qualification snapshots should be persisted");
+     assert(stored.microAudits.length >= 1, "Micro-audit should be persisted");
+     assert(stored.outreachMessages.length >= 1, "Reverse-selling outreach draft should be persisted");
+     assert.equal(stored.paymentEvents.length, 1, "Duplicate Stripe webhook delivery should create one PaymentEvent");
+diff --git a/src/app/admin/acquisition/[id]/page.tsx b/src/app/admin/acquisition/[id]/page.tsx
+index 201c5ff..5a22115 100644
+--- a/src/app/admin/acquisition/[id]/page.tsx
++++ b/src/app/admin/acquisition/[id]/page.tsx
+@@ -1,7 +1,7 @@
+ import Link from "next/link";
+ import { notFound } from "next/navigation";
+ import { prisma } from "@/lib/prisma";
+-import { buildCheckoutLink } from "@/lib/acquisition";
++import { authorityScore, buildCheckoutLink, deriveAcquisitionDirective } from "@/lib/acquisition";
+ import { formatCurrency, formatDate } from "@/lib/utils";
+ import {
+   addContactAction,
+@@ -48,6 +48,22 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
+   const latestOutreach = account.outreachMessages[0];
+   const dealValue = account.estimatedDealValueCents ? formatCurrency(account.estimatedDealValueCents / 100) : "Not modeled";
+   const secondary = account.secondaryQualificationJson ? (() => { try { return JSON.parse(account.secondaryQualificationJson) as Record<string, unknown>; } catch { return {}; } })() : {};
++  const latestResponseClass = account.outreachMessages.find((message) => message.responseClass)?.responseClass || null;
++  const directive = deriveAcquisitionDirective({
++    stage: account.stage,
++    qualificationBand: account.qualificationBand,
++    qualificationScore: account.qualificationScore,
++    hasDecisionMaker: account.contacts.some((contact) => contact.authorityScore >= 6) || authorityScore(account.primaryTitle) >= 6,
++    hasResearch: account.research?.status === "COMPLETE",
++    hasAudit: Boolean(latestAudit),
++    hasOutreach: account.outreachMessages.some((message) => !message.responseClass),
++    latestResponseClass,
++    salesQualified: secondary.salesQualified === true,
++    demoCompleted: Boolean(account.demoCompletedAt),
++    checkoutReady: Boolean(account.checkoutReadyAt),
++    paymentStatus: account.paymentStatus,
++    onboardingProvisioned: Boolean(account.onboardingOrganizationId),
++  });
+ 
+   return (
+     <div>
+@@ -65,6 +81,18 @@ export default async function AcquisitionAccountPage({ params }: { params: { id:
+         </div>
+       </div>
+ 
++      <div className="si-panel mt-5 border border-amber-500/20 p-5">
++        <div className="flex flex-wrap items-start justify-between gap-4">
++          <div>
++            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-400">Next best action</p>
++            <h2 className="mt-2 text-lg font-semibold text-white">{directive.action}</h2>
++            <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-400">{directive.reason}</p>
++            {account.nextAction ? <p className="mt-3 text-xs text-neutral-500">Recorded response action: <span className="text-neutral-300">{account.nextAction}</span></p> : null}
++          </div>
++          <span className="rounded-full border border-amber-500/30 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300">{directive.priority}</span>
++        </div>
++      </div>
++
+       <div className="mt-6 grid gap-5 lg:grid-cols-2">
+         <form action={updateAcquisitionAccount.bind(null, account.id)} className="si-panel p-5">
+           <h2 className="font-semibold text-white">Account + commercial context</h2>
+diff --git a/src/app/admin/acquisition/actions.ts b/src/app/admin/acquisition/actions.ts
+index 78f8ea6..4d72cf2 100644
+--- a/src/app/admin/acquisition/actions.ts
++++ b/src/app/admin/acquisition/actions.ts
+@@ -12,8 +12,10 @@ import {
+   findOrCreateAcquisitionAccount,
+   generateMicroAudit,
+   markDemoCompleted,
++  nextActionForResponse,
+   saveAccountResearch,
+   scoreAcquisitionAccount,
++  stageForResponse,
+ } from "@/lib/acquisition";
+ import { writeAudit } from "@/lib/audit";
+ 
+@@ -121,7 +123,7 @@ export async function saveOutreachAction(accountId: string, messageId: string, f
+   const ctx = await requireAdmin();
+   const status = text(formData, "status") || "DRAFT";
+   const responseClass = text(formData, "responseClass") || null;
+-  const optedOut = status === "UNSUBSCRIBED";
++  const optedOut = status === "UNSUBSCRIBED" || responseClass === "UNSUBSCRIBE";
+   await prisma.outreachMessage.update({
+     where: { id: messageId },
+     data: {
+@@ -139,9 +141,14 @@ export async function saveOutreachAction(accountId: string, messageId: string, f
+     let stage = account.stage;
+     const protectedLateStage = ["DEMO_BOOKED", "DEMO_COMPLETED", "CHECKOUT_READY", "PAYMENT_SUCCEEDED", "ONBOARDING", "ACTIVE"].includes(account.stage);
+     if (!protectedLateStage && status === "SENT") stage = "CONTACTED";
+-    if (!protectedLateStage && responseClass && ["INTERESTED", "CURIOUS", "MEETING_REQUEST"].includes(responseClass)) stage = "ENGAGED";
+-    if (responseClass === "UNSUBSCRIBE" || optedOut) stage = "UNSUBSCRIBED";
+-    await prisma.acquisitionAccount.update({ where: { id: accountId }, data: { stage } });
++    stage = stageForResponse(stage, responseClass || (optedOut ? "UNSUBSCRIBE" : null));
++    await prisma.acquisitionAccount.update({
++      where: { id: accountId },
++      data: {
++        stage,
++        nextAction: responseClass ? nextActionForResponse(responseClass) : account.nextAction,
++      },
++    });
+   }
+   await addAcquisitionActivity(accountId, "OUTREACH_UPDATED", `Outreach ${status}${responseClass ? `; response ${responseClass}` : ""}.`);
+   await writeAudit({ actorId: ctx.user.id, action: "acquisition.outreach_updated", entityType: "OutreachMessage", entityId: messageId });
+@@ -256,15 +263,15 @@ export async function recordInboundResponseAction(accountId: string, formData: F
+     },
+   });
+   const current = await prisma.acquisitionAccount.findUnique({ where: { id: accountId } });
+-  const protectedLateStage = current && ["DEMO_BOOKED", "DEMO_COMPLETED", "CHECKOUT_READY", "PAYMENT_SUCCEEDED", "ONBOARDING", "ACTIVE"].includes(current.stage);
+-  const nextStage = responseClass === "UNSUBSCRIBE"
+-    ? "UNSUBSCRIBED"
+-    : responseClass === "NOT_INTERESTED"
+-      ? "NOT_INTERESTED"
+-      : !protectedLateStage && ["INTERESTED", "MEETING_REQUEST", "PRICING", "TECHNICAL", "NEEDS_INFORMATION"].includes(responseClass)
+-        ? "ENGAGED"
+-        : undefined;
+-  if (nextStage) await prisma.acquisitionAccount.update({ where: { id: accountId }, data: { stage: nextStage } });
++  if (!current) throw new Error("Acquisition account not found");
++  const nextStage = stageForResponse(current.stage, responseClass);
++  await prisma.acquisitionAccount.update({
++    where: { id: accountId },
++    data: {
++      stage: nextStage,
++      nextAction: nextActionForResponse(responseClass),
++    },
++  });
+   await addAcquisitionActivity(accountId, "INBOUND_RESPONSE", `Inbound response classified as ${responseClass}.`, { responseClass });
+   await writeAudit({ actorId: ctx.user.id, action: "acquisition.response_classified", entityType: "AcquisitionAccount", entityId: accountId, metadata: { responseClass } });
+   revalidatePath(`/admin/acquisition/${accountId}`);
+diff --git a/src/app/api/acquisition/ingest/route.ts b/src/app/api/acquisition/ingest/route.ts
+index 74e7942..0de9b15 100644
+--- a/src/app/api/acquisition/ingest/route.ts
++++ b/src/app/api/acquisition/ingest/route.ts
+@@ -1,6 +1,6 @@
+ import { NextResponse } from "next/server";
+ import { z } from "zod";
+-import { addIntentSignal, findOrCreateAcquisitionAccount, scoreAcquisitionAccount } from "@/lib/acquisition";
++import { addIntentSignal, findOrCreateAcquisitionAccount, getAcquisitionDirective, scoreAcquisitionAccount } from "@/lib/acquisition";
+ 
+ export const runtime = "nodejs";
+ 
+@@ -70,5 +70,6 @@ export async function POST(request: Request) {
+     occurredAt: input.signal.occurredAt ? new Date(input.signal.occurredAt) : undefined,
+   });
+   const qualification = await scoreAcquisitionAccount(account.id);
+-  return NextResponse.json({ ok: true, accountId: account.id, signalId: signal.id, qualification });
++  const nextBestAction = await getAcquisitionDirective(account.id);
++  return NextResponse.json({ ok: true, accountId: account.id, signalId: signal.id, qualification, nextBestAction });
+ }
+diff --git a/src/app/api/acquisition/providers/clay/route.ts b/src/app/api/acquisition/providers/clay/route.ts
+index b046616..cfd22a2 100644
+--- a/src/app/api/acquisition/providers/clay/route.ts
++++ b/src/app/api/acquisition/providers/clay/route.ts
+@@ -1,5 +1,5 @@
+ import { NextResponse } from "next/server";
+-import { addIntentSignal, authorityScore, findOrCreateAcquisitionAccount, scoreAcquisitionAccount } from "@/lib/acquisition";
++import { addIntentSignal, authorityScore, findOrCreateAcquisitionAccount, getAcquisitionDirective, scoreAcquisitionAccount } from "@/lib/acquisition";
+ import { prisma } from "@/lib/prisma";
+ import { clayWebhookSchema, mapClayCompany, mapClayContact, mapClaySignal } from "@/lib/providers/clay";
+ 
+@@ -92,6 +92,7 @@ export async function POST(request: Request) {
+     occurredAt: signal.occurredAt,
+   });
+   const qualification = await scoreAcquisitionAccount(account.id);
++  const nextBestAction = await getAcquisitionDirective(account.id);
+ 
+   return NextResponse.json({
+     ok: true,
+@@ -99,5 +100,6 @@ export async function POST(request: Request) {
+     accountId: account.id,
+     signalId: intent.id,
+     qualification,
++    nextBestAction,
+   });
+ }
+diff --git a/src/lib/acquisition.ts b/src/lib/acquisition.ts
+index 90efc19..ba6a174 100644
+--- a/src/lib/acquisition.ts
++++ b/src/lib/acquisition.ts
+@@ -72,6 +72,187 @@ function safeArray(value?: string | null): string[] {
+   }
+ }
+ 
++export function calculateIntentMomentum(
++  signals: Array<{ strength: number; confidence: number; occurredAt: Date; category: string; source: string }>,
++  now = new Date(),
++) {
++  const dayMs = 86_400_000;
++  const scored = signals
++    .map((signal) => {
++      const ageDays = Math.max(0, (now.getTime() - signal.occurredAt.getTime()) / dayMs);
++      const recencyMultiplier = ageDays <= 7 ? 1 : ageDays <= 14 ? 0.85 : ageDays <= 30 ? 0.6 : ageDays <= 60 ? 0.35 : 0.15;
++      const raw = Math.max(0, Math.min(100, (signal.strength * signal.confidence) / 100));
++      return {
++        adjusted: Math.round(raw * recencyMultiplier),
++        ageDays,
++        category: signal.category,
++        source: signal.source,
++      };
++    })
++    .sort((a, b) => b.adjusted - a.adjusted);
++
++  if (!scored.length) {
++    return { score: 0, base: 0, corroboration: 0, recentSignalCount: 0, sourceCount: 0, categoryCount: 0, strongestAdjusted: 0 };
++  }
++
++  const weights = [0.6, 0.25, 0.15];
++  const top = scored.slice(0, 3);
++  const weightTotal = top.reduce((sum, _, index) => sum + weights[index], 0);
++  const base = Math.round(top.reduce((sum, signal, index) => sum + signal.adjusted * weights[index], 0) / weightTotal);
++  const recent = scored.filter((signal) => signal.ageDays <= 30);
++  const sourceCount = new Set(recent.map((signal) => signal.source.toLowerCase())).size;
++  const categoryCount = new Set(recent.map((signal) => signal.category.toLowerCase())).size;
++  const corroboration = Math.min(
++    15,
++    Math.max(0, sourceCount - 1) * 3 +
++      Math.max(0, categoryCount - 1) * 4 +
++      Math.max(0, recent.length - 1) * 2,
++  );
++
++  return {
++    score: Math.min(100, base + corroboration),
++    base,
++    corroboration,
++    recentSignalCount: recent.length,
++    sourceCount,
++    categoryCount,
++    strongestAdjusted: scored[0]?.adjusted || 0,
++  };
++}
++
++export function stageForResponse(currentStage: string, responseClass?: string | null) {
++  const protectedLateStage = ["DEMO_BOOKED", "DEMO_COMPLETED", "CHECKOUT_READY", "PAYMENT_SUCCEEDED", "ONBOARDING", "ACTIVE"].includes(currentStage);
++  if (protectedLateStage || !responseClass) return currentStage;
++  if (responseClass === "UNSUBSCRIBE") return "UNSUBSCRIBED";
++  if (responseClass === "NOT_INTERESTED") return "NOT_INTERESTED";
++  if (responseClass === "NOT_NOW") return "NURTURE";
++  if (["INTERESTED", "CURIOUS", "MEETING_REQUEST", "PRICING", "TECHNICAL", "NEEDS_INFORMATION", "OBJECTION", "REFERRAL"].includes(responseClass)) return "ENGAGED";
++  return currentStage;
++}
++
++export function nextActionForResponse(responseClass?: string | null) {
++  switch (responseClass) {
++    case "UNSUBSCRIBE": return "Stop active outreach and preserve the opt-out.";
++    case "NOT_INTERESTED": return "Close active outreach and record the stated reason without further cadence.";
++    case "NOT_NOW": return "Move the account to nurture and schedule a future evidence-based follow-up.";
++    case "REFERRAL":
++    case "WRONG_PERSON": return "Resolve the referred economic decision-maker before continuing the sales motion.";
++    case "MEETING_REQUEST": return "Book the executive demo and frame it around the validated business problem.";
++    case "PRICING": return "Validate economic value, budget signal, and buying authority before quoting implementation.";
++    case "TECHNICAL": return "Resolve the specific technical diligence question, then return to economic qualification.";
++    case "NEEDS_INFORMATION": return "Answer the exact information request and continue conversational qualification.";
++    case "INTERESTED":
++    case "CURIOUS": return "Run secondary qualification: need, economics, authority, timing, constraints, and next step.";
++    case "OBJECTION": return "Isolate the objection, test whether it is factual or commercial, and address only that blocker.";
++    default: return "Review the response, classify the buying signal, and choose the next evidence-based step.";
++  }
++}
++
++export function deriveAcquisitionDirective(input: {
++  stage: string;
++  qualificationBand: string;
++  qualificationScore: number;
++  hasDecisionMaker: boolean;
++  hasResearch: boolean;
++  hasAudit: boolean;
++  hasOutreach: boolean;
++  latestResponseClass?: string | null;
++  salesQualified: boolean;
++  demoCompleted: boolean;
++  checkoutReady: boolean;
++  paymentStatus: string;
++  onboardingProvisioned: boolean;
++}) {
++  const stopped = ["DISQUALIFIED", "NOT_INTERESTED", "UNSUBSCRIBED", "CLOSED_LOST"];
++  if (stopped.includes(input.stage)) {
++    return { priority: "STOP", action: "Stop active outreach", reason: `Account is in ${input.stage}; preserve the disposition and do not continue the cadence.` };
++  }
++  if (input.stage === "ACTIVE") {
++    return { priority: "LOW", action: "Hand off to client success", reason: "Acquisition is complete; protect the client experience and measure realized value." };
++  }
++  if (input.stage === "NURTURE") {
++    return { priority: "LOW", action: "Hold until the next legitimate trigger", reason: "The prospect said not now. Preserve context and wait for the agreed follow-up window or a new evidence-backed signal." };
++  }
++  if (input.stage === "HOLD") {
++    return { priority: "LOW", action: "Continue research without active outreach", reason: "The account is below the current evidence threshold for a high-value outbound motion." };
++  }
++  if (input.paymentStatus === "PAID" && !input.onboardingProvisioned) {
++    return { priority: "URGENT", action: "Provision onboarding workspace", reason: "Payment is verified but the client workspace has not been attached yet." };
++  }
++  if (input.stage === "PAYMENT_SUCCEEDED" || input.stage === "ONBOARDING" || input.onboardingProvisioned) {
++    return { priority: "HIGH", action: "Complete activation and onboarding", reason: "The commercial decision is complete; remove friction between payment and first value." };
++  }
++  if (input.demoCompleted || input.checkoutReady || input.stage === "CHECKOUT_READY") {
++    return { priority: "HIGH", action: "Advance the private post-demo checkout", reason: "The demo gate is complete. Resolve final commercial questions and move the qualified buyer into verified payment." };
++  }
++  if (input.stage === "DEMO_BOOKED") {
++    return { priority: "HIGH", action: "Run the executive demo around validated economics", reason: "The meeting is booked; prove the intervention against the prospect's own workflow, value, and constraints." };
++  }
++  if (input.salesQualified || input.stage === "SALES_QUALIFIED" || input.latestResponseClass === "MEETING_REQUEST") {
++    return { priority: "HIGH", action: "Book the executive demo", reason: "Need and buying intent are sufficiently developed to move from diagnosis into a commercial demonstration." };
++  }
++  if (input.latestResponseClass === "PRICING") {
++    return { priority: "HIGH", action: "Validate economics and buying authority", reason: "Pricing interest is a buying signal; anchor the conversation to economic value before quoting implementation." };
++  }
++  if (input.latestResponseClass === "TECHNICAL" || input.latestResponseClass === "NEEDS_INFORMATION") {
++    return { priority: "MEDIUM", action: nextActionForResponse(input.latestResponseClass), reason: "The prospect is engaged. Address the concrete blocker without widening the pitch." };
++  }
++  if (input.latestResponseClass === "REFERRAL" || !input.hasDecisionMaker) {
++    return { priority: "HIGH", action: "Resolve the economic decision-maker", reason: "Kaivaryn should not burn a high-value motion on a contact without sufficient authority." };
++  }
++  if (input.qualificationBand === "HOLD" || input.qualificationScore < 55) {
++    return { priority: "MEDIUM", action: "Enrich and research before outreach", reason: "The account does not yet have enough verified fit, intent, pain, or authority evidence for a high-value outbound motion." };
++  }
++  if (!input.hasResearch) {
++    return { priority: "HIGH", action: "Complete evidence-backed account research", reason: "Intent is present; now separate verified facts from hypotheses before writing outreach." };
++  }
++  if (!input.hasAudit) {
++    return { priority: "HIGH", action: "Generate the micro-audit", reason: "The account is researched and qualified enough to turn evidence into a diagnostic point of view." };
++  }
++  if (!input.hasOutreach) {
++    return { priority: "HIGH", action: "Create reverse-selling outreach", reason: "Lead with the observed problem and an economic validation question instead of a generic capability pitch." };
++  }
++  if (input.stage === "CONTACTED") {
++    return { priority: "MEDIUM", action: "Run a restrained evidence-led follow-up", reason: "No qualifying response is recorded yet; continue the diagnostic thread without manufacturing urgency." };
++  }
++  if (input.latestResponseClass) {
++    return { priority: "MEDIUM", action: nextActionForResponse(input.latestResponseClass), reason: "Use the prospect's response to determine the smallest credible next commercial step." };
++  }
++  return { priority: "MEDIUM", action: "Capture response intelligence and qualify conversationally", reason: "Use the prospect's response to validate need, economics, authority, timing, constraints, and the next commercial step." };
++}
++
++export async function getAcquisitionDirective(accountId: string) {
++  const account = await prisma.acquisitionAccount.findUnique({
++    where: { id: accountId },
++    include: {
++      contacts: true,
++      research: true,
++      microAudits: { orderBy: { createdAt: "desc" }, take: 1 },
++      outreachMessages: { orderBy: { createdAt: "desc" }, take: 20 },
++    },
++  });
++  if (!account) throw new Error("Acquisition account not found");
++  let secondary: Record<string, unknown> = {};
++  try { secondary = account.secondaryQualificationJson ? JSON.parse(account.secondaryQualificationJson) : {}; } catch { secondary = {}; }
++  const latestResponse = account.outreachMessages.find((message) => message.responseClass)?.responseClass || null;
++  const hasDecisionMaker = account.contacts.some((contact) => contact.authorityScore >= 6) || authorityScore(account.primaryTitle) >= 6;
++  return deriveAcquisitionDirective({
++    stage: account.stage,
++    qualificationBand: account.qualificationBand,
++    qualificationScore: account.qualificationScore,
++    hasDecisionMaker,
++    hasResearch: account.research?.status === "COMPLETE",
++    hasAudit: Boolean(account.microAudits[0]),
++    hasOutreach: account.outreachMessages.some((message) => !message.responseClass),
++    latestResponseClass: latestResponse,
++    salesQualified: secondary.salesQualified === true,
++    demoCompleted: Boolean(account.demoCompletedAt),
++    checkoutReady: Boolean(account.checkoutReadyAt),
++    paymentStatus: account.paymentStatus,
++    onboardingProvisioned: Boolean(account.onboardingOrganizationId),
++  });
++}
++
+ function newestStage(current: string, candidate: AcquisitionStage) {
+   const currentRank = stageRank.get(current);
+   const candidateRank = stageRank.get(candidate) ?? 0;
+@@ -254,10 +435,8 @@ export async function scoreAcquisitionAccount(accountId: string) {
+ 
+   const size = companySizeScore(account.companySize);
+   const icpFit = size.icp;
+-  const weightedSignal = account.intentSignals.reduce((best, signal) => {
+-    const weighted = Math.round((signal.strength * signal.confidence) / 100);
+-    return Math.max(best, weighted);
+-  }, 0);
++  const intentMomentum = calculateIntentMomentum(account.intentSignals);
++  const weightedSignal = intentMomentum.score;
+   const intentStrength = Math.min(25, Math.round(weightedSignal * 0.25));
+   const researchHypotheses = safeArray(account.research?.painHypothesesJson);
+   const painOpportunity = Math.min(20, (account.painSummary ? 12 : 6) + Math.min(8, researchHypotheses.length * 2));
+@@ -273,7 +452,7 @@ export async function scoreAcquisitionAccount(accountId: string) {
+   const band = total >= 75 ? "PRIORITY" : total >= 55 ? "NURTURE" : "HOLD";
+   const reasoning = {
+     icpFit: `Company-size fit contributed ${icpFit}/25.`,
+-    intentStrength: `${account.intentSignals.length} recorded intent signal(s); strongest confidence-weighted signal ${weightedSignal}/100.`,
++    intentStrength: `${account.intentSignals.length} recorded intent signal(s); momentum ${weightedSignal}/100 = base ${intentMomentum.base} + corroboration ${intentMomentum.corroboration}, across ${intentMomentum.sourceCount} recent source(s) and ${intentMomentum.categoryCount} recent category(ies).`,
+     painOpportunity: account.painSummary || researchHypotheses.length ? "Pain/opportunity evidence is present." : "Pain remains mostly unverified and should be researched.",
+     economicValue: `Economic-fit contribution ${economicValue}/15 based on known revenue/size evidence.`,
+     decisionMakerAccess: bestAuthority ? `Best known authority score ${bestAuthority}/10.` : "No senior decision-maker is confirmed yet.",
+@@ -281,7 +460,7 @@ export async function scoreAcquisitionAccount(accountId: string) {
+   };
+ 
+   await prisma.qualificationSnapshot.create({
+-    data: { accountId, icpFit, intentStrength, painOpportunity, economicValue, decisionMakerAccess, timingUrgency, total, band, reasoningJson: JSON.stringify(reasoning), version: "v1" },
++    data: { accountId, icpFit, intentStrength, painOpportunity, economicValue, decisionMakerAccess, timingUrgency, total, band, reasoningJson: JSON.stringify(reasoning), version: "v2" },
+   });
+ 
+   const nextStage = band === "PRIORITY" ? newestStage(account.stage, "PREQUALIFIED") : account.stage;
+@@ -398,7 +577,7 @@ export async function generateMicroAudit(accountId: string) {
+     : account.selectedProduct?.includes("REVENUE")
+       ? "Validate the leakage point, baseline conversion/recovery economics, then model a Revenue Recovery intervention."
+       : "Validate whether Revenue Recovery, Operations Efficiency, or a combined intervention best matches the economics.";
+-  const reverseSellMessage = `${account.primaryName ? `${account.primaryName}, ` : ""}we noticed ${observation.replace(/^Observable signal:\s*/i, "").replace(/\.$/, "")}. Based on what is observable, there may be an opportunity worth validating—but we would not recommend implementation until the economics prove it. If the underlying numbers are material, we can show you exactly where Kaivaryn would intervene. The first question is simple: how often does this happen, and what does it cost when it does?`;
++  const reverseSellMessage = `${account.primaryName ? `${account.primaryName}, ` : ""}we noticed ${observation.replace(/^Observable signal:\s*/i, "").replace(/\.$/, "")}. Before talking software, we would want to test whether this is expensive enough to matter. If the economics are small, Kaivaryn is probably the wrong move. If they are material, we can map the intervention against your current workflow and show exactly where value could be recovered. Roughly how often does this happen in a normal month, and what happens downstream when it does?`;
+ 
+   const audit = await prisma.microAudit.create({
+     data: {
