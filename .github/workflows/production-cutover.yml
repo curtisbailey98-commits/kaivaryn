@@ -54,6 +54,6 @@ jobs:
         run: |
           git config user.name "Kaivaryn Production Cutover"
           git config user.email "kaivaryn-cutover@users.noreply.github.com"
-          git add --all
+          git add --all -- . ':(exclude).github/workflows/**'
           git commit -m "feat: cut over Kaivaryn to production PostgreSQL architecture"
           git push origin HEAD:production-cutover-2026-09-23
