@@ -23,7 +23,7 @@ jobs:
       - name: Verify production archive
         shell: bash
         run: |
-          echo "1f1e55d4dc3b50bb1e255e7ef8a98466c0969fc6588c372b45ee0c15f0ec5a1e  kaivaryn-production-ready.zip" | sha256sum --check --strict
+          echo "19e6d851a60be0bcb080b7b744b5aea7b5f74708565d13fe8931e0575b819c87  kaivaryn-production-ready.zip" | sha256sum --check --strict
 
       - name: Expand exact production tree
         shell: bash
