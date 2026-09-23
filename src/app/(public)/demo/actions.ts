@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { writeAudit } from "@/lib/audit";
 import { redirect } from "next/navigation";
+import { syncDemoToAcquisition } from "@/lib/acquisition";
 
 const schema = z.object({
   name: z.string().min(1).max(120),
@@ -61,6 +62,11 @@ export async function submitDemoRequest(
       status: "NEW",
     },
   });
+  try {
+    await syncDemoToAcquisition(created.id);
+  } catch (error) {
+    console.error("Failed to sync demo request into acquisition engine", error);
+  }
   await writeAudit({
     action: "demo_request.created",
     entityType: "DemoRequest",

@@ -52,6 +52,12 @@ export default async function OnboardingPage({ searchParams }: { searchParams: {
     if (!done.includes(currentStep.id)) done.push(currentStep.id);
     const next = Math.min(p.currentStep + 1, ONBOARDING_STEPS.length - 1);
     await prisma.onboardingProgress.update({ where: { id: p.id }, data: { currentStep: next, completedSteps: JSON.stringify(done), dataJson: JSON.stringify(stored), completedAt: currentStep.id === "done" ? new Date() : null } });
+    if (currentStep.id === "done") {
+      await prisma.acquisitionAccount.updateMany({
+        where: { onboardingOrganizationId: ctx2.organizationId, paymentStatus: "PAID" },
+        data: { stage: "ACTIVE" },
+      });
+    }
     revalidatePath("/app/onboarding");
   }
 

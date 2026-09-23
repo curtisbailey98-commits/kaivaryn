@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -121,6 +121,7 @@ model Organization {
   evidence               Evidence[]
   learningEvents         LearningEvent[]
   learningProfiles       LearningProfile[]
+  acquisitionAccounts    AcquisitionAccount[] @relation("AcquisitionOnboardingOrg")
 }
 
 model Membership {
@@ -236,6 +237,8 @@ model DemoRequest {
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  acquisitionAccount AcquisitionAccount?
 
   @@index([status])
   @@index([email])
@@ -811,3 +814,223 @@ model EmailDraft {
 
   @@index([organizationId])
 }
+
+model AcquisitionAccount {
+  id                       String    @id @default(cuid())
+  company                  String
+  domain                   String?   @unique
+  website                  String?
+  industry                 String?
+  companySize              String?
+  estimatedRevenue         Float?
+  location                 String?
+  stage                    String    @default("DETECTED")
+  source                   String?
+  primaryName              String?
+  primaryEmail             String?
+  primaryTitle             String?
+  phone                    String?
+  intentScore              Int       @default(0)
+  qualificationScore       Int       @default(0)
+  qualificationBand        String    @default("UNSCORED")
+  painSummary              String?
+  economicHypothesis       String?
+  secondaryQualificationJson String?
+  objectionsJson           String    @default("[]")
+  stakeholdersJson         String    @default("[]")
+  nextAction               String?
+  demoOutcome              String?
+  demoNotes                String?
+  lossReason               String?
+  winReason                String?
+  selectedProduct          String?
+  estimatedDealValueCents  Int?
+  demoRequestId            String?   @unique
+  demoCompletedAt          DateTime?
+  checkoutToken            String?   @unique
+  checkoutReadyAt          DateTime?
+  paymentStatus            String    @default("NOT_READY")
+  stripeRef                String?
+  paidAt                   DateTime?
+  onboardingOrganizationId String?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  demoRequest            DemoRequest?            @relation(fields: [demoRequestId], references: [id], onDelete: SetNull)
+  onboardingOrganization Organization?           @relation("AcquisitionOnboardingOrg", fields: [onboardingOrganizationId], references: [id], onDelete: SetNull)
+  contacts               AcquisitionContact[]
+  intentSignals          IntentSignal[]
+  qualificationSnapshots QualificationSnapshot[]
+  research               AccountResearch?
+  microAudits            MicroAudit[]
+  outreachMessages       OutreachMessage[]
+  activities             AcquisitionActivity[]
+  paymentEvents          PaymentEvent[]
+
+  @@index([domain])
+  @@index([primaryEmail])
+  @@index([stage])
+  @@index([qualificationBand])
+  @@index([paymentStatus])
+  @@index([createdAt])
+}
+
+model AcquisitionContact {
+  id             String   @id @default(cuid())
+  accountId      String
+  name           String?
+  email          String?
+  title          String?
+  phone          String?
+  publicProfile  String?
+  authorityScore Int      @default(0)
+  isPrimary      Boolean  @default(false)
+  source         String?
+  verified       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  account          AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  outreachMessages OutreachMessage[]
+
+  @@unique([accountId, email])
+  @@index([accountId])
+  @@index([email])
+}
+
+model IntentSignal {
+  id         String   @id @default(cuid())
+  accountId  String
+  fingerprint String  @unique
+  type       String
+  category   String
+  source     String
+  sourceUrl  String?
+  evidence   String?
+  strength   Int      @default(50)
+  confidence Int      @default(50)
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, occurredAt])
+  @@index([category])
+  @@index([source])
+}
+
+model QualificationSnapshot {
+  id                  String   @id @default(cuid())
+  accountId           String
+  icpFit              Int
+  intentStrength      Int
+  painOpportunity     Int
+  economicValue       Int
+  decisionMakerAccess Int
+  timingUrgency       Int
+  total               Int
+  band                String
+  reasoningJson       String
+  version             String   @default("v1")
+  createdAt           DateTime @default(now())
+
+  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@index([band])
+}
+
+model AccountResearch {
+  id                   String   @id @default(cuid())
+  accountId            String   @unique
+  status               String   @default("DRAFT")
+  businessModel        String?
+  revenueModel         String?
+  verifiedFactsJson    String   @default("[]")
+  hypothesesJson       String   @default("[]")
+  techStackJson        String   @default("[]")
+  painHypothesesJson   String   @default("[]")
+  evidenceJson         String   @default("[]")
+  researchedAt         DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+}
+
+model MicroAudit {
+  id                      String    @id @default(cuid())
+  accountId               String
+  status                  String    @default("DRAFT")
+  observation             String
+  evidenceSummary         String
+  economicHypothesis      String
+  diagnosticQuestionsJson String    @default("[]")
+  recommendedIntervention String?
+  reverseSellMessage      String
+  approvedAt              DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@index([status])
+}
+
+model OutreachMessage {
+  id             String    @id @default(cuid())
+  accountId      String
+  contactId      String?
+  channel        String    @default("EMAIL")
+  subject        String?
+  body           String
+  status         String    @default("DRAFT")
+  providerRef    String?
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  repliedAt      DateTime?
+  responseClass  String?
+  responseJson   String?
+  optedOutAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  contact AcquisitionContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, status])
+  @@index([contactId])
+  @@index([scheduledAt])
+}
+
+model AcquisitionActivity {
+  id        String   @id @default(cuid())
+  accountId String
+  type      String
+  summary   String
+  dataJson  String?
+  createdAt DateTime @default(now())
+
+  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@index([type])
+}
+
+model PaymentEvent {
+  id                   String   @id @default(cuid())
+  accountId            String
+  eventId              String   @unique
+  type                 String
+  amountCents          Int?
+  currency             String?
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  createdAt            DateTime @default(now())
+
+  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+}
+
