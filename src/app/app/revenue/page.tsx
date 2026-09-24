@@ -3,13 +3,15 @@ import { requireOrgAccess, assertOrgId } from "@/lib/tenant";
 import { requireEntitlement } from "@/lib/entitlements";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { Badge, PriorityBadge, StatusBadge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
+import { PageHeader } from "@/components/ui/page-header";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { analyzeRevenueSignals } from "@/lib/intelligence";
 import { Prisma } from "@prisma/client";
 import { OpportunityPriority, OpportunityStatus } from "@/lib/enums";
+import { Download, LineChart, Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -80,24 +82,25 @@ export default async function RevenuePage({
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="si-label text-amber-500">Product</p>
-          <h1 className="mt-1 text-2xl font-semibold">Revenue Recovery</h1>
-          {ctx.organization?.isDemo ? <Badge tone="demo" className="mt-2">DEMO data</Badge> : null}
-        </div>
-        <div className="flex gap-2 text-sm">
-          <Link href="/app/revenue/new" className="rounded-md bg-amber-500 px-3 py-2 font-semibold text-neutral-950">
-            New opportunity
-          </Link>
-          <Link href="/app/revenue/analytics" className="rounded-md border border-neutral-700 px-3 py-2">
-            Analytics
-          </Link>
-          <Link href="/api/export?type=opportunities" className="rounded-md border border-neutral-700 px-3 py-2">
-            Export CSV
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Product"
+        title="Revenue Recovery"
+        description="Every dollar Kaivaryn believes is leaking, prioritized by confidence and size — estimates and recovered amounts always kept separate."
+        actions={
+          <>
+            {ctx.organization?.isDemo ? <Badge tone="demo">DEMO data</Badge> : null}
+            <Link href="/app/revenue/new" className="flex items-center gap-1.5 rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-neutral-950 hover:bg-amber-400">
+              <Plus className="h-3.5 w-3.5" /> New opportunity
+            </Link>
+            <Link href="/app/revenue/analytics" className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-3 py-2 text-sm text-neutral-200 hover:border-neutral-500">
+              <LineChart className="h-3.5 w-3.5" /> Analytics
+            </Link>
+            <Link href="/api/export?type=opportunities" className="flex items-center gap-1.5 rounded-md border border-neutral-700 px-3 py-2 text-sm text-neutral-200 hover:border-neutral-500">
+              <Download className="h-3.5 w-3.5" /> Export
+            </Link>
+          </>
+        }
+      />
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         <Card>
@@ -135,8 +138,8 @@ export default async function RevenuePage({
           <Link
             key={k}
             href={`/app/revenue?view=${k}`}
-            className={`rounded-full border px-3 py-1 text-xs ${
-              view === k ? "border-amber-500 text-amber-400" : "border-neutral-800 text-neutral-400"
+            className={`rounded-full border px-3 py-1 text-xs transition ${
+              view === k ? "border-amber-500 text-amber-400" : "border-neutral-800 text-neutral-400 hover:border-neutral-600 hover:text-neutral-200"
             }`}
           >
             {v.label}
@@ -144,15 +147,35 @@ export default async function RevenuePage({
         ))}
       </div>
 
-      <form className="mt-4 grid gap-2 sm:grid-cols-6 text-xs">
-        <input type="hidden" name="view" value={view} />
-        <input name="source" placeholder="Source" defaultValue={searchParams.source} className="h-9 rounded-md border border-neutral-700 bg-neutral-950 px-2" />
-        <input name="dept" placeholder="Department" defaultValue={searchParams.dept} className="h-9 rounded-md border border-neutral-700 bg-neutral-950 px-2" />
-        <input name="type" placeholder="Type" defaultValue={searchParams.type} className="h-9 rounded-md border border-neutral-700 bg-neutral-950 px-2" />
-        <input name="from" type="date" defaultValue={searchParams.from} className="h-9 rounded-md border border-neutral-700 bg-neutral-950 px-2" />
-        <input name="to" type="date" defaultValue={searchParams.to} className="h-9 rounded-md border border-neutral-700 bg-neutral-950 px-2" />
-        <button type="submit" className="h-9 rounded-md border border-neutral-700 px-3">Filter</button>
-      </form>
+      <details className="mt-4 rounded-lg border border-neutral-900">
+        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-neutral-400 hover:text-neutral-200">Filters</summary>
+        <form className="grid gap-3 border-t border-neutral-900 p-3 text-xs sm:grid-cols-3 lg:grid-cols-6">
+          <input type="hidden" name="view" value={view} />
+          <label className="block">
+            <span className="mb-1 block text-neutral-500">Source</span>
+            <input name="source" defaultValue={searchParams.source} className="h-9 w-full rounded-md border border-neutral-700 bg-neutral-950 px-2" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-neutral-500">Department</span>
+            <input name="dept" defaultValue={searchParams.dept} className="h-9 w-full rounded-md border border-neutral-700 bg-neutral-950 px-2" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-neutral-500">Type</span>
+            <input name="type" defaultValue={searchParams.type} className="h-9 w-full rounded-md border border-neutral-700 bg-neutral-950 px-2" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-neutral-500">From</span>
+            <input name="from" type="date" defaultValue={searchParams.from} className="h-9 w-full rounded-md border border-neutral-700 bg-neutral-950 px-2" />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-neutral-500">To</span>
+            <input name="to" type="date" defaultValue={searchParams.to} className="h-9 w-full rounded-md border border-neutral-700 bg-neutral-950 px-2" />
+          </label>
+          <div className="flex items-end">
+            <button type="submit" className="h-9 w-full rounded-md border border-neutral-700 px-3 text-neutral-200 hover:border-neutral-500">Apply filters</button>
+          </div>
+        </form>
+      </details>
 
       <div className="si-panel mt-6 overflow-hidden">
         {opps.length === 0 ? (
@@ -165,8 +188,8 @@ export default async function RevenuePage({
                 <TH>Status</TH>
                 <TH>Priority</TH>
                 <TH>Estimated</TH>
-                <TH>Recovered</TH>
-                <TH>Identified</TH>
+                <TH className="hidden sm:table-cell">Recovered</TH>
+                <TH className="hidden md:table-cell">Identified</TH>
               </TR>
             </THead>
             <TBody>
@@ -178,11 +201,13 @@ export default async function RevenuePage({
                     </Link>
                     <div className="text-xs text-neutral-500">{[o.source, o.department, o.type].filter(Boolean).join(" · ")}</div>
                   </TD>
-                  <TD><Badge>{o.status}</Badge></TD>
-                  <TD><Badge tone={o.priority === "CRITICAL" ? "danger" : o.priority === "HIGH" ? "warning" : "default"}>{o.priority}</Badge></TD>
-                  <TD>{formatCurrency(o.potentialAmount || o.estimatedAmount)} <span className="text-xs text-neutral-500">s{Math.round(o.score)}</span></TD>
-                  <TD className="text-emerald-300">{formatCurrency(o.recoveredAmount)}</TD>
-                  <TD>{formatDate(o.identifiedAt)}</TD>
+                  <TD><StatusBadge status={o.status} /></TD>
+                  <TD><PriorityBadge priority={o.priority} /></TD>
+                  <TD>
+                    {formatCurrency(o.potentialAmount || o.estimatedAmount)} <span className="text-xs text-neutral-500">s{Math.round(o.score)}</span>
+                  </TD>
+                  <TD className="hidden text-emerald-300 sm:table-cell">{formatCurrency(o.recoveredAmount)}</TD>
+                  <TD className="hidden md:table-cell">{formatDate(o.identifiedAt)}</TD>
                 </TR>
               ))}
             </TBody>

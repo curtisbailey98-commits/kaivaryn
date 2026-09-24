@@ -32,7 +32,7 @@ function RegisterForm() {
     <>
       <h1 className="text-lg font-semibold text-white">Create account</h1>
       <p className="mt-1 text-xs text-neutral-500">
-        Creates your access. If Stripe has already verified your post-demo engagement, Kaivaryn attaches you to the provisioned workspace and carries your acquisition context into onboarding.
+        Creates your user and organization. Product entitlements activate after engagement.
       </p>
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         {error ? <p className="text-sm text-red-300">{error}</p> : null}

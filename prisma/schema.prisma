@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -38,6 +38,11 @@ model User {
   emailDrafts            EmailDraft[]
   intelligenceRuns       IntelligenceRun[]
   learningEvents         LearningEvent[]
+
+  assignedProspectAccounts ProspectAccount[]  @relation("ProspectAssignee")
+  microAuditsCreated       MicroAudit[]       @relation("MicroAuditCreator")
+  sequencesCreated         OutreachSequence[] @relation("SequenceCreator")
+  outreachMessagesCreated  OutreachMessage[]  @relation("OutreachMessageCreator")
 }
 
 model Account {
@@ -89,6 +94,7 @@ model Organization {
   name      String
   slug      String   @unique
   isDemo    Boolean  @default(false)
+  isPlatform Boolean @default(false) // the one internal "Kaivaryn" org that hosts acquisition-system rows — excluded from client-org listings
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -121,7 +127,8 @@ model Organization {
   evidence               Evidence[]
   learningEvents         LearningEvent[]
   learningProfiles       LearningProfile[]
-  acquisitionAccounts    AcquisitionAccount[] @relation("AcquisitionOnboardingOrg")
+
+  originatingProspectAccount ProspectAccount?
 }
 
 model Membership {
@@ -199,6 +206,7 @@ model Subscription {
   priceCents     Int
   seatNumber     Int?
   stripeRef      String?
+  stripeCustomerId String?
   startedAt      DateTime?
   endsAt         DateTime?
   createdAt      DateTime  @default(now())
@@ -235,13 +243,15 @@ model DemoRequest {
   zoomLink    String?  // per-lead meeting URL (prospect preferred or admin-scheduled)
   status      String   @default("NEW")
   notes       String?
+  prospectAccountId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  acquisitionAccount AcquisitionAccount?
+  prospectAccount ProspectAccount? @relation(fields: [prospectAccountId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([email])
+  @@index([prospectAccountId])
 }
 
 model IntegrationConnection {
@@ -657,6 +667,7 @@ model Evidence {
   opportunityId    String?
   inefficiencyId   String?
   findingId        String?
+  prospectAccountId String? // acquisition-system evidence (organizationId = platform org)
   kind             String   @default("FACT") // FACT | METRIC | DOCUMENT | RULE_HIT
   summary          String
   detailJson       String?
@@ -664,14 +675,16 @@ model Evidence {
   sourceId         String?
   createdAt        DateTime @default(now())
 
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  opportunity    Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  inefficiency   Inefficiency? @relation(fields: [inefficiencyId], references: [id], onDelete: Cascade)
-  finding        Finding?      @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity     Opportunity?     @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  inefficiency    Inefficiency?    @relation(fields: [inefficiencyId], references: [id], onDelete: Cascade)
+  finding         Finding?         @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  prospectAccount ProspectAccount? @relation(fields: [prospectAccountId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
   @@index([opportunityId])
   @@index([inefficiencyId])
+  @@index([prospectAccountId])
   @@index([findingId])
 }
 
@@ -693,9 +706,10 @@ model Comment {
 model Finding {
   id               String   @id @default(cuid())
   organizationId   String
-  product          String   // REVENUE_RECOVERY | OPERATIONS_EFFICIENCY
+  product          String   // REVENUE_RECOVERY | OPERATIONS_EFFICIENCY | CLIENT_ACQUISITION
   opportunityId    String?
   inefficiencyId   String?
+  prospectAccountId String? // acquisition pain/opportunity hypotheses (organizationId = platform org); ruleId doubles as pain category
   status           String   @default("OPEN") // OPEN | ACCEPTED | REJECTED | INSUFFICIENT_DATA
   // Evidence | Analysis | Recommendation | Decision
   evidenceSummary  String?
@@ -709,13 +723,15 @@ model Finding {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  opportunity    Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-  inefficiency   Inefficiency? @relation(fields: [inefficiencyId], references: [id], onDelete: SetNull)
-  evidence       Evidence[]
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  opportunity     Opportunity?     @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  inefficiency    Inefficiency?    @relation(fields: [inefficiencyId], references: [id], onDelete: SetNull)
+  prospectAccount ProspectAccount? @relation(fields: [prospectAccountId], references: [id], onDelete: SetNull)
+  evidence        Evidence[]
 
   @@index([organizationId, product])
   @@index([organizationId, status])
+  @@index([prospectAccountId])
 }
 
 model ImportJob {
@@ -815,299 +831,241 @@ model EmailDraft {
   @@index([organizationId])
 }
 
-model AcquisitionAccount {
-  id                       String    @id @default(cuid())
-  company                  String
-  domain                   String?   @unique
-  website                  String?
-  industry                 String?
-  companySize              String?
-  estimatedRevenue         Float?
-  location                 String?
-  stage                    String    @default("DETECTED")
-  source                   String?
-  primaryName              String?
-  primaryEmail             String?
-  primaryTitle             String?
-  phone                    String?
-  intentScore              Int       @default(0)
-  qualificationScore       Int       @default(0)
-  qualificationBand        String    @default("UNSCORED")
-  painSummary              String?
-  economicHypothesis       String?
-  secondaryQualificationJson String?
-  objectionsJson           String    @default("[]")
-  stakeholdersJson         String    @default("[]")
-  nextAction               String?
-  demoOutcome              String?
-  demoNotes                String?
-  lossReason               String?
-  winReason                String?
-  selectedProduct          String?
-  estimatedDealValueCents  Int?
-  demoRequestId            String?   @unique
-  demoCompletedAt          DateTime?
-  checkoutToken            String?   @unique
-  checkoutReadyAt          DateTime?
-  paymentStatus            String    @default("NOT_READY")
-  stripeRef                String?
-  paidAt                   DateTime?
-  onboardingOrganizationId String?
-  createdAt                DateTime  @default(now())
-  updatedAt                DateTime  @updatedAt
+// =========================================================================
+// CLIENT ACQUISITION INTELLIGENCE SYSTEM
+// Platform-level (no organizationId) — Kaivaryn's own sales engine, not a
+// tenant-facing product. See docs/kaivaryn-acquisition-implementation-package.md
+// =========================================================================
 
-  demoRequest            DemoRequest?            @relation(fields: [demoRequestId], references: [id], onDelete: SetNull)
-  onboardingOrganization Organization?           @relation("AcquisitionOnboardingOrg", fields: [onboardingOrganizationId], references: [id], onDelete: SetNull)
-  contacts               AcquisitionContact[]
-  intentSignals          IntentSignal[]
-  qualificationSnapshots QualificationSnapshot[]
-  research               AccountResearch?
-  microAudits            MicroAudit[]
-  outreachMessages       OutreachMessage[]
-  activities             AcquisitionActivity[]
-  paymentEvents          PaymentEvent[]
-  calls                  AcquisitionCall[]
-  inboundEvents          AcquisitionInboundEvent[]
-
-  @@index([domain])
-  @@index([primaryEmail])
-  @@index([stage])
-  @@index([qualificationBand])
-  @@index([paymentStatus])
-  @@index([createdAt])
-}
-
-model AcquisitionContact {
-  id             String   @id @default(cuid())
-  accountId      String
-  name           String?
-  email          String?
-  title          String?
-  phone          String?
-  publicProfile  String?
-  authorityScore Int      @default(0)
-  isPrimary      Boolean  @default(false)
-  source         String?
-  verified       Boolean  @default(false)
-  timezone       String?
-  phoneConsentAt DateTime?
-  phoneConsentSource String?
-  doNotCallAt    DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  account          AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  outreachMessages OutreachMessage[]
-  calls            AcquisitionCall[]
-  inboundEvents    AcquisitionInboundEvent[]
-
-  @@unique([accountId, email])
-  @@index([accountId])
-  @@index([email])
+model AcquisitionSettings {
+  id                        String   @id @default(cuid())
+  key                       String   @unique @default("default")
+  weightIcpFit              Float    @default(0.25)
+  weightIntent              Float    @default(0.25)
+  weightPain                Float    @default(0.20)
+  weightEconomicValue       Float    @default(0.15)
+  weightDecisionMakerAccess Float    @default(0.10)
+  weightTiming              Float    @default(0.05)
+  priorityThreshold         Float    @default(75)
+  nurtureThreshold          Float    @default(55)
+  icpMinEmployees           Int      @default(20)
+  icpMaxEmployees           Int      @default(500)
+  icpMinRevenueUsd          Float    @default(2000000)
+  icpMaxRevenueUsd          Float    @default(75000000)
+  updatedAt                 DateTime @updatedAt
+  createdAt                 DateTime @default(now())
 }
 
 model IntentSignal {
-  id         String   @id @default(cuid())
-  accountId  String
-  fingerprint String  @unique
-  type       String
-  category   String
-  source     String
-  sourceUrl  String?
-  evidence   String?
-  strength   Int      @default(50)
-  confidence Int      @default(50)
-  occurredAt DateTime @default(now())
-  createdAt  DateTime @default(now())
+  id                String    @id @default(cuid())
+  companyName       String
+  domain            String?
+  signalType        String
+  signalCategory    String
+  source            String
+  sourceId          String?
+  sourceUrl         String?
+  detectedAt        DateTime  @default(now())
+  confidence        String    @default("low")
+  strength          Float     @default(0)
+  reasoning         String?
+  rawDataJson       String?
+  status            String    @default("NEW")
+  prospectAccountId String?
+  createdAt         DateTime  @default(now())
 
-  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  prospectAccount ProspectAccount? @relation(fields: [prospectAccountId], references: [id], onDelete: SetNull)
 
-  @@index([accountId, occurredAt])
-  @@index([category])
-  @@index([source])
+  @@unique([source, sourceId])
+  @@index([status])
+  @@index([domain])
+  @@index([prospectAccountId])
 }
 
-model QualificationSnapshot {
-  id                  String   @id @default(cuid())
-  accountId           String
-  icpFit              Int
-  intentStrength      Int
-  painOpportunity     Int
-  economicValue       Int
-  decisionMakerAccess Int
-  timingUrgency       Int
-  total               Int
-  band                String
-  reasoningJson       String
-  version             String   @default("v1")
-  createdAt           DateTime @default(now())
+model ProspectAccount {
+  id                       String    @id @default(cuid())
+  name                     String
+  domain                   String?   @unique
+  industry                 String?
+  employeeCountEstimate    Int?
+  estimatedRevenueUsd      Float?
+  location                 String?
+  technologyStackJson      String?
+  description              String?
+  status                   String    @default("DETECTED")
+  priority                 String    @default("MEDIUM")
+  intentScore              Float     @default(0)
+  qualificationScore       Float     @default(0)
+  qualificationFactorsJson String?
+  estimatedDealValueCents  Int?
+  incumbentSolution        String?
+  stakeholdersJson         String?
+  objectionsJson           String?
+  lossReason               String?
+  winReason                String?
+  expectedCloseAt          DateTime?
+  disqualifiedReason       String?
+  nurtureUntil             DateTime?
+  demoScheduledAt          DateTime?
+  demoCompletedAt          DateTime?
+  qualifiedToBuyAt         DateTime?
+  checkoutReadyAt          DateTime?
+  checkoutStartedAt        DateTime?
+  paymentSucceededAt       DateTime?
+  source                   String?
+  sourceId                 String?
+  assigneeId               String?
+  wonOrganizationId        String?   @unique
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
-  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  assignee        User?                 @relation("ProspectAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  wonOrganization Organization?         @relation(fields: [wonOrganizationId], references: [id], onDelete: SetNull)
+  contacts        ProspectContact[]
+  intentSignals   IntentSignal[]
+  research        AccountResearch?
+  microAudits     MicroAudit[]
+  sequences       OutreachSequence[]
+  demoRequests    DemoRequest[]
+  // Pain/opportunity hypotheses and their supporting evidence reuse the
+  // existing Finding/Evidence tables (product: "CLIENT_ACQUISITION",
+  // organizationId: the platform org) rather than parallel models —
+  // see prospectAccountId on Finding/Evidence above.
+  findings        Finding[]
+  evidence        Evidence[]
 
-  @@index([accountId, createdAt])
-  @@index([band])
+  @@index([status])
+  @@index([priority])
+  @@index([qualificationScore])
+  @@index([source, sourceId])
+}
+
+model ProspectContact {
+  id                String   @id @default(cuid())
+  prospectAccountId String
+  name              String
+  title             String?
+  seniorityRole     String?
+  email             String?
+  phone             String?
+  linkedinUrl       String?
+  isEconomicBuyer   Boolean  @default(false)
+  source            String?
+  sourceId          String?
+  createdAt         DateTime @default(now())
+
+  prospectAccount ProspectAccount    @relation(fields: [prospectAccountId], references: [id], onDelete: Cascade)
+  sequences       OutreachSequence[]
+  replies         ReplyRecord[]
+
+  @@index([prospectAccountId])
+  @@unique([prospectAccountId, email])
 }
 
 model AccountResearch {
-  id                   String   @id @default(cuid())
-  accountId            String   @unique
-  status               String   @default("DRAFT")
-  businessModel        String?
-  revenueModel         String?
-  verifiedFactsJson    String   @default("[]")
-  hypothesesJson       String   @default("[]")
-  techStackJson        String   @default("[]")
-  painHypothesesJson   String   @default("[]")
-  evidenceJson         String   @default("[]")
-  researchedAt         DateTime?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  prospectAccountId   String   @unique
+  summary             String?
+  verifiedFactsJson   String?
+  recentEventsJson    String?
+  status              String   @default("INSUFFICIENT_DATA")
+  requiredSignalsJson String?
+  generatedAt         DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  prospectAccount ProspectAccount @relation(fields: [prospectAccountId], references: [id], onDelete: Cascade)
 }
 
 model MicroAudit {
-  id                      String    @id @default(cuid())
-  accountId               String
-  status                  String    @default("DRAFT")
-  observation             String
-  evidenceSummary         String
-  economicHypothesis      String
-  diagnosticQuestionsJson String    @default("[]")
-  recommendedIntervention String?
-  reverseSellMessage      String
-  approvedAt              DateTime?
-  createdAt               DateTime  @default(now())
-  updatedAt               DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  prospectAccountId String
+  title             String
+  summary           String
+  bodyMarkdown      String
+  status            String    @default("DRAFT")
+  findingIds        String?   // JSON array of accepted Finding ids (product: CLIENT_ACQUISITION) assembled into this audit
+  createdById       String
+  createdAt         DateTime  @default(now())
+  sentAt            DateTime?
 
-  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  prospectAccount ProspectAccount @relation(fields: [prospectAccountId], references: [id], onDelete: Cascade)
+  createdBy       User            @relation("MicroAuditCreator", fields: [createdById], references: [id])
 
-  @@index([accountId, createdAt])
-  @@index([status])
+  @@index([prospectAccountId])
+}
+
+model OutreachSequence {
+  id                String    @id @default(cuid())
+  prospectAccountId String
+  contactId         String?
+  playbook          String
+  state             String    @default("ACTIVE")
+  currentStep       Int       @default(0)
+  suppressedReason  String?
+  createdById       String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  prospectAccount ProspectAccount   @relation(fields: [prospectAccountId], references: [id], onDelete: Cascade)
+  contact         ProspectContact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  createdBy       User              @relation("SequenceCreator", fields: [createdById], references: [id])
+  messages        OutreachMessage[]
+
+  @@index([prospectAccountId, state])
 }
 
 model OutreachMessage {
-  id             String    @id @default(cuid())
-  accountId      String
-  contactId      String?
-  channel        String    @default("EMAIL")
-  subject        String?
-  body           String
-  status         String    @default("DRAFT")
-  providerRef    String?
-  scheduledAt    DateTime?
-  sentAt         DateTime?
-  repliedAt      DateTime?
-  responseClass  String?
-  responseJson   String?
-  optedOutAt     DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  sequenceId   String
+  stepNumber   Int
+  channel      String
+  toAddress    String?
+  subject      String?
+  body         String
+  status       String    @default("DRAFT")
+  scheduledFor DateTime?
+  sentAt       DateTime?
+  createdById  String
+  createdAt    DateTime  @default(now())
 
-  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  contact AcquisitionContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  sequence  OutreachSequence @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  createdBy User             @relation("OutreachMessageCreator", fields: [createdById], references: [id])
+  replies   ReplyRecord[]
 
-  @@index([accountId, status])
-  @@index([contactId])
-  @@index([scheduledAt])
+  @@index([sequenceId, status])
 }
 
+model ReplyRecord {
+  id                 String   @id @default(cuid())
+  outreachMessageId  String?
+  contactId          String?
+  intent             String?
+  extractedJson      String?
+  rawBody            String?
+  receivedAt         DateTime @default(now())
 
-model AcquisitionProviderConnection {
-  id                    String    @id @default(cuid())
-  provider              String    @unique
-  status                String    @default("DISCONNECTED")
-  accountLabel          String?
-  accessTokenEncrypted  String?
-  refreshTokenEncrypted String?
-  expiresAt             DateTime?
-  scopes                 String?
-  syncCursor             String?
-  lastSyncAt             DateTime?
-  lastError              String?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  outreachMessage OutreachMessage? @relation(fields: [outreachMessageId], references: [id], onDelete: SetNull)
+  contact         ProspectContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
 
-  @@index([status])
+  @@index([outreachMessageId])
 }
 
-model AcquisitionInboundEvent {
-  id              String   @id @default(cuid())
-  provider        String
-  providerEventId String
-  accountId       String
-  contactId       String?
-  channel         String   @default("EMAIL")
-  sender          String?
-  subject         String?
-  body            String
-  responseClass   String?
-  receivedAt      DateTime
-  createdAt       DateTime @default(now())
-
-  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  contact AcquisitionContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-
-  @@unique([provider, providerEventId])
-  @@index([accountId, receivedAt])
-  @@index([contactId])
-}
-
-model AcquisitionCall {
-  id             String    @id @default(cuid())
-  accountId      String
-  contactId      String?
-  provider       String    @default("TWILIO")
-  providerCallId String?   @unique
-  direction      String    @default("OUTBOUND")
-  status         String    @default("QUEUED")
-  fromNumber     String?
-  toNumber       String
-  consentBasis   String
-  scriptVersion  String    @default("exec-v1")
-  turnsJson      String    @default("[]")
-  summary        String?
-  disposition    String?
-  startedAt      DateTime?
-  endedAt        DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  contact AcquisitionContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-
-  @@index([accountId, createdAt])
-  @@index([contactId, createdAt])
-  @@index([status])
-}
-
-model AcquisitionActivity {
+model SuppressionEntry {
   id        String   @id @default(cuid())
-  accountId String
-  type      String
-  summary   String
-  dataJson  String?
+  email     String?  @unique
+  domain    String?
+  reason    String   @default("OPTED_OUT")
   createdAt DateTime @default(now())
 
-  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@index([accountId, createdAt])
-  @@index([type])
+  @@index([domain])
 }
 
-model PaymentEvent {
-  id                   String   @id @default(cuid())
-  accountId            String
-  eventId              String   @unique
-  type                 String
-  amountCents          Int?
-  currency             String?
-  stripeCustomerId     String?
-  stripeSubscriptionId String?
-  createdAt            DateTime @default(now())
-
-  account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@index([accountId, createdAt])
+// Idempotency ledger for Stripe webhook events — a repeated delivery of the
+// same event id must never re-run provisioning.
+model StripeWebhookEvent {
+  id            String   @id @default(cuid())
+  stripeEventId String   @unique
+  type          String
+  payloadJson   String?
+  processedAt   DateTime @default(now())
 }
-

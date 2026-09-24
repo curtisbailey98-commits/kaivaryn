@@ -7,9 +7,7 @@ export const metadata: Metadata = { title: "Activate your workspace" };
 
 export default async function ActivatePage() {
   const session = await getServerSession(authOptions);
-  const callback = "/app/onboarding?from=payment";
-  const destination = session?.user?.id ? callback : `/login?callbackUrl=${encodeURIComponent(callback)}`;
-  const registerDestination = `/register?callbackUrl=${encodeURIComponent(callback)}`;
+  const destination = session?.user?.id ? "/app/onboarding?from=payment" : "/login?callbackUrl=%2Fapp%2Fonboarding%3Ffrom%3Dpayment";
   return (
     <div className="relative overflow-hidden">
       <div className="public-grid pointer-events-none absolute inset-0 opacity-25" />
@@ -22,8 +20,8 @@ export default async function ActivatePage() {
           <div className="public-card p-5"><p className="font-mono text-xs text-amber-500">02</p><p className="mt-3 text-sm font-semibold text-white">Configure scope</p><p className="mt-2 text-xs leading-5 text-neutral-500">Choose products, review integrations, and confirm your team.</p></div>
           <div className="public-card p-5"><p className="font-mono text-xs text-amber-500">03</p><p className="mt-3 text-sm font-semibold text-white">Enter the command center</p><p className="mt-2 text-xs leading-5 text-neutral-500">Start with the signals most likely to create measurable value.</p></div>
         </div>
-        <div className="mt-10 flex flex-wrap gap-3"><Link href={destination} className="public-button-primary">Continue to activation <span aria-hidden>↗</span></Link>{!session?.user?.id ? <Link href={registerDestination} className="public-button-secondary">Create client access</Link> : null}<Link href="/contact" className="public-button-secondary">Need help?</Link></div>
-        <p className="mt-5 text-xs text-neutral-600">Payment status is verified server-side through the Stripe webhook. Use the same work email from your post-demo engagement so Kaivaryn can attach you to the provisioned workspace.</p>
+        <div className="mt-10 flex flex-wrap gap-3"><Link href={destination} className="public-button-primary">Continue to activation <span aria-hidden>↗</span></Link><Link href="/contact" className="public-button-secondary">Need help?</Link></div>
+        <p className="mt-5 text-xs text-neutral-600">This page does not verify payment status. Entitlements are confirmed through your Kaivaryn engagement workflow.</p>
       </div>
     </div>
   );

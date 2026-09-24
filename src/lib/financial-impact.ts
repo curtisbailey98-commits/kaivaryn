@@ -84,3 +84,41 @@ export function urgencyScore(opts: {
 export function impactForRanking(product: "RR" | "OE", amount: number): number {
   return Math.max(0, amount);
 }
+
+/**
+ * Client Acquisition pain/opportunity impact estimate. Same rule as above:
+ * this is the ONLY place an acquisition-system estimate is produced — the
+ * pain engine and reverse-selling copy must read the number from here, never
+ * invent one, and every caller must keep presenting it as an estimate
+ * ("modeled", "estimated") until the prospect's own numbers confirm it.
+ */
+export function estimateAcquisitionImpact(input: {
+  category: string;
+  employeeCountEstimate?: number | null;
+  estimatedRevenueUsd?: number | null;
+  signalStrength?: number; // 0-100
+}): { estimatedImpactUsd: number | null; estimateOnly: true; basis: string } {
+  // Deliberately conservative and only produced when we have at least one
+  // real sizing signal — otherwise we return null rather than fabricate a
+  // number, matching intelligence.ts's INSUFFICIENT_DATA discipline.
+  const revenue = input.estimatedRevenueUsd ?? null;
+  const headcount = input.employeeCountEstimate ?? null;
+  if (!revenue && !headcount) {
+    return { estimatedImpactUsd: null, estimateOnly: true, basis: "insufficient sizing data" };
+  }
+  // Rough, clearly-labeled heuristic: 0.5-2% of estimated revenue (or a
+  // headcount-based proxy when revenue is unknown), scaled down for weaker
+  // signal strength. This is a starting default, not a claim of precision —
+  // AcquisitionSettings/qualification.ts govern how much weight it carries.
+  const strengthFactor = Math.max(0.25, Math.min(1, (input.signalStrength ?? 50) / 100));
+  let base: number;
+  let basis: string;
+  if (revenue) {
+    base = revenue * 0.01 * strengthFactor;
+    basis = `~1% of estimated revenue (${revenue.toLocaleString()}), scaled by signal strength`;
+  } else {
+    base = (headcount ?? 0) * 2000 * strengthFactor;
+    basis = `headcount proxy (${headcount} employees × $2,000), scaled by signal strength`;
+  }
+  return { estimatedImpactUsd: Math.round(base), estimateOnly: true, basis };
+}

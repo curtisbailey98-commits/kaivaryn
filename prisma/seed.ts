@@ -55,9 +55,7 @@ async function main() {
     },
   });
 
-  const adminPassword = process.env.BOOTSTRAP_ADMIN_PASSWORD || (process.env.NODE_ENV === "production" ? null : "KaivarynAdmin!2026");
-  if (!adminPassword) throw new Error("BOOTSTRAP_ADMIN_PASSWORD is required in production; refusing to seed a public default super-admin password.");
-  const adminHash = await hash(adminPassword, 12);
+  const adminHash = await hash("KaivarynAdmin!2026", 12);
   const admin = await prisma.user.upsert({
     where: { email: "admin@kaivaryn.com" },
     update: { passwordHash: adminHash, role: Role.SUPER_ADMIN, name: "Kaivaryn Admin" },
@@ -724,7 +722,7 @@ async function main() {
   void sales;
 
   console.log("Seed complete.");
-  console.log(`  Super admin: admin@kaivaryn.com / ${process.env.NODE_ENV === "production" ? "[BOOTSTRAP_ADMIN_PASSWORD env]" : "KaivarynAdmin!2026"}`);
+  console.log("  Super admin: admin@kaivaryn.com / KaivarynAdmin!2026");
   console.log("  Demo user:   demo@kaivaryn.com / DemoClient!2026");
   console.log("  Demo org:    Acme Demo (DEMO)");
   console.log("  Other org:   Other Co (TEST) — isolation foil");

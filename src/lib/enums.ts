@@ -103,3 +103,119 @@ export const OE_STATUSES = [
   "VERIFIED",
   "DISMISSED",
 ] as const;
+
+/** Client Acquisition Intelligence System — Kaivaryn's own sales pipeline. */
+export const ProspectAccountStatus = {
+  DETECTED: "DETECTED",
+  RESOLVED: "RESOLVED",
+  PREQUALIFIED: "PREQUALIFIED",
+  RESEARCHING: "RESEARCHING",
+  QUALIFIED: "QUALIFIED",
+  AUDITED: "AUDITED",
+  OUTREACH_READY: "OUTREACH_READY",
+  CONTACTED: "CONTACTED",
+  ENGAGED: "ENGAGED",
+  SALES_QUALIFIED: "SALES_QUALIFIED",
+  DEMO_BOOKED: "DEMO_BOOKED",
+  DEMO_COMPLETED: "DEMO_COMPLETED",
+  QUALIFIED_TO_BUY: "QUALIFIED_TO_BUY",
+  CHECKOUT_READY: "CHECKOUT_READY",
+  CHECKOUT_STARTED: "CHECKOUT_STARTED",
+  PAYMENT_SUCCEEDED: "PAYMENT_SUCCEEDED",
+  ONBOARDING: "ONBOARDING",
+  ACTIVE: "ACTIVE",
+  NURTURE: "NURTURE",
+  DISQUALIFIED: "DISQUALIFIED",
+  NOT_INTERESTED: "NOT_INTERESTED",
+  UNSUBSCRIBED: "UNSUBSCRIBED",
+  LOST: "LOST",
+  PAYMENT_FAILED: "PAYMENT_FAILED",
+  ABANDONED: "ABANDONED",
+  HOLD: "HOLD",
+} as const;
+export type ProspectAccountStatus = (typeof ProspectAccountStatus)[keyof typeof ProspectAccountStatus];
+
+/** Forward-only backbone of the acquisition lifecycle (validated in deal-intelligence.ts).
+ *  NURTURE / DISQUALIFIED / NOT_INTERESTED / UNSUBSCRIBED / HOLD / LOST / PAYMENT_FAILED / ABANDONED
+ *  are reachable as exit/side states from anywhere in the backbone, not part of the linear order. */
+export const PROSPECT_STATUS_BACKBONE = [
+  "DETECTED",
+  "RESOLVED",
+  "PREQUALIFIED",
+  "RESEARCHING",
+  "QUALIFIED",
+  "AUDITED",
+  "OUTREACH_READY",
+  "CONTACTED",
+  "ENGAGED",
+  "SALES_QUALIFIED",
+  "DEMO_BOOKED",
+  "DEMO_COMPLETED",
+  "QUALIFIED_TO_BUY",
+  "CHECKOUT_READY",
+  "CHECKOUT_STARTED",
+  "PAYMENT_SUCCEEDED",
+  "ONBOARDING",
+  "ACTIVE",
+] as const;
+export const PROSPECT_EXIT_STATUSES = [
+  "NURTURE",
+  "DISQUALIFIED",
+  "NOT_INTERESTED",
+  "UNSUBSCRIBED",
+  "LOST",
+  "PAYMENT_FAILED",
+  "ABANDONED",
+  "HOLD",
+] as const;
+
+export const IntentSignalStatus = { NEW: "NEW", RESOLVED: "RESOLVED", DISCARDED: "DISCARDED" } as const;
+export type IntentSignalStatus = (typeof IntentSignalStatus)[keyof typeof IntentSignalStatus];
+
+export const OutreachMessageStatus = {
+  DRAFT: "DRAFT",
+  SCHEDULED: "SCHEDULED",
+  SENT: "SENT",
+  DELIVERED: "DELIVERED",
+  BOUNCED: "BOUNCED",
+  REPLIED: "REPLIED",
+  FAILED: "FAILED",
+} as const;
+export type OutreachMessageStatus = (typeof OutreachMessageStatus)[keyof typeof OutreachMessageStatus];
+
+export const SequenceState = {
+  ACTIVE: "ACTIVE",
+  PAUSED: "PAUSED",
+  COMPLETED: "COMPLETED",
+  STOPPED: "STOPPED",
+  OPTED_OUT: "OPTED_OUT",
+} as const;
+export type SequenceState = (typeof SequenceState)[keyof typeof SequenceState];
+
+export const ReplyIntent = {
+  INTERESTED: "INTERESTED",
+  CURIOUS: "CURIOUS",
+  NEEDS_INFO: "NEEDS_INFO",
+  PRICING_QUESTION: "PRICING_QUESTION",
+  TECHNICAL_QUESTION: "TECHNICAL_QUESTION",
+  NOT_NOW: "NOT_NOW",
+  OBJECTION: "OBJECTION",
+  REFERRAL: "REFERRAL",
+  WRONG_PERSON: "WRONG_PERSON",
+  NOT_INTERESTED: "NOT_INTERESTED",
+  UNSUBSCRIBE: "UNSUBSCRIBE",
+  MEETING_REQUEST: "MEETING_REQUEST",
+  OTHER: "OTHER",
+} as const;
+export type ReplyIntent = (typeof ReplyIntent)[keyof typeof ReplyIntent];
+
+export const AcquisitionPlaybook = {
+  REVENUE_RECOVERY: "revenue_recovery",
+  OPERATIONS_EFFICIENCY: "operations_efficiency",
+  AI_AGENTS: "ai_agents",
+  SALES_AUTOMATION: "sales_automation",
+  CUSTOMER_SERVICE_AUTOMATION: "customer_service_automation",
+  LEAD_CONVERSION: "lead_conversion",
+  WORKFLOW_AUTOMATION: "workflow_automation",
+} as const;
+export type AcquisitionPlaybook = (typeof AcquisitionPlaybook)[keyof typeof AcquisitionPlaybook];
