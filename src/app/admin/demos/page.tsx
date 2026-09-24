@@ -19,7 +19,7 @@ const PIPELINE: DemoRequestStatus[] = [
 ];
 
 export default async function AdminDemosPage() {
-  const demos = await prisma.demoRequest.findMany({ orderBy: { createdAt: "desc" }, take: 200 });
+  const demos = await prisma.demoRequest.findMany({ orderBy: { createdAt: "desc" }, take: 200, include: { acquisitionAccount: true } });
   return (
     <div>
       <h1 className="text-xl font-semibold">Demo leads</h1>
@@ -56,6 +56,11 @@ export default async function AdminDemosPage() {
               <p className="mt-2 rounded-md border border-amber-900/60 bg-amber-950/30 px-2 py-1.5 text-xs text-amber-200">
                 Status is SCHEDULED — set a Zoom link so the lead has a meeting URL.
               </p>
+            ) : null}
+            {d.acquisitionAccount ? (
+              <a href={`/admin/acquisition/${d.acquisitionAccount.id}`} className="mt-2 inline-block text-xs text-amber-400 hover:text-amber-300">
+                Open acquisition intelligence →
+              </a>
             ) : null}
             <form
               action={async (fd) => {

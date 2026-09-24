@@ -4,11 +4,13 @@ import { requireEntitlement } from "@/lib/entitlements";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { analyzeOperationsSignals } from "@/lib/intelligence";
 import { Prisma } from "@prisma/client";
+import { PageHeader } from "@/components/ui/page-header";
+import { MetricCard } from "@/components/ui/metric-card";
+import { Clock3, Cog, Gauge, ShieldCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +40,7 @@ export default async function OperationsPage({
     ...(VIEWS[view].where || {}),
   };
 
-  const [items, agg, autoCount] = await Promise.all([
+  const [items, agg, autoCount, criticalCount, pendingApprovals, hours] = await Promise.all([
     prisma.inefficiency.findMany({
       where,
       orderBy: [{ score: "desc" }, { projectedSavings: "desc" }],
@@ -46,12 +48,17 @@ export default async function OperationsPage({
     }),
     prisma.inefficiency.aggregate({
       where: { organizationId: ctx.organizationId },
-      _sum: { estimatedWasteAnnual: true, recoveredAnnual: true },
+      _sum: { estimatedWasteAnnual: true, projectedSavings: true, recoveredAnnual: true, realizedSavings: true },
       _count: true,
     }),
     prisma.inefficiency.count({
       where: { organizationId: ctx.organizationId, automationCandidate: true },
     }),
+    prisma.inefficiency.count({
+      where: { organizationId: ctx.organizationId, priority: "CRITICAL", status: { notIn: ["REALIZED", "VERIFIED", "RESOLVED", "DISMISSED"] } },
+    }),
+    prisma.approvalRequest.count({ where: { organizationId: ctx.organizationId, status: "PENDING" } }),
+    prisma.inefficiency.aggregate({ where: { organizationId: ctx.organizationId }, _sum: { projectedHoursWeekly: true, realizedHoursWeekly: true } }),
   ]);
 
   const intel = analyzeOperationsSignals({
@@ -62,33 +69,25 @@ export default async function OperationsPage({
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="si-label text-amber-500">Product</p>
-          <h1 className="mt-1 text-2xl font-semibold">Operations Efficiency</h1>
-          {ctx.organization?.isDemo ? <Badge tone="demo" className="mt-2">DEMO data</Badge> : null}
-        </div>
-        <div className="flex gap-2 text-sm">
+      <PageHeader eyebrow="Executive decision system" title="Operations Efficiency" description="Translate operational friction into financial impact, governed interventions, and measured results." actions={<div className="flex flex-wrap gap-2 text-sm">
+          {ctx.organization?.isDemo ? <Badge tone="demo">DEMO data</Badge> : null}
           <Link href="/app/operations/new" className="rounded-md bg-amber-500 px-3 py-2 font-semibold text-neutral-950">New inefficiency</Link>
           <Link href="/app/operations/analytics" className="rounded-md border border-neutral-700 px-3 py-2">Analytics</Link>
-        </div>
+        </div>} />
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="Annualized inefficiency" value={formatCurrency(agg._sum.estimatedWasteAnnual ?? 0)} sublabel="Modeled cost exposure" icon={Gauge} tone="accent" />
+        <MetricCard label="Addressable savings" value={formatCurrency(agg._sum.projectedSavings ?? 0)} sublabel={`${criticalCount} critical signals`} icon={Cog} />
+        <MetricCard label="Realized savings" value={formatCurrency(agg._sum.realizedSavings ?? agg._sum.recoveredAnnual ?? 0)} sublabel="Recorded outcomes only" icon={ShieldCheck} tone="success" />
+        <MetricCard label="Time opportunity" value={`${(hours._sum.projectedHoursWeekly ?? 0).toFixed(1)}h`} sublabel={`${autoCount} automation candidates · weekly`} icon={Clock3} />
       </div>
+      <p className="mt-2 text-xs text-neutral-500">Projected and realized value remain separate. High-impact execution is approval-gated.</p>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardHeader><CardTitle>Est. annual waste</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-semibold text-amber-400">{formatCurrency(agg._sum.estimatedWasteAnnual ?? 0)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Recovered efficiency</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-semibold text-emerald-400">{formatCurrency(agg._sum.recoveredAnnual ?? 0)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Automation candidates</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-semibold">{autoCount}</CardContent>
-        </Card>
+        <Link href="/app/operations?view=critical" className="rounded-xl border border-red-500/20 bg-red-500/[0.04] p-4"><p className="text-[10px] uppercase tracking-wider text-red-300">Immediate attention</p><p className="mt-2 text-2xl font-semibold text-white">{criticalCount}</p><p className="mt-1 text-xs text-neutral-500">Critical unresolved bottlenecks</p></Link>
+        <Link href="/app/approvals" className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-4"><p className="text-[10px] uppercase tracking-wider text-amber-300">Decision queue</p><p className="mt-2 text-2xl font-semibold text-white">{pendingApprovals}</p><p className="mt-1 text-xs text-neutral-500">Actions awaiting approval</p></Link>
+        <Link href="/app/operations?view=automation" className="rounded-xl border border-neutral-800 bg-neutral-950 p-4"><p className="text-[10px] uppercase tracking-wider text-neutral-500">Execution readiness</p><p className="mt-2 text-2xl font-semibold text-white">{autoCount}</p><p className="mt-1 text-xs text-neutral-500">Automation candidates identified</p></Link>
       </div>
-      <p className="mt-2 text-xs text-neutral-500">Automation is approval-gated — never auto-executed externally (SI pattern).</p>
 
       <div className="si-glass mt-6 p-4 text-sm">
         <p className="si-label">Intelligence</p>

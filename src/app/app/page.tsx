@@ -19,15 +19,15 @@ export default async function AppHomePage() {
   });
   const hasRevenue = entitlements.some((e) => e.product === "REVENUE_RECOVERY");
   const hasOps = entitlements.some((e) => e.product === "OPERATIONS_EFFICIENCY");
-  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks, learning, topOpportunities, topInefficiencies] = await Promise.all([
+  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks, learning, topOpportunities, topInefficiencies, highConfidenceRevenue, criticalOperations] = await Promise.all([
     prisma.opportunity.aggregate({
       where: { organizationId: ctx.organizationId },
-      _sum: { estimatedAmount: true, recoveredAmount: true },
+      _sum: { estimatedAmount: true, recoveredAmount: true, verifiedAmount: true },
       _count: true,
     }),
     prisma.inefficiency.aggregate({
       where: { organizationId: ctx.organizationId },
-      _sum: { estimatedWasteAnnual: true, recoveredAnnual: true },
+      _sum: { estimatedWasteAnnual: true, projectedSavings: true, recoveredAnnual: true, realizedSavings: true },
       _count: true,
     }),
     prisma.approvalRequest.count({ where: { organizationId: ctx.organizationId, status: "PENDING" } }),
@@ -48,7 +48,16 @@ export default async function AppHomePage() {
           take: 3,
         })
       : Promise.resolve([]),
+    hasRevenue
+      ? prisma.opportunity.count({ where: { organizationId: ctx.organizationId, score: { gte: 70 }, status: { notIn: ["RECOVERED", "VERIFIED", "DISMISSED"] } } })
+      : Promise.resolve(0),
+    hasOps
+      ? prisma.inefficiency.count({ where: { organizationId: ctx.organizationId, priority: "CRITICAL", status: { notIn: ["REALIZED", "VERIFIED", "RESOLVED", "DISMISSED"] } } })
+      : Promise.resolve(0),
   ]);
+
+  const projectedValue = (revenue._sum.estimatedAmount ?? 0) + (operations._sum.projectedSavings ?? 0);
+  const verifiedValue = (revenue._sum.verifiedAmount ?? revenue._sum.recoveredAmount ?? 0) + (operations._sum.realizedSavings ?? operations._sum.recoveredAnnual ?? 0);
 
   const topItems = [
     ...topOpportunities.map((o) => ({ id: o.id, title: o.title, priority: o.priority, amount: o.potentialAmount, href: `/app/revenue/${o.id}`, kind: "Revenue" as const })),
@@ -81,6 +90,25 @@ export default async function AppHomePage() {
       />
 
       <NextBestAction title={nextAction.title} description={nextAction.description} href={nextAction.href} actionLabel="Review" />
+
+      <section className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-neutral-950 to-neutral-900/50 p-5 sm:p-6" aria-labelledby="executive-brief-title">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-400">Executive brief</p>
+            <h2 id="executive-brief-title" className="mt-2 text-xl font-semibold tracking-tight text-white">The value case, distilled.</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">Kaivaryn separates modeled opportunity from verified results, then ranks the decisions that can move value into execution.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:min-w-72">
+            <div><p className="text-[10px] uppercase tracking-wider text-neutral-500">Projected value</p><p className="mt-1 text-xl font-semibold text-white">{formatCurrency(projectedValue)}</p></div>
+            <div><p className="text-[10px] uppercase tracking-wider text-neutral-500">Verified value</p><p className="mt-1 text-xl font-semibold text-emerald-400">{formatCurrency(verifiedValue)}</p></div>
+          </div>
+        </div>
+        <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-neutral-800 bg-neutral-800 sm:grid-cols-3">
+          <Link href="/app/revenue?view=high_value" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">High-confidence recovery</p><p className="mt-2 text-2xl font-semibold text-white">{highConfidenceRevenue}</p><p className="mt-1 text-xs text-neutral-500">Open opportunities scoring 70+</p></Link>
+          <Link href="/app/operations?view=critical" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">Critical operational signals</p><p className="mt-2 text-2xl font-semibold text-white">{criticalOperations}</p><p className="mt-1 text-xs text-neutral-500">Unresolved items requiring attention</p></Link>
+          <Link href="/app/approvals" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">Executive decisions</p><p className="mt-2 text-2xl font-semibold text-white">{pendingApprovals}</p><p className="mt-1 text-xs text-neutral-500">Approval-gated actions waiting</p></Link>
+        </div>
+      </section>
 
       <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-600">Value in motion</p>

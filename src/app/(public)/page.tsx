@@ -22,8 +22,8 @@ export default function HomePage() {
         <div className="relative mx-auto grid max-w-6xl gap-14 px-4 pb-20 pt-16 sm:px-6 sm:pb-28 sm:pt-24 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16">
           <div>
             <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-400">
-              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1">Kaivaryn OS</span>
-              <span className="text-neutral-500">Executive intelligence for consequential work</span>
+              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1">Executive AI Consulting</span>
+              <span className="text-neutral-500">Private intelligence for consequential decisions</span>
             </div>
             <h1 className="mt-7 max-w-3xl text-5xl font-semibold leading-[0.98] tracking-[-0.04em] text-white sm:text-6xl lg:text-7xl">
               Find the money.
@@ -31,7 +31,7 @@ export default function HomePage() {
               <span className="text-neutral-500">Remove the friction.</span>
             </h1>
             <p className="mt-7 max-w-xl text-base leading-7 text-neutral-300 sm:text-lg">
-              Kaivaryn gives finance and operations leaders a disciplined path from noisy business signals to owned, approved, measurable action.
+              Kaivaryn combines executive AI advisory, operating infrastructure, and enterprise intelligence to turn hidden revenue and operational friction into governed, measurable action.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link>

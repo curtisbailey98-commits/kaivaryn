@@ -11,7 +11,12 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
     "postinstall": "prisma generate",
-    "test:enterprise": "tsx scripts/enterprise-validation.ts"
+    "test:enterprise": "tsx scripts/enterprise-validation.ts",
+    "test:acquisition": "tsx scripts/acquisition-validation.ts",
+    "test:execution": "tsx scripts/execution-validation.ts",
+    "test:readiness": "tsx scripts/production-readiness.ts",
+    "typecheck": "tsc --noEmit",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

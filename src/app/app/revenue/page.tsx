@@ -4,14 +4,14 @@ import { requireEntitlement } from "@/lib/entitlements";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Badge, PriorityBadge, StatusBadge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { PageHeader } from "@/components/ui/page-header";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { analyzeRevenueSignals } from "@/lib/intelligence";
 import { Prisma } from "@prisma/client";
 import { OpportunityPriority, OpportunityStatus } from "@/lib/enums";
-import { Download, LineChart, Plus } from "lucide-react";
+import { CircleDollarSign, Crosshair, Download, LineChart, Plus, ShieldCheck, TrendingUp } from "lucide-react";
+import { MetricCard } from "@/components/ui/metric-card";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +55,7 @@ export default async function RevenuePage({
     if (searchParams.to) where.identifiedAt.lte = new Date(searchParams.to);
   }
 
-  const [opps, agg] = await Promise.all([
+  const [opps, agg, highConfidence, pendingApprovals] = await Promise.all([
     prisma.opportunity.findMany({
       where,
       orderBy: [{ score: "desc" }, { potentialAmount: "desc" }],
@@ -64,9 +64,11 @@ export default async function RevenuePage({
     }),
     prisma.opportunity.aggregate({
       where: { organizationId: ctx.organizationId },
-      _sum: { estimatedAmount: true, recoveredAmount: true },
+      _sum: { estimatedAmount: true, approvedAmount: true, inProgressAmount: true, recoveredAmount: true, verifiedAmount: true },
       _count: true,
     }),
+    prisma.opportunity.count({ where: { organizationId: ctx.organizationId, score: { gte: 70 }, status: { notIn: ["RECOVERED", "VERIFIED", "DISMISSED"] } } }),
+    prisma.approvalRequest.count({ where: { organizationId: ctx.organizationId, status: "PENDING" } }),
   ]);
 
   const sources = Array.from(new Set(opps.map((o) => o.source).filter(Boolean) as string[]));
@@ -102,19 +104,11 @@ export default async function RevenuePage({
         }
       />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardHeader><CardTitle>Estimated pipeline</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-semibold text-amber-400">{formatCurrency(estimated)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Recovered</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-semibold text-emerald-400">{formatCurrency(recovered)}</CardContent>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Open opportunities</CardTitle></CardHeader>
-          <CardContent className="text-2xl font-semibold">{agg._count}</CardContent>
-        </Card>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="Potential recoverable revenue" value={formatCurrency(estimated)} sublabel={`${agg._count} identified opportunities`} icon={CircleDollarSign} tone="accent" />
+        <MetricCard label="High-confidence opportunity" value={highConfidence} sublabel="Open opportunities scoring 70+" icon={Crosshair} />
+        <MetricCard label="Value in intervention" value={formatCurrency(agg._sum.inProgressAmount ?? 0)} sublabel={`${formatCurrency(agg._sum.approvedAmount ?? 0)} approved`} icon={TrendingUp} />
+        <MetricCard label="Verified recovery" value={formatCurrency(agg._sum.verifiedAmount ?? recovered)} sublabel={`${pendingApprovals} executive decisions pending`} icon={ShieldCheck} tone="success" />
       </div>
       <p className="mt-2 text-xs text-neutral-500">Estimated and recovered are always separate metrics.</p>
 
