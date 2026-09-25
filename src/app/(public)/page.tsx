@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Recover Revenue. Remove Friction.",
-  description: "Kaivaryn turns operational signals into governed, measurable action for finance and operations leaders.",
+  title: "Executive AI Consulting Firm",
+  description: "Kaivaryn diagnoses leakage and operational friction, recommends interventions, and measures results through a private intelligence workspace.",
 };
 
 const operatingModel = [
@@ -43,12 +43,11 @@ export default function HomePage() {
               <span><span className="mr-2 text-emerald-400">●</span>Evidence-aware</span>
             </div>
           </div>
-
           <div className="relative">
             <div className="public-terminal relative overflow-hidden rounded-2xl p-4 sm:p-5">
               <div className="flex items-center justify-between border-b border-white/10 pb-4 text-[10px] uppercase tracking-[0.2em] text-neutral-500">
                 <span>Executive signal room</span>
-                <span className="flex items-center gap-2 text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Live model</span>
+                <span className="flex items-center gap-2 text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Illustrative</span>
               </div>
               <div className="grid grid-cols-2 gap-3 py-5">
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
@@ -84,7 +83,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       <section className="border-b border-neutral-900 bg-neutral-950/70">
         <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:grid-cols-3 sm:px-6">
           <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">For finance leaders</p><p className="mt-2 text-sm text-neutral-300">Turn leakage into an owned recovery queue.</p></div>
@@ -92,7 +90,6 @@ export default function HomePage() {
           <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">For executives</p><p className="mt-2 text-sm text-neutral-300">See what matters, why it matters, and what happens next.</p></div>
         </div>
       </section>
-
       <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
         <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
           <div><p className="public-kicker">Two products. One operating standard.</p><h2 className="public-heading mt-4 max-w-2xl">A sharper way to move from signal to outcome.</h2></div>
@@ -115,7 +112,6 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
-
       <section className="border-y border-neutral-900 bg-neutral-950/60">
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 sm:py-24 lg:grid-cols-[0.75fr_1.25fr] lg:items-start">
           <div><p className="public-kicker">The Kaivaryn standard</p><h2 className="public-heading mt-4 max-w-lg">Fast enough for the business. Disciplined enough for the board.</h2><p className="mt-5 max-w-lg text-sm leading-6 text-neutral-400">Every recommendation is grounded in recorded signals, explicit confidence, and a visible next step. When the data is not enough, Kaivaryn says so.</p><Link href="/intelligence" className="mt-7 inline-block text-sm text-amber-400 hover:text-amber-300">How intelligence stays honest <span aria-hidden>→</span></Link></div>
@@ -124,7 +120,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
       <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
         <div className="public-card flex flex-col items-start justify-between gap-8 bg-amber-500/[0.06] p-7 sm:flex-row sm:items-center sm:p-10">
           <div><p className="public-kicker text-amber-400">Start with the business question</p><h2 className="mt-3 max-w-2xl text-2xl font-semibold text-white sm:text-3xl">Where is value being lost—and who owns the next move?</h2></div>
