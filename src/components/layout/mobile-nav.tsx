@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { Menu, X, type LucideIcon } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
+import { AppNavLink } from "@/components/layout/nav-link";
+import { SignOutButton } from "@/components/layout/sign-out-button";
 
 export type NavGroup = { label: string; items: Array<{ href: string; label: string; icon: LucideIcon }> };
 
@@ -20,7 +22,7 @@ export function MobileNav({ groups, adminHref }: { groups: NavGroup[]; adminHref
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Open navigation"
-          className="flex h-9 w-9 items-center justify-center rounded-md border border-neutral-800 text-neutral-300"
+          className="flex h-11 w-11 items-center justify-center rounded-md border border-neutral-800 text-neutral-300"
         >
           <Menu className="h-4 w-4" />
         </button>
@@ -42,24 +44,23 @@ export function MobileNav({ groups, adminHref }: { groups: NavGroup[]; adminHref
                   <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">{group.label}</p>
                   <div className="mt-1 space-y-0.5">
                     {group.items.map((item) => (
-                      <Link
+                      <AppNavLink
                         key={item.href}
                         href={item.href}
-                        onClick={() => setOpen(false)}
-                        className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-neutral-300 hover:bg-neutral-900 hover:text-white"
-                      >
-                        <item.icon className="h-4 w-4 text-neutral-500" strokeWidth={2} />
-                        {item.label}
-                      </Link>
+                        label={item.label}
+                        icon={item.icon}
+                        onNavigate={() => setOpen(false)}
+                      />
                     ))}
                   </div>
                 </div>
               ))}
               {adminHref ? (
-                <Link href={adminHref} onClick={() => setOpen(false)} className="block rounded-md px-2.5 py-2 text-sm font-medium text-amber-400/90 hover:bg-neutral-900">
+                <Link href={adminHref} onClick={() => setOpen(false)} className="block min-h-11 rounded-md px-2.5 py-2 text-sm font-medium text-amber-400/90 hover:bg-neutral-900">
                   Admin console
                 </Link>
               ) : null}
+              <SignOutButton className="w-full rounded-md px-2.5 py-2 text-left text-sm text-neutral-500 hover:bg-neutral-900 hover:text-white" />
             </nav>
           </div>
         </div>
