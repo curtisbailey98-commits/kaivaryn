@@ -7,7 +7,7 @@ Aesthetic: executive intelligence terminal. Demo data is labeled **DEMO**.
 ## Stack
 
 - Next.js 14 App Router, TypeScript, Tailwind
-- Prisma + SQLite (single free Render web service; no paid DB)
+- Prisma + PostgreSQL (`DATABASE_URL`)
 - NextAuth credentials (bcrypt + JWT)
 - Patterns reused from [720 SI](../720-si): glass/OS tokens, approval step-up, connector honesty, anti-fabrication intelligence (`INSUFFICIENT_DATA`), health matrix — see `REUSE_720_SI.md`
 
@@ -23,14 +23,9 @@ npm run dev
 
 Open http://localhost:3000
 
-## Seed credentials (change in production)
+## Seed credentials
 
-| Role | Email | Password |
-|------|-------|----------|
-| Super admin | `admin@kaivaryn.com` | `KaivarynAdmin!2026` |
-| Demo analyst | `demo@kaivaryn.com` | `DemoClient!2026` |
-
-Demo org: **Acme Demo (DEMO)** with Revenue Recovery + Operations Efficiency entitlements.
+Local seed users are created by `npm run db:seed`. Set `BOOTSTRAP_ADMIN_PASSWORD` in production and rotate any demo passwords immediately after first deploy. Do not reuse seed credentials on a live tenant.
 
 ## Pricing
 
@@ -38,12 +33,12 @@ Stored in `PricingConfig` (not hardcoded):
 
 - First 10 clients: **$10,000 / mo**
 - Thereafter: **$20,000 / mo**
-- Stripe Payment Link: `https://buy.stripe.com/14AaEZgJsdDNeTFePLeUU01`
+- Stripe Payment Link is attached only after Closed/Won (never on the public pricing CTA)
 
 ## Key routes
 
 - Public: `/`, `/solutions/*`, `/how-it-works`, `/intelligence`, `/pricing`, `/demo`, `/company`, `/contact`
-- App: `/app`, `/app/action-center`, `/app/revenue`, `/app/operations`, `/app/integrations`, `/app/approvals`, `/app/onboarding`
+- App: `/app`, `/app/action-center`, `/app/revenue`, `/app/operations`, `/app/learning`, `/app/integrations`, `/app/approvals`, `/app/onboarding`
 - Admin (SUPER_ADMIN): `/admin/*`
 - Health: `GET /api/health`
 
@@ -60,7 +55,7 @@ Free tier sleeps when idle — first request after idle may take ~30–60s.
 1. Connect this repo or use `render.yaml` blueprint
 2. Set `NEXTAUTH_URL` to the public HTTPS URL after first deploy
 3. `NEXTAUTH_SECRET` auto-generated via blueprint
-4. SQLite file path: `file:./data/kaivaryn.db` (ephemeral on free tier — re-seeds on boot)
+4. Set `DATABASE_URL` to a persistent PostgreSQL instance (Supabase or Render Postgres). SQLite is not the production datastore.
 
 ```bash
 npm run build   # must pass

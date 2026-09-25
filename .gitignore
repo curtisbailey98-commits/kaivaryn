@@ -42,5 +42,7 @@ prisma/*.db
 data/
 .next/
 deploy-render-state.json
+*.zip
+kaivaryn-main-updated.zip
 prisma/*.db
 prisma/prisma/
