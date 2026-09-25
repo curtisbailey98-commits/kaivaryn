@@ -19,6 +19,7 @@ const VIEWS: Record<string, { label: string; where?: Prisma.OpportunityWhereInpu
   all: { label: "All" },
   critical: { label: "Critical", where: { priority: "CRITICAL" } },
   high_value: { label: "High Value", where: { potentialAmount: { gte: 50000 } } },
+  high_confidence: { label: "High Confidence", where: { score: { gte: 70 }, status: { notIn: ["RECOVERED", "VERIFIED", "DISMISSED"] } } },
   identified: { label: "Identified", where: { status: { in: ["IDENTIFIED", "NEW"] } } },
   under_review: { label: "Under Review", where: { status: "UNDER_REVIEW" } },
   in_recovery: { label: "In Recovery", where: { status: { in: ["APPROVED", "IN_RECOVERY", "IN_PROGRESS", "PARTIALLY_RECOVERED"] } } },
@@ -198,7 +199,7 @@ export default async function RevenuePage({
                   <TD><StatusBadge status={o.status} /></TD>
                   <TD><PriorityBadge priority={o.priority} /></TD>
                   <TD>
-                    {formatCurrency(o.potentialAmount || o.estimatedAmount)} <span className="text-xs text-neutral-500">s{Math.round(o.score)}</span>
+                    {formatCurrency(o.potentialAmount || o.estimatedAmount)} <span className="text-xs text-neutral-500">{Math.round(o.score)} conf.</span>
                   </TD>
                   <TD className="hidden text-emerald-300 sm:table-cell">{formatCurrency(o.recoveredAmount)}</TD>
                   <TD className="hidden md:table-cell">{formatDate(o.identifiedAt)}</TD>
