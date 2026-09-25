@@ -6,6 +6,7 @@ const links = [
   { href: "/solutions/operations-efficiency", label: "Operations Efficiency" },
   { href: "/how-it-works", label: "How it works" },
   { href: "/intelligence", label: "Intelligence" },
+  { href: "/company", label: "Firm" },
   { href: "/pricing", label: "Pricing" },
 ];
 

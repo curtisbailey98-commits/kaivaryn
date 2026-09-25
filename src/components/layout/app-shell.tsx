@@ -13,10 +13,13 @@ import {
   Plug,
   ShieldCheck,
   Rocket,
+  Brain,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { MobileNav, type NavGroup } from "@/components/layout/mobile-nav";
+import { AppNavLink } from "@/components/layout/nav-link";
+import { SignOutButton } from "@/components/layout/sign-out-button";
 
 const NAV_GROUPS: NavGroup[] = [
   {
@@ -46,8 +49,9 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Settings",
     items: [
       { href: "/app/notifications", label: "Notifications", icon: Bell },
-      { href: "/app/integrations", label: "Integrations", icon: Plug },
       { href: "/app/approvals", label: "Approvals", icon: ShieldCheck },
+      { href: "/app/learning", label: "Learning", icon: Brain },
+      { href: "/app/integrations", label: "Integrations", icon: Plug },
       { href: "/app/onboarding", label: "Onboarding", icon: Rocket },
     ],
   },
@@ -84,14 +88,7 @@ export function AppShell({
                 <p className="px-2.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">{group.label}</p>
                 <div className="mt-1 space-y-0.5">
                   {group.items.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-neutral-400 transition hover:bg-neutral-900 hover:text-white"
-                    >
-                      <item.icon className="h-4 w-4 shrink-0 text-neutral-500" strokeWidth={2} />
-                      {item.label}
-                    </Link>
+                    <AppNavLink key={item.href} href={item.href} label={item.label} icon={item.icon} />
                   ))}
                 </div>
               </div>
@@ -124,11 +121,9 @@ export function AppShell({
                 ) : null}
               </div>
             </div>
-            <form action="/api/auth/signout" method="POST" className="mt-1">
-              <button type="submit" className="w-full rounded-md px-3 py-1.5 text-left text-xs text-neutral-500 hover:bg-neutral-900 hover:text-white">
-                Sign out
-              </button>
-            </form>
+            <div className="mt-1">
+              <SignOutButton />
+            </div>
           </div>
         </aside>
         <main className="flex-1 overflow-x-hidden">
