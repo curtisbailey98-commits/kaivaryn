@@ -76,11 +76,14 @@ export default async function AppHomePage() {
     <div className="space-y-6">
       <PageHeader
         eyebrow="Command center"
-        title={`Welcome back${ctx.organization?.name ? `, ${ctx.organization.name}` : ""}`}
-        description="What Kaivaryn has identified, what needs a decision, and where value is being created."
+        title={ctx.user.name ? `Welcome back, ${ctx.user.name.split(" ")[0]}` : "Executive command center"}
+        description={ctx.organization?.name
+          ? `${ctx.organization.name} — what needs attention, what it is worth, and what Kaivaryn recommends next.`
+          : "What needs attention, what it is worth, and what Kaivaryn recommends next."}
         actions={ctx.organization?.isDemo ? <Badge tone="demo">DEMO org</Badge> : undefined}
       />
 
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">What needs my attention</p>
       <AttentionBanner
         items={[
           { label: "pending approvals", count: pendingApprovals, href: "/app/approvals", tone: "warning" },
@@ -104,7 +107,7 @@ export default async function AppHomePage() {
           </div>
         </div>
         <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-neutral-800 bg-neutral-800 sm:grid-cols-3">
-          <Link href="/app/revenue?view=high_value" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">High-confidence recovery</p><p className="mt-2 text-2xl font-semibold text-white">{highConfidenceRevenue}</p><p className="mt-1 text-xs text-neutral-500">Open opportunities scoring 70+</p></Link>
+          <Link href="/app/revenue?view=high_confidence" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">High-confidence recovery</p><p className="mt-2 text-2xl font-semibold text-white">{highConfidenceRevenue}</p><p className="mt-1 text-xs text-neutral-500">Open opportunities scoring 70+</p></Link>
           <Link href="/app/operations?view=critical" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">Critical operational signals</p><p className="mt-2 text-2xl font-semibold text-white">{criticalOperations}</p><p className="mt-1 text-xs text-neutral-500">Unresolved items requiring attention</p></Link>
           <Link href="/app/approvals" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">Executive decisions</p><p className="mt-2 text-2xl font-semibold text-white">{pendingApprovals}</p><p className="mt-1 text-xs text-neutral-500">Approval-gated actions waiting</p></Link>
         </div>
@@ -191,7 +194,7 @@ export default async function AppHomePage() {
               <span>No verified outcomes yet — the brain learns as your team records results.</span>
             )}
           </div>
-          <Link href="/api/learning/summary" className="text-xs text-emerald-400 hover:text-emerald-300">
+          <Link href="/app/learning" className="text-xs text-emerald-400 hover:text-emerald-300">
             View learned profile →
           </Link>
         </CardContent>
