@@ -31,7 +31,7 @@ export function AnimatedGaugeBar({
   const color = pct >= 70 ? CHART.emerald : pct >= 40 ? CHART.amber : CHART.rose;
 
   return (
-    <section className={cn("si-glass p-4 sm:p-5", className)} aria-label={title}>
+    <section className={cn("si-glass chart-enter p-4 sm:p-5", className)} aria-label={title}>
       <h3 className="text-sm font-semibold text-white">{title}</h3>
       {description ? <p className="mt-0.5 text-xs text-neutral-500">{description}</p> : null}
       <p className="mt-4 text-3xl font-semibold text-white">

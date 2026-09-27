@@ -147,8 +147,10 @@ export default async function OperationsPage({
                   { key: "projected", label: "Projected", color: CHART.amber },
                   { key: "realized", label: "Realized", color: CHART.emerald },
                 ]}
+                stacked
                 footnote={chartData.sourceNote}
                 height={260}
+                stagger={0}
               />
               <DynBarChart
                 className="lg:col-span-1"

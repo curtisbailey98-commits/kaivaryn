@@ -26,6 +26,7 @@ export function AnimatedAreaChart({
   height = 260,
   className,
   stacked = false,
+  stagger = 0,
 }: {
   title: string;
   description?: string;
@@ -37,11 +38,12 @@ export function AnimatedAreaChart({
   height?: number;
   className?: string;
   stacked?: boolean;
+  stagger?: number;
 }) {
   const empty = !data.length || series.every((s) => data.every((d) => !Number(d[s.key])));
   const gradId = (key: string) => `area-grad-${key}`;
   return (
-    <ChartShell title={title} description={description} footnote={footnote} empty={empty} height={height} className={className}>
+    <ChartShell title={title} description={description} footnote={footnote} empty={empty} height={height} className={className} stagger={stagger}>
       <ResponsiveContainer width="100%" height="100%">
         <RAreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <defs>
@@ -79,7 +81,7 @@ export function AnimatedAreaChart({
                 strokeWidth={2}
                 stackId={stacked ? "stack" : undefined}
                 isAnimationActive
-                animationDuration={1000}
+                animationDuration={1100}
                 animationBegin={i * 140}
               />
             );

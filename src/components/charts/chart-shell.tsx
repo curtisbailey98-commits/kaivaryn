@@ -10,6 +10,7 @@ export function ChartShell({
   children,
   empty,
   height = 260,
+  stagger = 0,
 }: {
   title: string;
   description?: string;
@@ -18,13 +19,13 @@ export function ChartShell({
   children: React.ReactNode;
   empty?: boolean;
   height?: number;
+  /** Index for staggered entrance (×70ms). */
+  stagger?: number;
 }) {
   return (
     <section
-      className={cn(
-        "si-glass overflow-hidden p-4 sm:p-5 chart-enter",
-        className
-      )}
+      className={cn("si-glass overflow-hidden p-4 sm:p-5 chart-enter", className)}
+      style={{ animationDelay: `${Math.max(0, stagger) * 70}ms` }}
       aria-label={title}
     >
       <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -41,7 +42,7 @@ export function ChartShell({
           No data yet for this chart
         </div>
       ) : (
-        <div style={{ height }} className="w-full">
+        <div style={{ height }} className="w-full chart-draw">
           {children}
         </div>
       )}

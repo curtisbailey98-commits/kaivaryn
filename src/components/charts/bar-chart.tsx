@@ -28,6 +28,8 @@ export function AnimatedBarChart({
   className,
   layout = "horizontal",
   colorByIndex = false,
+  stacked = false,
+  stagger = 0,
 }: {
   title: string;
   description?: string;
@@ -40,11 +42,13 @@ export function AnimatedBarChart({
   className?: string;
   layout?: "horizontal" | "vertical";
   colorByIndex?: boolean;
+  stacked?: boolean;
+  stagger?: number;
 }) {
   const empty = !data.length || series.every((s) => data.every((d) => !Number(d[s.key])));
   const vertical = layout === "vertical";
   return (
-    <ChartShell title={title} description={description} footnote={footnote} empty={empty} height={height} className={className}>
+    <ChartShell title={title} description={description} footnote={footnote} empty={empty} height={height} className={className} stagger={stagger}>
       <ResponsiveContainer width="100%" height="100%">
         <RBarChart
           data={data}
@@ -71,7 +75,8 @@ export function AnimatedBarChart({
               dataKey={s.key}
               name={s.label}
               fill={s.color || CHART.series[i % CHART.series.length]}
-              radius={[6, 6, 0, 0]}
+              stackId={stacked ? "stack" : undefined}
+              radius={stacked ? [2, 2, 0, 0] : vertical ? [0, 6, 6, 0] : [6, 6, 0, 0]}
               maxBarSize={42}
               isAnimationActive
               animationDuration={850}

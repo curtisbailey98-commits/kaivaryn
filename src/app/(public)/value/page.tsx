@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ZOOM_SCHEDULER_URL } from "@/lib/constants";
 import { ValueEstimator } from "@/components/public/value-estimator";
+import { ExampleRecoveryWaterfall } from "@/components/charts/example-public-charts";
 
 export const metadata: Metadata = {
   title: "Value Estimator",
@@ -35,6 +36,9 @@ export default function ValuePage() {
       </section>
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
         <ValueEstimator />
+        <div className="mt-10">
+          <ExampleRecoveryWaterfall />
+        </div>
         <div className="mt-10 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 text-sm leading-6 text-neutral-400">
           <p className="font-medium text-neutral-200">How to read this</p>
           <ul className="mt-3 list-disc space-y-2 pl-5">

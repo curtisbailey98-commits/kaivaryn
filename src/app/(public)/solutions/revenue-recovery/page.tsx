@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExampleFrameworkChart } from "@/components/charts/example-framework-chart";
 import type { Metadata } from "next";
 import { ZOOM_SCHEDULER_URL } from "@/lib/constants";
 
@@ -119,6 +120,9 @@ export default function RevenueRecoveryPage() {
           </div>
         </div>
       </section>
-    </>
+          <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
+        <ExampleFrameworkChart />
+      </section>
+</>
   );
 }

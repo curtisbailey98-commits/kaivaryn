@@ -13,9 +13,10 @@ import {
 import { ChartShell } from "./chart-shell";
 import { CHART, formatMoneyTick, tooltipStyle } from "./theme";
 
-export type LineSeries = { key: string; label: string; color?: string };
+export type StepSeries = { key: string; label: string; color?: string };
 
-export function AnimatedLineChart({
+/** Step line for staged recovery / pipeline motion. */
+export function AnimatedStepChart({
   title,
   description,
   footnote,
@@ -23,7 +24,7 @@ export function AnimatedLineChart({
   xKey = "label",
   series,
   money = false,
-  height = 260,
+  height = 240,
   className,
   stagger = 0,
 }: {
@@ -32,7 +33,7 @@ export function AnimatedLineChart({
   footnote?: string;
   data: Record<string, string | number>[];
   xKey?: string;
-  series: LineSeries[];
+  series: StepSeries[];
   money?: boolean;
   height?: number;
   className?: string;
@@ -40,7 +41,15 @@ export function AnimatedLineChart({
 }) {
   const empty = !data.length || series.every((s) => data.every((d) => !Number(d[s.key])));
   return (
-    <ChartShell title={title} description={description} footnote={footnote} empty={empty} height={height} className={className} stagger={stagger}>
+    <ChartShell
+      title={title}
+      description={description}
+      footnote={footnote}
+      empty={empty}
+      height={height}
+      className={className}
+      stagger={stagger}
+    >
       <ResponsiveContainer width="100%" height="100%">
         <RLineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={CHART.grid} strokeDasharray="3 3" vertical={false} />
@@ -57,16 +66,15 @@ export function AnimatedLineChart({
           {series.map((s, i) => (
             <Line
               key={s.key}
-              type="monotone"
+              type="stepAfter"
               dataKey={s.key}
               name={s.label}
               stroke={s.color || CHART.series[i % CHART.series.length]}
               strokeWidth={2.2}
-              dot={false}
-              activeDot={{ r: 4, strokeWidth: 0 }}
+              dot={{ r: 3, strokeWidth: 0, fill: s.color || CHART.series[i % CHART.series.length] }}
               isAnimationActive
               animationDuration={1000}
-              animationBegin={i * 120}
+              animationBegin={i * 140}
             />
           ))}
         </RLineChart>

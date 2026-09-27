@@ -250,7 +250,7 @@ export default async function ActionCenterPage({
         ))}
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <DynBarChart
           title="Aging buckets"
           description="Distribution of open executive actions"
@@ -258,6 +258,17 @@ export default async function ActionCenterPage({
           series={[{ key: "count", label: "Items", color: CHART.amber }]}
           height={220}
           footnote={chartData.sourceNote}
+          stagger={0}
+        />
+        <DynBarChart
+          title="Aging ranking"
+          description="Horizontal ranking of open work by age"
+          data={[...chartData.aging].sort((a, b) => b.count - a.count)}
+          series={[{ key: "count", label: "Items", color: CHART.violet }]}
+          layout="vertical"
+          height={220}
+          footnote={chartData.sourceNote}
+          stagger={1}
         />
         <div className="si-glass p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">

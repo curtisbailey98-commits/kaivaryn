@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { updateDemoStatus } from "./actions";
 import type { DemoRequestStatus } from "@/lib/enums";
+import { getAdminDemoFunnelData } from "@/lib/chart-data";
+import { AnimatedFunnelBars, DynBarChart, CHART } from "@/components/charts/dynamic";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +21,32 @@ const PIPELINE: DemoRequestStatus[] = [
 ];
 
 export default async function AdminDemosPage() {
-  const demos = await prisma.demoRequest.findMany({ orderBy: { createdAt: "desc" }, take: 200, include: { acquisitionAccount: true } });
+  const [demos, funnel] = await Promise.all([
+    prisma.demoRequest.findMany({ orderBy: { createdAt: "desc" }, take: 200, include: { acquisitionAccount: true } }),
+    getAdminDemoFunnelData(),
+  ]);
   return (
     <div>
       <h1 className="text-xl font-semibold">Demo leads</h1>
       <p className="mt-1 text-xs text-neutral-500">
         Pipeline: NEW → CONTACTED → QUALIFIED → SCHEDULED → DEMO_COMPLETED → PAYMENT_PENDING → CLOSED_*
       </p>
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <AnimatedFunnelBars
+          title="Pipeline funnel"
+          description="Counts by DemoRequest status"
+          stages={funnel.stages}
+          money={false}
+          footnote={funnel.sourceNote}
+        />
+        <DynBarChart
+          title="Weekly inflow"
+          data={funnel.inflow}
+          series={[{ key: "leads", label: "New leads", color: CHART.amber }]}
+          height={260}
+          footnote={funnel.sourceNote}
+        />
+      </div>
       <ul className="mt-6 space-y-4">
         {demos.map((d) => (
           <li key={d.id} className="si-panel p-4">

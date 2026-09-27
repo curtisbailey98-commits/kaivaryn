@@ -14,8 +14,8 @@ import { CircleDollarSign, Crosshair, Download, LineChart, Plus, ShieldCheck, Tr
 import { MetricCard } from "@/components/ui/metric-card";
 import { classifyLeakageType, LEAKAGE_TYPES } from "@/lib/leakage-taxonomy";
 import { ageDays } from "@/lib/sla";
-import { getRevenueChartData } from "@/lib/chart-data";
-import { DynAreaChart, DynDonutChart, AnimatedFunnelBars, CHART } from "@/components/charts/dynamic";
+import { getRevenueChartData, revenueFunnelToWaterfall, trendToCumulativeRecovered } from "@/lib/chart-data";
+import { DynAreaChart, DynDonutChart, DynWaterfallChart, DynStepChart, AnimatedFunnelBars, CHART } from "@/components/charts/dynamic";
 import { formatMoneyTick } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";
@@ -204,8 +204,10 @@ export default async function RevenuePage({
             { key: "projected", label: "Projected (identified)", color: CHART.amber },
             { key: "recovered", label: "Recovered", color: CHART.emerald },
           ]}
+          stacked
           footnote={chartData.sourceNote}
           height={280}
+          stagger={1}
         />
         <DynDonutChart
           className="lg:col-span-1"
@@ -216,6 +218,32 @@ export default async function RevenuePage({
           centerValue={formatMoneyTick(chartData.taxonomy.reduce((n, t) => n + t.value, 0))}
           footnote={chartData.sourceNote}
           height={280}
+          stagger={2}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <DynWaterfallChart
+          title="Portfolio by recovery stage"
+          description="Mutually exclusive status buckets · sum = portfolio potential"
+          stages={revenueFunnelToWaterfall(chartData.funnel)}
+          money
+          height={280}
+          footnote={chartData.sourceNote}
+          stagger={3}
+        />
+        <DynStepChart
+          title="Cumulative recovered"
+          description="Step accumulation of recovered amounts by week"
+          data={trendToCumulativeRecovered(chartData.trend)}
+          series={[
+            { key: "cumulative", label: "Cumulative recovered", color: CHART.emerald },
+            { key: "weekly", label: "Weekly recovered", color: CHART.amber },
+          ]}
+          money
+          height={280}
+          footnote="Recovered only · projected excluded"
+          stagger={4}
         />
       </div>
 

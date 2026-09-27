@@ -16,6 +16,7 @@ export function AnimatedDonutChart({
   className,
   centerLabel,
   centerValue,
+  stagger = 0,
 }: {
   title: string;
   description?: string;
@@ -26,12 +27,13 @@ export function AnimatedDonutChart({
   className?: string;
   centerLabel?: string;
   centerValue?: string;
+  stagger?: number;
 }) {
   const filtered = data.filter((d) => d.value > 0);
   const empty = filtered.length === 0;
   const total = filtered.reduce((n, d) => n + d.value, 0);
   return (
-    <ChartShell title={title} description={description} footnote={footnote} empty={empty} height={height} className={className}>
+    <ChartShell title={title} description={description} footnote={footnote} empty={empty} height={height} className={className} stagger={stagger}>
       <div className="relative h-full w-full">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -45,7 +47,7 @@ export function AnimatedDonutChart({
               outerRadius="82%"
               paddingAngle={2}
               isAnimationActive
-              animationDuration={1000}
+              animationDuration={1200}
             >
               {filtered.map((d, i) => (
                 <Cell key={d.name} fill={d.color || CHART.series[i % CHART.series.length]} stroke="transparent" />

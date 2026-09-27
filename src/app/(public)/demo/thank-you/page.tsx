@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getPricingConfig, resolveZoomSchedulerUrl } from "@/lib/pricing";
+import { ExampleThankYouChart } from "@/components/charts/example-public-charts";
 
 export const metadata: Metadata = { title: "Thank you" };
 export const dynamic = "force-dynamic";
@@ -30,6 +31,9 @@ export default async function ThankYouPage() {
         >
           Schedule executive demo on Zoom
         </a>
+      </div>
+      <div className="mx-auto mt-10 max-w-lg text-left">
+        <ExampleThankYouChart />
       </div>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-4 text-sm">
         <Link href="/pricing" className="text-neutral-400 hover:text-neutral-200">

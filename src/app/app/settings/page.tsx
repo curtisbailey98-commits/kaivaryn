@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { updateOrgSettings } from "./actions";
 import { EmptyState } from "@/components/ui/states";
+import { getSettingsUsageChartData } from "@/lib/chart-data";
+import { DynAreaChart, KpiSpark, CHART } from "@/components/charts/dynamic";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,7 @@ export default async function SettingsPage() {
   assertOrgId(ctx.organizationId);
   const canEdit = can(ctx.effectiveRole, "manage_settings");
 
+  const usage = await getSettingsUsageChartData(ctx.organizationId);
   const settings = await prisma.orgSettings.upsert({
     where: { organizationId: ctx.organizationId },
     update: {},
@@ -52,6 +55,52 @@ export default async function SettingsPage() {
             </div>
           ))}
         </dl>
+        
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <KpiSpark
+          label="Imports (8 wk)"
+          value={usage.totals.imports}
+          data={usage.importSpark}
+          color={CHART.sky}
+          footnote={usage.sourceNote}
+          stagger={0}
+        />
+        <KpiSpark
+          label="Intelligence runs"
+          value={usage.totals.runs}
+          data={usage.runSpark}
+          color={CHART.violet}
+          footnote="Finding-producing runs"
+          stagger={1}
+        />
+        <KpiSpark
+          label="Audit events"
+          value={usage.totals.audits}
+          data={usage.auditSpark}
+          color={CHART.amber}
+          footnote="Recorded workspace actions"
+          stagger={2}
+        />
+      </div>
+      <div className="mt-4">
+        <DynAreaChart
+          title="Workspace usage"
+          description="Imports, intelligence runs, audits, and notifications by week"
+          data={usage.usage}
+          series={[
+            { key: "imports", label: "Imports", color: CHART.sky },
+            { key: "runs", label: "Runs", color: CHART.violet },
+            { key: "audits", label: "Audits", color: CHART.amber },
+            { key: "notifications", label: "Notifications", color: CHART.emerald },
+          ]}
+          stacked
+          money={false}
+          height={240}
+          footnote={usage.sourceNote}
+          stagger={3}
+        />
+      </div>
+
       </div>
     );
   }
@@ -64,6 +113,52 @@ export default async function SettingsPage() {
         Detection thresholds, scoring weights, amount/role approval gates, and notification preferences.
         Email send still requires SMTP — enabling the toggle alone never fakes delivery.
       </p>
+
+
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <KpiSpark
+          label="Imports (8 wk)"
+          value={usage.totals.imports}
+          data={usage.importSpark}
+          color={CHART.sky}
+          footnote={usage.sourceNote}
+          stagger={0}
+        />
+        <KpiSpark
+          label="Intelligence runs"
+          value={usage.totals.runs}
+          data={usage.runSpark}
+          color={CHART.violet}
+          footnote="Finding-producing runs"
+          stagger={1}
+        />
+        <KpiSpark
+          label="Audit events"
+          value={usage.totals.audits}
+          data={usage.auditSpark}
+          color={CHART.amber}
+          footnote="Recorded workspace actions"
+          stagger={2}
+        />
+      </div>
+      <div className="mt-4">
+        <DynAreaChart
+          title="Workspace usage"
+          description="Imports, intelligence runs, audits, and notifications by week"
+          data={usage.usage}
+          series={[
+            { key: "imports", label: "Imports", color: CHART.sky },
+            { key: "runs", label: "Runs", color: CHART.violet },
+            { key: "audits", label: "Audits", color: CHART.amber },
+            { key: "notifications", label: "Notifications", color: CHART.emerald },
+          ]}
+          stacked
+          money={false}
+          height={240}
+          footnote={usage.sourceNote}
+          stagger={3}
+        />
+      </div>
 
       <form action={updateOrgSettings} className="mt-8 space-y-8">
         <section className="si-panel space-y-3 p-4">

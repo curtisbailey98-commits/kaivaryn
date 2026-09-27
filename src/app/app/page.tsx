@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/ui/states";
 import { getLearningSummary } from "@/lib/learning";
 import { TrendingUp, Settings2, ShieldCheck, Bell, ArrowRight } from "lucide-react";
 import { getWeeklyBriefChartData, getActionCenterChartData } from "@/lib/chart-data";
-import { DynAreaChart, DynBarChart, Sparkline, CHART } from "@/components/charts/dynamic";
+import { DynAreaChart, DynBarChart, DynComposedChart, PulseSpark, KpiSpark, CHART } from "@/components/charts/dynamic";
 
 export default async function AppHomePage() {
   const ctx = await requireOrgAccess();
@@ -166,7 +166,9 @@ export default async function AppHomePage() {
             { key: "recovered", label: "RR recovered", color: CHART.emerald },
             { key: "realized", label: "OE realized", color: "#34d399" },
           ]}
+          stacked
           height={280}
+          stagger={0}
         />
         <div className="space-y-4">
           <DynBarChart
@@ -176,18 +178,45 @@ export default async function AppHomePage() {
             data={chartAction.aging}
             series={[{ key: "count", label: "Open items", color: CHART.amber }]}
             height={200}
+            stagger={1}
           />
-          <div className="si-glass p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-white">SLA risk sparkline</p>
-                <p className="text-xs text-neutral-500">Open items in aging/breach over recent weeks</p>
-              </div>
-              <p className="text-lg font-semibold text-rose-300">{chartAction.slaSpark.at(-1)?.value ?? 0}</p>
-            </div>
-            <Sparkline data={chartAction.slaSpark} color={CHART.rose} label="SLA risk" height={56} className="mt-2" />
-          </div>
+          <KpiSpark
+            label="SLA risk"
+            value={chartAction.slaSpark.at(-1)?.value ?? 0}
+            delta={(chartAction.slaSpark.at(-1)?.value ?? 0) - (chartAction.slaSpark.at(-2)?.value ?? 0)}
+            deltaLabel="vs prior week"
+            data={chartAction.slaSpark}
+            color={CHART.rose}
+            footnote={chartAction.sourceNote}
+            stagger={2}
+          />
         </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <DynComposedChart
+          className="lg:col-span-2"
+          title="Identified bars · recovered line"
+          description="Composed view of weekly motion — projected ≠ recovered"
+          data={chartWeekly.weeks}
+          bars={[
+            { key: "projectedRr", label: "RR identified", color: CHART.amber },
+            { key: "projectedOe", label: "OE identified", color: CHART.sky },
+          ]}
+          lines={[
+            { key: "recovered", label: "RR recovered", color: CHART.emerald },
+            { key: "realized", label: "OE realized", color: "#34d399" },
+          ]}
+          money
+          height={280}
+          footnote={chartWeekly.sourceNote}
+          stagger={3}
+        />
+        <PulseSpark
+          title="Workspace pulse"
+          description="Demo streaming feel · not a financial metric"
+          baseSeries={chartAction.slaSpark}
+        />
       </div>
 
       <div>

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
 import { ageDays, slaBucket, slaLabel, slaTone } from "@/lib/sla";
 import { decideApproval, bulkDecideApprovals } from "../operations/actions";
+import { getApprovalsChartData } from "@/lib/chart-data";
+import { DynBarChart, DynComposedChart, KpiSpark, CHART } from "@/components/charts/dynamic";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,7 @@ export default async function ApprovalsPage({
 
   const now = new Date();
   const pending = approvals.filter((a) => a.status === "PENDING");
+  const chartData = await getApprovalsChartData(ctx.organizationId);
 
   return (
     <div>
@@ -48,6 +51,48 @@ export default async function ApprovalsPage({
           {searchParams.msg || "Error"}
         </p>
       ) : null}
+
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <DynBarChart
+          title="Pending by aging"
+          description="SLA-style aging for open approval gates"
+          data={chartData.aging}
+          series={[{ key: "count", label: "Pending", color: CHART.amber }]}
+          height={220}
+          footnote={chartData.sourceNote}
+          stagger={0}
+        />
+        <DynComposedChart
+          title="Created vs decided"
+          description="Weekly approval volume"
+          data={chartData.volume}
+          bars={[{ key: "created", label: "Created", color: CHART.sky }]}
+          lines={[{ key: "decided", label: "Decided", color: CHART.emerald }]}
+          height={220}
+          footnote={chartData.sourceNote}
+          stagger={1}
+        />
+        <div className="space-y-4">
+          <KpiSpark
+            label="Pending now"
+            value={chartData.pendingCount}
+            data={chartData.volume.map((v) => ({ label: v.label, value: v.created }))}
+            color={CHART.amber}
+            footnote="Live pending count"
+            stagger={2}
+          />
+          <DynBarChart
+            title="Pending by type"
+            description="Horizontal ranking of open request types"
+            data={chartData.byType}
+            series={[{ key: "count", label: "Count", color: CHART.violet }]}
+            layout="vertical"
+            height={160}
+            stagger={3}
+          />
+        </div>
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
         <a href="/app/approvals?view=pending" className={`rounded-full border px-3 py-1 ${view === "pending" ? "border-amber-500 text-amber-400" : "border-neutral-800 text-neutral-400"}`}>

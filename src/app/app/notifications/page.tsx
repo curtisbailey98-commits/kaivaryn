@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
 import { markAllNotificationsRead, markNotificationRead } from "../actions";
 import Link from "next/link";
+import { getNotificationsChartData } from "@/lib/chart-data";
+import { DynBarChart, KpiSpark, CHART } from "@/components/charts/dynamic";
 
 export const dynamic = "force-dynamic";
 
 export default async function NotificationsPage() {
   const ctx = await requireOrgAccess();
   assertOrgId(ctx.organizationId);
+  const chartData = await getNotificationsChartData(ctx.organizationId, ctx.user.id);
   const notes = await prisma.notification.findMany({
     where: { organizationId: ctx.organizationId, userId: ctx.user.id },
     orderBy: { createdAt: "desc" },
@@ -29,6 +32,30 @@ export default async function NotificationsPage() {
           <Button type="submit" variant="secondary">Mark all read</Button>
         </form>
       </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <DynBarChart
+          className="lg:col-span-2"
+          title="Notification volume"
+          description="Created vs marked read by week"
+          data={chartData.volume}
+          series={[
+            { key: "created", label: "Created", color: CHART.amber },
+            { key: "read", label: "Read", color: CHART.emerald },
+          ]}
+          stacked
+          height={220}
+          footnote={chartData.sourceNote}
+        />
+        <KpiSpark
+          label="Unread"
+          value={chartData.unread}
+          data={chartData.spark}
+          color={CHART.rose}
+          footnote={`${chartData.total} recent notifications`}
+        />
+      </div>
+
       {notes.length === 0 ? (
         <EmptyState className="mt-8" title="No notifications" />
       ) : (

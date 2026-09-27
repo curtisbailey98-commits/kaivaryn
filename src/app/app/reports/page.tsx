@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { queueWeeklyDigest } from "../operations/actions";
 import { getWeeklyBriefChartData } from "@/lib/chart-data";
-import { DynLineChart, CHART } from "@/components/charts/dynamic";
+import { DynLineChart, DynComposedChart, DynBarChart, CHART } from "@/components/charts/dynamic";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +69,7 @@ export default async function ReportsPage({
       <p className="mt-2 text-xs text-neutral-600">Weekly digest creates an EmailDraft + in-app notice. SMTP send is never faked.</p>
       {searchParams.ok ? <p className="mt-2 text-sm text-emerald-400">{searchParams.msg || "Queued"}</p> : null}
 
-      <div className="mt-8">
+      <div className="mt-8 grid gap-4 lg:grid-cols-2">
         <DynLineChart
           title="Weekly trend"
           description="Identified opportunity and recovered/realized outcomes by week"
@@ -83,6 +83,39 @@ export default async function ReportsPage({
           money
           height={280}
           footnote={weekly.sourceNote}
+          stagger={0}
+        />
+        <DynComposedChart
+          title="Identified vs outcomes"
+          description="Bars for identified · lines for recovered/realized"
+          data={weekly.weeks}
+          bars={[
+            { key: "projectedRr", label: "RR identified", color: CHART.amber },
+            { key: "projectedOe", label: "OE identified", color: CHART.sky },
+          ]}
+          lines={[
+            { key: "recovered", label: "RR recovered", color: CHART.emerald },
+            { key: "realized", label: "OE realized", color: "#34d399" },
+          ]}
+          money
+          height={280}
+          footnote={weekly.sourceNote}
+          stagger={1}
+        />
+        <DynBarChart
+          className="lg:col-span-2"
+          title="Stacked weekly outcomes"
+          description="Recovered + realized stacked by week"
+          data={weekly.weeks}
+          series={[
+            { key: "recovered", label: "RR recovered", color: CHART.emerald },
+            { key: "realized", label: "OE realized", color: "#34d399" },
+          ]}
+          stacked
+          money
+          height={240}
+          footnote="Outcomes only · projected excluded from this stack"
+          stagger={2}
         />
       </div>
 
