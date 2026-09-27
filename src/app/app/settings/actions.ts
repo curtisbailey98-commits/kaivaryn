@@ -31,6 +31,8 @@ const schema = z.object({
   notifyHighValue: z.coerce.boolean(),
   notifyWeeklyBrief: z.coerce.boolean(),
   notifyEmailEnabled: z.coerce.boolean(),
+  displayName: z.string().min(1).max(120).optional(),
+  timezone: z.string().min(1).max(64).optional(),
 });
 
 function bool(formData: FormData, key: string) {
@@ -65,6 +67,8 @@ export async function updateOrgSettings(formData: FormData) {
     notifyHighValue: bool(formData, "notifyHighValue"),
     notifyWeeklyBrief: bool(formData, "notifyWeeklyBrief"),
     notifyEmailEnabled: bool(formData, "notifyEmailEnabled"),
+    displayName: String(formData.get("displayName") || "").trim() || undefined,
+    timezone: String(formData.get("timezone") || "").trim() || undefined,
   });
 
   if (!parsed.success) {
@@ -78,11 +82,30 @@ export async function updateOrgSettings(formData: FormData) {
     );
   }
 
+  const { displayName, timezone, ...settingsData } = data;
+  let settingsJson: string | undefined;
+  if (timezone) {
+    let prev: Record<string, unknown> = {};
+    const existing = await prisma.orgSettings.findUnique({ where: { organizationId: ctx.organizationId } });
+    if (existing?.settingsJson) {
+      try { prev = JSON.parse(existing.settingsJson); } catch { prev = {}; }
+    }
+    prev.timezone = timezone;
+    settingsJson = JSON.stringify(prev);
+  }
+
   await prisma.orgSettings.upsert({
     where: { organizationId: ctx.organizationId },
-    update: data,
-    create: { organizationId: ctx.organizationId, ...data },
+    update: { ...settingsData, ...(settingsJson ? { settingsJson } : {}) },
+    create: { organizationId: ctx.organizationId, ...settingsData, ...(settingsJson ? { settingsJson } : {}) },
   });
+
+  if (displayName) {
+    await prisma.organization.update({
+      where: { id: ctx.organizationId },
+      data: { name: displayName },
+    });
+  }
 
   await writeAudit({
     organizationId: ctx.organizationId,
@@ -93,6 +116,8 @@ export async function updateOrgSettings(formData: FormData) {
     metadata: {
       highValueThreshold: data.highValueThreshold,
       requireApprovalAbove: data.requireApprovalAbove,
+      timezone: data.timezone,
+      displayName: data.displayName,
     },
   });
 

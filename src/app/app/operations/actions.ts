@@ -519,3 +519,148 @@ export async function decideApproval(id: string, formData: FormData) {
   revalidatePath("/app/action-center");
   redirect(`/app/approvals?ok=1&msg=${encodeURIComponent(executionNote)}`);
 }
+
+/** Bulk approve/deny pending approvals. Reason required. Still records decisions only — no external exec. */
+export async function bulkDecideApprovals(formData: FormData) {
+  const ctx = await requirePermission("approve");
+  assertOrgId(ctx.organizationId);
+  const decision = String(formData.get("decision")) === "REJECTED" ? "REJECTED" : "APPROVED";
+  const reason = String(formData.get("reason") || "").trim();
+  if (reason.length < 3) {
+    redirect(`/app/approvals?error=1&msg=${encodeURIComponent("A decision reason is required (min 3 chars)")}`);
+  }
+  const confirmStepUp = formData.get("confirmStepUp") === "on" || formData.get("confirmStepUp") === "true";
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  if (!ids.length) {
+    redirect(`/app/approvals?error=1&msg=${encodeURIComponent("Select at least one pending approval")}`);
+  }
+
+  let done = 0;
+  let skipped = 0;
+  for (const id of ids) {
+    const req = await prisma.approvalRequest.findFirst({
+      where: { id, organizationId: ctx.organizationId, status: "PENDING" },
+    });
+    if (!req) {
+      skipped++;
+      continue;
+    }
+    const check = validateApprovalDecision({ type: req.type, decision, confirmStepUp });
+    if (!check.ok) {
+      skipped++;
+      continue;
+    }
+    const executionNote = req.needsIntegration
+      ? `${reason} · Approved but blocked: needs ${req.needsIntegration}. Not executed.`
+      : `${reason} · Decision recorded only — no external execution`;
+    await prisma.approvalRequest.update({
+      where: { id },
+      data: {
+        status: decision,
+        decidedById: ctx.user.id,
+        decidedAt: new Date(),
+        decisionNote: executionNote,
+      },
+    });
+    await recordStatusChange({
+      organizationId: ctx.organizationId,
+      entityType: "ApprovalRequest",
+      entityId: id,
+      fromStatus: "PENDING",
+      toStatus: decision,
+      actorId: ctx.user.id,
+      note: executionNote,
+    });
+    await writeAudit({
+      organizationId: ctx.organizationId,
+      actorId: ctx.user.id,
+      action: `approval.bulk_${decision.toLowerCase()}`,
+      entityType: "ApprovalRequest",
+      entityId: id,
+      metadata: { reason, bulk: true },
+    });
+    await notify({
+      organizationId: ctx.organizationId,
+      userId: req.requestedById,
+      title: `Approval ${decision} (bulk)`,
+      body: executionNote,
+      href: "/app/approvals",
+    });
+    done++;
+  }
+
+  revalidatePath("/app/approvals");
+  revalidatePath("/app/action-center");
+  redirect(
+    `/app/approvals?ok=1&msg=${encodeURIComponent(`Bulk ${decision.toLowerCase()}: ${done} recorded, ${skipped} skipped`)}`
+  );
+}
+
+/** Queue a weekly executive digest as EmailDraft + in-app notifications. Never fakes SMTP send. */
+export async function queueWeeklyDigest() {
+  const ctx = await requirePermission("write");
+  assertOrgId(ctx.organizationId);
+  const settings = await prisma.orgSettings.upsert({
+    where: { organizationId: ctx.organizationId },
+    update: {},
+    create: { organizationId: ctx.organizationId },
+  });
+
+  const [rr, oe, pending] = await Promise.all([
+    prisma.opportunity.aggregate({
+      where: { organizationId: ctx.organizationId },
+      _sum: { estimatedAmount: true, recoveredAmount: true, verifiedAmount: true },
+      _count: true,
+    }),
+    prisma.inefficiency.aggregate({
+      where: { organizationId: ctx.organizationId },
+      _sum: { projectedSavings: true, realizedSavings: true },
+      _count: true,
+    }),
+    prisma.approvalRequest.count({ where: { organizationId: ctx.organizationId, status: "PENDING" } }),
+  ]);
+
+  const subject = `Kaivaryn weekly brief · ${ctx.organization?.name || "org"}`;
+  const body = [
+    `Weekly executive digest (queued ${new Date().toISOString()})`,
+    ``,
+    `Revenue Recovery: ${rr._count} opportunities · estimated ${rr._sum.estimatedAmount ?? 0} · recovered ${rr._sum.recoveredAmount ?? 0} · verified ${rr._sum.verifiedAmount ?? 0}`,
+    `Operations Efficiency: ${oe._count} inefficiencies · projected ${oe._sum.projectedSavings ?? 0} · realized ${oe._sum.realizedSavings ?? 0}`,
+    `Pending approvals: ${pending}`,
+    ``,
+    `Note: Estimates ≠ recovered/realized. This draft is queued only.`,
+    settings.notifyEmailEnabled
+      ? `Email toggle is ON — delivery still requires configured SMTP (not faked).`
+      : `Email toggle is OFF — in-app notification only.`,
+  ].join("\n");
+
+  await prisma.emailDraft.create({
+    data: {
+      organizationId: ctx.organizationId,
+      entityType: "WeeklyDigest",
+      subject,
+      body,
+      status: "DRAFT",
+      createdById: ctx.user.id,
+    },
+  });
+
+  await notifyOrgManagers({
+    organizationId: ctx.organizationId,
+    title: "Weekly digest queued",
+    body: "An EmailDraft was created. SMTP send is never faked — open Reports for the live brief.",
+    href: "/app/reports?type=weekly_brief",
+  });
+
+  await writeAudit({
+    organizationId: ctx.organizationId,
+    actorId: ctx.user.id,
+    action: "digest.weekly_queued",
+    entityType: "EmailDraft",
+    metadata: { emailEnabled: settings.notifyEmailEnabled },
+  });
+
+  revalidatePath("/app/notifications");
+  revalidatePath("/app/reports");
+  redirect(`/app/reports?type=weekly_brief&ok=1&msg=${encodeURIComponent("Weekly digest queued as draft (no fake send)")}`);
+}

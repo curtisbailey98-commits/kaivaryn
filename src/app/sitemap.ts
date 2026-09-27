@@ -8,6 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/solutions/operations-efficiency",
     "/how-it-works",
     "/intelligence",
+    "/value",
     "/pricing",
     "/demo",
     "/company",

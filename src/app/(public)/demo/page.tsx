@@ -25,7 +25,7 @@ export default async function DemoPage() {
           <div className="mt-8 space-y-3 text-sm text-neutral-400">
             <p>
               <span className="mr-2 text-amber-400">01</span>
-              Schedule on Zoom for the fastest path to a live session.
+              Schedule on Zoom for the fastest path to a live executive session.
             </p>
             <p>
               <span className="mr-2 text-amber-400">02</span>
@@ -33,9 +33,13 @@ export default async function DemoPage() {
             </p>
             <p>
               <span className="mr-2 text-amber-400">03</span>
-              Leave with a sharper question and a path to test it.
+              Walk the operating loop: leakage and friction → ranked queue → governed action → verified results.
             </p>
           </div>
+          <p className="mt-6 max-w-md text-xs leading-5 text-neutral-500">
+            Sessions are consulting-led. We do not present fabricated customer logos or invented recovery averages.
+            Bring one hard question; leave with a clearer path to test it in the Kaivaryn workspace.
+          </p>
           <a
             href={zoomUrl}
             target="_blank"

@@ -12,6 +12,8 @@ import { Prisma } from "@prisma/client";
 import { OpportunityPriority, OpportunityStatus } from "@/lib/enums";
 import { CircleDollarSign, Crosshair, Download, LineChart, Plus, ShieldCheck, TrendingUp } from "lucide-react";
 import { MetricCard } from "@/components/ui/metric-card";
+import { classifyLeakageType, LEAKAGE_TYPES } from "@/lib/leakage-taxonomy";
+import { ageDays } from "@/lib/sla";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +58,7 @@ export default async function RevenuePage({
     if (searchParams.to) where.identifiedAt.lte = new Date(searchParams.to);
   }
 
-  const [opps, agg, highConfidence, pendingApprovals] = await Promise.all([
+  const [opps, agg, highConfidence, pendingApprovals, byStatus, allForTaxonomy] = await Promise.all([
     prisma.opportunity.findMany({
       where,
       orderBy: [{ score: "desc" }, { potentialAmount: "desc" }],
@@ -65,11 +67,22 @@ export default async function RevenuePage({
     }),
     prisma.opportunity.aggregate({
       where: { organizationId: ctx.organizationId },
-      _sum: { estimatedAmount: true, approvedAmount: true, inProgressAmount: true, recoveredAmount: true, verifiedAmount: true },
+      _sum: { estimatedAmount: true, potentialAmount: true, approvedAmount: true, inProgressAmount: true, recoveredAmount: true, verifiedAmount: true },
       _count: true,
     }),
     prisma.opportunity.count({ where: { organizationId: ctx.organizationId, score: { gte: 70 }, status: { notIn: ["RECOVERED", "VERIFIED", "DISMISSED"] } } }),
     prisma.approvalRequest.count({ where: { organizationId: ctx.organizationId, status: "PENDING" } }),
+    prisma.opportunity.groupBy({
+      by: ["status"],
+      where: { organizationId: ctx.organizationId },
+      _count: true,
+      _sum: { potentialAmount: true, recoveredAmount: true },
+    }),
+    prisma.opportunity.findMany({
+      where: { organizationId: ctx.organizationId, status: { notIn: ["DISMISSED"] } },
+      select: { type: true, potentialAmount: true, recoveredAmount: true, status: true },
+      take: 500,
+    }),
   ]);
 
   const sources = Array.from(new Set(opps.map((o) => o.source).filter(Boolean) as string[]));
@@ -80,8 +93,37 @@ export default async function RevenuePage({
     sources,
   });
 
-  const estimated = agg._sum.estimatedAmount ?? 0;
+  const estimated = agg._sum.estimatedAmount ?? agg._sum.potentialAmount ?? 0;
   const recovered = agg._sum.recoveredAmount ?? 0;
+  const verified = agg._sum.verifiedAmount ?? 0;
+  const openPipeline = Math.max(0, estimated - recovered);
+  const recoveryRate = estimated > 0 ? Math.round((recovered / estimated) * 1000) / 10 : 0;
+
+  const funnelStages = [
+    { key: "identified", label: "Identified", statuses: ["IDENTIFIED", "NEW"], href: "/app/revenue?view=identified" },
+    { key: "review", label: "Under review", statuses: ["UNDER_REVIEW"], href: "/app/revenue?view=under_review" },
+    { key: "recovery", label: "In recovery", statuses: ["APPROVED", "IN_RECOVERY", "IN_PROGRESS", "PARTIALLY_RECOVERED"], href: "/app/revenue?view=in_recovery" },
+    { key: "recovered", label: "Recovered", statuses: ["RECOVERED", "VERIFIED"], href: "/app/revenue?view=recovered" },
+  ].map((stage) => {
+    const rows = byStatus.filter((g) => stage.statuses.includes(g.status));
+    return {
+      ...stage,
+      count: rows.reduce((n, g) => n + g._count, 0),
+      potential: rows.reduce((n, g) => n + (g._sum.potentialAmount ?? 0), 0),
+      recovered: rows.reduce((n, g) => n + (g._sum.recoveredAmount ?? 0), 0),
+    };
+  });
+
+  const taxonomy = LEAKAGE_TYPES.map((t) => {
+    const rows = allForTaxonomy.filter((o) => classifyLeakageType(o.type).id === t.id);
+    return {
+      id: t.id,
+      label: t.label,
+      count: rows.length,
+      potential: rows.reduce((n, r) => n + (r.potentialAmount || 0), 0),
+      recovered: rows.reduce((n, r) => n + (r.recoveredAmount || 0), 0),
+    };
+  }).filter((t) => t.count > 0);
 
   return (
     <div>
@@ -111,7 +153,52 @@ export default async function RevenuePage({
         <MetricCard label="Value in intervention" value={formatCurrency(agg._sum.inProgressAmount ?? 0)} sublabel={`${formatCurrency(agg._sum.approvedAmount ?? 0)} approved`} icon={TrendingUp} />
         <MetricCard label="Verified recovery" value={formatCurrency(agg._sum.verifiedAmount ?? recovered)} sublabel={`${pendingApprovals} executive decisions pending`} icon={ShieldCheck} tone="success" />
       </div>
-      <p className="mt-2 text-xs text-neutral-500">Estimated and recovered are always separate metrics.</p>
+      <p className="mt-2 text-xs text-neutral-500">Estimated and recovered are always separate metrics. Recovery rate = recovered ÷ estimated pipeline (not a guarantee of future cash).</p>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+          <p className="text-[10px] uppercase tracking-wider text-neutral-500">Open pipeline</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{formatCurrency(openPipeline)}</p>
+          <p className="mt-1 text-xs text-neutral-500">Estimated minus recovered</p>
+        </div>
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
+          <p className="text-[10px] uppercase tracking-wider text-emerald-300">Recovery rate</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{recoveryRate}%</p>
+          <p className="mt-1 text-xs text-neutral-500">Recovered ÷ estimated · verified {formatCurrency(verified)}</p>
+        </div>
+        <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+          <p className="text-[10px] uppercase tracking-wider text-neutral-500">Funnel stages</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{funnelStages.reduce((n, s) => n + s.count, 0)}</p>
+          <p className="mt-1 text-xs text-neutral-500">Active opportunities across stages</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-4">
+        {funnelStages.map((s) => (
+          <Link key={s.key} href={s.href} className="rounded-lg border border-neutral-800 bg-neutral-950/80 p-3 transition hover:border-amber-500/40">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">{s.label}</p>
+            <p className="mt-1 text-lg font-semibold text-white">{s.count}</p>
+            <p className="mt-0.5 text-xs text-neutral-500">{formatCurrency(s.potential)} potential</p>
+          </Link>
+        ))}
+      </div>
+
+      {taxonomy.length > 0 ? (
+        <div className="mt-4">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-600">Leakage taxonomy</p>
+          <div className="flex flex-wrap gap-2">
+            {taxonomy.map((t) => (
+              <Link
+                key={t.id}
+                href={`/app/revenue?type=${encodeURIComponent(t.id)}`}
+                className="rounded-full border border-neutral-800 px-3 py-1.5 text-xs text-neutral-300 hover:border-amber-500/50"
+              >
+                {t.label} · {t.count} · {formatCurrency(t.potential)}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="si-glass mt-6 p-4 text-sm">
         <p className="si-label">Intelligence</p>
@@ -194,7 +281,7 @@ export default async function RevenuePage({
                     <Link href={`/app/revenue/${o.id}`} className="text-amber-400 hover:underline">
                       {o.title}
                     </Link>
-                    <div className="text-xs text-neutral-500">{[o.source, o.department, o.type].filter(Boolean).join(" · ")}</div>
+                    <div className="text-xs text-neutral-500">{[o.source, o.department, classifyLeakageType(o.type).label].filter(Boolean).join(" · ")}{o.assignee ? ` · ${o.assignee.name || o.assignee.email}` : " · Unassigned"} · {ageDays(o.identifiedAt)}d</div>
                   </TD>
                   <TD><StatusBadge status={o.status} /></TD>
                   <TD><PriorityBadge priority={o.priority} /></TD>

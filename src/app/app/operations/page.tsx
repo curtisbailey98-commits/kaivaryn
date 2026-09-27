@@ -11,6 +11,8 @@ import { Prisma } from "@prisma/client";
 import { PageHeader } from "@/components/ui/page-header";
 import { MetricCard } from "@/components/ui/metric-card";
 import { Clock3, Cog, Gauge, ShieldCheck } from "lucide-react";
+import { automationReadinessScore } from "@/lib/leakage-taxonomy";
+import { ageDays } from "@/lib/sla";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +42,12 @@ export default async function OperationsPage({
     ...(VIEWS[view].where || {}),
   };
 
-  const [items, agg, autoCount, criticalCount, pendingApprovals, hours] = await Promise.all([
+  const [items, agg, autoCount, criticalCount, pendingApprovals, hours, heatRows] = await Promise.all([
     prisma.inefficiency.findMany({
       where,
       orderBy: [{ score: "desc" }, { projectedSavings: "desc" }],
       take: 200,
+      include: { assignee: { select: { name: true, email: true } }, _count: { select: { evidence: true } } },
     }),
     prisma.inefficiency.aggregate({
       where: { organizationId: ctx.organizationId },
@@ -59,6 +62,12 @@ export default async function OperationsPage({
     }),
     prisma.approvalRequest.count({ where: { organizationId: ctx.organizationId, status: "PENDING" } }),
     prisma.inefficiency.aggregate({ where: { organizationId: ctx.organizationId }, _sum: { projectedHoursWeekly: true, realizedHoursWeekly: true } }),
+    prisma.inefficiency.groupBy({
+      by: ["department"],
+      where: { organizationId: ctx.organizationId, status: { notIn: ["DISMISSED"] } },
+      _count: true,
+      _sum: { projectedSavings: true, realizedSavings: true, estimatedWasteAnnual: true },
+    }),
   ]);
 
   const intel = analyzeOperationsSignals({
@@ -98,6 +107,75 @@ export default async function OperationsPage({
         )}
       </div>
 
+      {(() => {
+        const projected = agg._sum.projectedSavings ?? 0;
+        const realized = agg._sum.realizedSavings ?? agg._sum.recoveredAnnual ?? 0;
+        const gap = Math.max(0, projected - realized);
+        const precision = projected > 0 ? Math.round((realized / projected) * 1000) / 10 : 0;
+        const heat = heatRows
+          .map((h) => ({
+            dept: h.department || "Unspecified",
+            count: h._count,
+            waste: h._sum.estimatedWasteAnnual ?? 0,
+            projected: h._sum.projectedSavings ?? 0,
+            realized: h._sum.realizedSavings ?? 0,
+          }))
+          .sort((a, b) => b.waste - a.waste)
+          .slice(0, 6);
+        const readinessAvg = items.length
+          ? Math.round(
+              items.reduce(
+                (n, i) =>
+                  n +
+                  automationReadinessScore({
+                    automationCandidate: i.automationCandidate,
+                    score: i.score,
+                    evidenceCount: i._count?.evidence ?? 0,
+                    projectedSavings: i.projectedSavings || i.estimatedWasteAnnual,
+                    priority: i.priority,
+                  }),
+                0
+              ) / items.length
+            )
+          : 0;
+        return (
+          <>
+            <div className="mt-6 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4 sm:p-5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-300">Savings realization ledger</p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-4">
+                <div><p className="text-[10px] uppercase text-neutral-500">Projected</p><p className="mt-1 text-xl font-semibold text-white">{formatCurrency(projected)}</p></div>
+                <div><p className="text-[10px] uppercase text-neutral-500">Realized</p><p className="mt-1 text-xl font-semibold text-emerald-400">{formatCurrency(realized)}</p></div>
+                <div><p className="text-[10px] uppercase text-neutral-500">Open gap</p><p className="mt-1 text-xl font-semibold text-amber-400">{formatCurrency(gap)}</p></div>
+                <div><p className="text-[10px] uppercase text-neutral-500">Realization precision</p><p className="mt-1 text-xl font-semibold text-white">{precision}%</p><p className="text-[10px] text-neutral-600">realized ÷ projected</p></div>
+              </div>
+              <p className="mt-3 text-xs text-neutral-500">Projected is never treated as banked savings. Record realized outcomes only after verified execution.</p>
+            </div>
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Automation readiness (view avg)</p>
+                <p className="mt-2 text-3xl font-semibold text-white">{readinessAvg}<span className="text-base text-neutral-500">/100</span></p>
+                <p className="mt-1 text-xs text-neutral-500">Score from candidate flag, confidence, evidence, impact, and priority — not a promise that automation ran.</p>
+              </div>
+              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Bottleneck heat by department</p>
+                {heat.length === 0 ? (
+                  <p className="mt-3 text-sm text-neutral-500">No department signals yet.</p>
+                ) : (
+                  <ul className="mt-3 space-y-2">
+                    {heat.map((h) => (
+                      <li key={h.dept} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="truncate text-neutral-300">{h.dept}</span>
+                        <span className="shrink-0 text-xs text-neutral-500">{h.count} · {formatCurrency(h.waste)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
       <div className="mt-6 flex flex-wrap gap-2">
         {Object.entries(VIEWS).map(([k, v]) => (
           <Link key={k} href={`/app/operations?view=${k}`}
@@ -112,15 +190,19 @@ export default async function OperationsPage({
           <EmptyState title="No inefficiencies in this view" />
         ) : (
           <Table>
-            <THead><TR><TH>Title</TH><TH>Status</TH><TH>Priority</TH><TH>Est. waste/yr</TH><TH>Recovered</TH><TH>Auto?</TH></TR></THead>
+            <THead><TR><TH>Title</TH><TH>Status</TH><TH>Priority</TH><TH>Est. waste/yr</TH><TH>Realized</TH><TH>Ready</TH><TH>Auto?</TH></TR></THead>
             <TBody>
               {items.map((i) => (
                 <TR key={i.id}>
-                  <TD><Link href={`/app/operations/${i.id}`} className="text-amber-400 hover:underline">{i.title}</Link></TD>
+                  <TD>
+                    <Link href={`/app/operations/${i.id}`} className="text-amber-400 hover:underline">{i.title}</Link>
+                    <div className="text-xs text-neutral-500">{[i.department, i.type].filter(Boolean).join(" · ") || "—"}{i.assignee ? ` · ${i.assignee.name || i.assignee.email}` : " · Unassigned"} · {ageDays(i.identifiedAt)}d</div>
+                  </TD>
                   <TD><Badge>{i.status}</Badge></TD>
                   <TD><Badge tone={i.priority === "CRITICAL" ? "danger" : "default"}>{i.priority}</Badge></TD>
                   <TD>{formatCurrency(i.estimatedWasteAnnual)}</TD>
-                  <TD className="text-emerald-300">{formatCurrency(i.recoveredAnnual)}</TD>
+                  <TD className="text-emerald-300">{formatCurrency(i.realizedSavings || i.recoveredAnnual)}</TD>
+                  <TD>{automationReadinessScore({ automationCandidate: i.automationCandidate, score: i.score, evidenceCount: i._count?.evidence ?? 0, projectedSavings: i.projectedSavings || i.estimatedWasteAnnual, priority: i.priority })}</TD>
                   <TD>{i.automationCandidate ? "Yes" : "—"}</TD>
                 </TR>
               ))}

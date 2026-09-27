@@ -3,6 +3,8 @@ import { requirePermission, assertOrgId } from "@/lib/tenant";
 import { buildReport, REPORT_LABELS, type ReportType } from "@/lib/reports";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { queueWeeklyDigest } from "../operations/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -55,9 +57,14 @@ export default async function ReportsPage({
           rel="noreferrer"
           className="rounded-md border border-neutral-700 px-3 py-2 hover:border-amber-600"
         >
-          Printable HTML
+          Printable HTML / PDF
         </a>
+        <form action={queueWeeklyDigest}>
+          <Button type="submit" variant="secondary" size="sm">Queue weekly digest draft</Button>
+        </form>
       </div>
+      <p className="mt-2 text-xs text-neutral-600">Weekly digest creates an EmailDraft + in-app notice. SMTP send is never faked.</p>
+      {searchParams.ok ? <p className="mt-2 text-sm text-emerald-400">{searchParams.msg || "Queued"}</p> : null}
 
       <div className="si-panel mt-8 p-4">
         <div className="flex flex-wrap items-center gap-2">

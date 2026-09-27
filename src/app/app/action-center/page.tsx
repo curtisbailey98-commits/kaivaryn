@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { urgencyScore, impactForRanking } from "@/lib/financial-impact";
+import { ageDays, slaBucket, slaLabel, slaTone, agingBucketLabel } from "@/lib/sla";
 import { runIntelligence } from "../actions";
 import { Button } from "@/components/ui/button";
 
@@ -21,6 +22,12 @@ type ActionItem = {
   rank: number;
   meta: string;
   badge: string;
+  owner: string | null;
+  age: number;
+  sla: ReturnType<typeof slaBucket>;
+  agingLabel: string;
+  unassigned: boolean;
+  needsAttention: boolean;
 };
 
 export default async function ActionCenterPage({
@@ -31,6 +38,7 @@ export default async function ActionCenterPage({
   const ctx = await requireOrgAccess();
   assertOrgId(ctx.organizationId);
   const filter = searchParams.filter || "all";
+  const triage = searchParams.triage || "all";
   const settings = await prisma.orgSettings.upsert({
     where: { organizationId: ctx.organizationId },
     update: {},
@@ -42,6 +50,7 @@ export default async function ActionCenterPage({
       where: { organizationId: ctx.organizationId, status: "PENDING" },
       orderBy: { createdAt: "desc" },
       take: 50,
+      include: { requestedBy: { select: { name: true, email: true } } },
     }),
     prisma.opportunity.findMany({
       where: {
@@ -50,6 +59,7 @@ export default async function ActionCenterPage({
       },
       orderBy: [{ score: "desc" }, { potentialAmount: "desc" }],
       take: 40,
+      include: { assignee: { select: { name: true, email: true } } },
     }),
     prisma.inefficiency.findMany({
       where: {
@@ -58,6 +68,7 @@ export default async function ActionCenterPage({
       },
       orderBy: [{ score: "desc" }, { projectedSavings: "desc" }],
       take: 40,
+      include: { assignee: { select: { name: true, email: true } } },
     }),
     prisma.auditLog.findMany({
       where: { organizationId: ctx.organizationId },
@@ -69,12 +80,13 @@ export default async function ActionCenterPage({
     }),
   ]);
 
-  const now = Date.now();
+  const now = new Date();
   const items: ActionItem[] = [];
 
   for (const a of pendingApprovals) {
-    const ageDays = Math.floor((now - a.createdAt.getTime()) / 86400000);
-    const urgency = urgencyScore({ priority: "HIGH", ageDays, amount: 0 });
+    const age = ageDays(a.createdAt, now);
+    const sla = slaBucket(age, "approval");
+    const urgency = urgencyScore({ priority: "HIGH", ageDays: age, amount: 0 });
     items.push({
       id: a.id,
       kind: "approval",
@@ -85,17 +97,25 @@ export default async function ActionCenterPage({
       rank: 0,
       meta: a.needsIntegration ? `Needs integration: ${a.needsIntegration}` : a.type,
       badge: a.type,
+      owner: a.requestedBy.name || a.requestedBy.email,
+      age,
+      sla,
+      agingLabel: agingBucketLabel(age),
+      unassigned: false,
+      needsAttention: sla === "aging" || sla === "breach" || Boolean(a.needsIntegration),
     });
   }
   for (const o of opps) {
     const amount = o.potentialAmount || o.estimatedAmount;
-    const ageDays = Math.floor((now - o.identifiedAt.getTime()) / 86400000);
+    const age = ageDays(o.identifiedAt, now);
+    const sla = slaBucket(age, "work");
     const urgency = urgencyScore({
       priority: o.priority,
-      ageDays,
+      ageDays: age,
       amount,
       highValueThreshold: settings.highValueThreshold,
     });
+    const unassigned = !o.assigneeId;
     items.push({
       id: o.id,
       kind: "revenue",
@@ -106,17 +126,25 @@ export default async function ActionCenterPage({
       rank: 0,
       meta: `${o.status} · score ${o.score}`,
       badge: o.priority,
+      owner: o.assignee?.name || o.assignee?.email || null,
+      age,
+      sla,
+      agingLabel: agingBucketLabel(age),
+      unassigned,
+      needsAttention: unassigned || sla === "breach" || o.priority === "CRITICAL",
     });
   }
   for (const i of ineff) {
     const amount = i.projectedSavings || i.estimatedWasteAnnual;
-    const ageDays = Math.floor((now - i.identifiedAt.getTime()) / 86400000);
+    const age = ageDays(i.identifiedAt, now);
+    const sla = slaBucket(age, "work");
     const urgency = urgencyScore({
       priority: i.priority,
-      ageDays,
+      ageDays: age,
       amount,
       highValueThreshold: settings.highValueThreshold,
     });
+    const unassigned = !i.assigneeId;
     items.push({
       id: i.id,
       kind: "operations",
@@ -127,14 +155,35 @@ export default async function ActionCenterPage({
       rank: 0,
       meta: `${i.status} · score ${i.score}`,
       badge: i.priority,
+      owner: i.assignee?.name || i.assignee?.email || null,
+      age,
+      sla,
+      agingLabel: agingBucketLabel(age),
+      unassigned,
+      needsAttention: unassigned || sla === "breach" || i.priority === "CRITICAL" || i.automationCandidate,
     });
   }
 
   for (const it of items) {
-    it.rank = it.impact * 0.6 + it.urgency * 400;
+    it.rank = it.impact * 0.6 + it.urgency * 400 + (it.needsAttention ? 5000 : 0);
   }
   items.sort((a, b) => b.rank - a.rank);
-  const filtered = filter === "all" ? items : items.filter((i) => i.kind === filter);
+
+  let filtered = filter === "all" ? items : items.filter((i) => i.kind === filter);
+  if (triage === "needs_attention") filtered = filtered.filter((i) => i.needsAttention);
+  if (triage === "unassigned") filtered = filtered.filter((i) => i.unassigned);
+  if (triage === "sla_risk") filtered = filtered.filter((i) => i.sla === "aging" || i.sla === "breach");
+
+  const agingCounts = {
+    "0–3d": items.filter((i) => i.agingLabel === "0–3d").length,
+    "4–7d": items.filter((i) => i.agingLabel === "4–7d").length,
+    "8–14d": items.filter((i) => i.agingLabel === "8–14d").length,
+    "15–30d": items.filter((i) => i.agingLabel === "15–30d").length,
+    "30d+": items.filter((i) => i.agingLabel === "30d+").length,
+  };
+  const needsCount = items.filter((i) => i.needsAttention).length;
+  const unassignedCount = items.filter((i) => i.unassigned).length;
+  const slaRiskCount = items.filter((i) => i.sla === "aging" || i.sla === "breach").length;
 
   return (
     <div>
@@ -143,7 +192,7 @@ export default async function ActionCenterPage({
           <p className="si-label text-amber-500">Executive</p>
           <h1 className="mt-1 text-2xl font-semibold">Action Center</h1>
           <p className="mt-2 max-w-2xl text-sm text-neutral-400">
-            Unified queue ranked by financial impact and urgency. Approvals record decisions only —
+            Unified queue ranked by financial impact, urgency, and SLA risk. Approvals record decisions only —
             external actions never fake success.
           </p>
           {ctx.organization?.isDemo ? <Badge tone="demo" className="mt-3">DEMO</Badge> : null}
@@ -166,13 +215,57 @@ export default async function ActionCenterPage({
         </div>
       </div>
 
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Link href="/app/action-center?triage=needs_attention" className="rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-4">
+          <p className="text-[10px] uppercase tracking-wider text-amber-300">Needs attention</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{needsCount}</p>
+          <p className="mt-1 text-xs text-neutral-500">Unassigned, critical, or SLA risk</p>
+        </Link>
+        <Link href="/app/action-center?triage=unassigned" className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+          <p className="text-[10px] uppercase tracking-wider text-neutral-500">Unassigned</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{unassignedCount}</p>
+          <p className="mt-1 text-xs text-neutral-500">Open work without an owner</p>
+        </Link>
+        <Link href="/app/action-center?triage=sla_risk" className="rounded-xl border border-red-500/20 bg-red-500/[0.04] p-4">
+          <p className="text-[10px] uppercase tracking-wider text-red-300">SLA risk</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{slaRiskCount}</p>
+          <p className="mt-1 text-xs text-neutral-500">Aging or breach buckets</p>
+        </Link>
+        <Link href="/app/approvals" className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+          <p className="text-[10px] uppercase tracking-wider text-neutral-500">Pending approvals</p>
+          <p className="mt-2 text-2xl font-semibold text-white">{pendingApprovals.length}</p>
+          <p className="mt-1 text-xs text-neutral-500">Decision-gated actions</p>
+        </Link>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2 text-xs">
+        <span className="text-neutral-600 self-center">Aging:</span>
+        {Object.entries(agingCounts).map(([label, count]) => (
+          <span key={label} className="rounded-full border border-neutral-800 px-3 py-1 text-neutral-400">
+            {label} · {count}
+          </span>
+        ))}
+      </div>
+
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
         {([["all", "All"], ["approval", "Approvals"], ["revenue", "Revenue"], ["operations", "Operations"]] as const).map(([k, label]) => (
           <Link
             key={k}
-            href={`/app/action-center?filter=${k}`}
+            href={`/app/action-center?filter=${k}${triage !== "all" ? `&triage=${triage}` : ""}`}
             className={`rounded-full border px-3 py-1 ${
               filter === k ? "border-amber-500 text-amber-400" : "border-neutral-800 text-neutral-400"
+            }`}
+          >
+            {label}
+          </Link>
+        ))}
+        <span className="mx-1 text-neutral-700">|</span>
+        {([["all", "All triage"], ["needs_attention", "Needs attention"], ["unassigned", "Unassigned"], ["sla_risk", "SLA risk"]] as const).map(([k, label]) => (
+          <Link
+            key={k}
+            href={`/app/action-center?filter=${filter}&triage=${k}`}
+            className={`rounded-full border px-3 py-1 ${
+              triage === k ? "border-emerald-500 text-emerald-400" : "border-neutral-800 text-neutral-400"
             }`}
           >
             {label}
@@ -181,7 +274,7 @@ export default async function ActionCenterPage({
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState className="mt-8" title="No open executive actions" description="Critical items and pending approvals will appear here." />
+        <EmptyState className="mt-8" title="No open executive actions" description="Critical items and pending approvals will appear here. Import data or run intelligence to surface work." />
       ) : (
         <ul className="mt-6 space-y-3">
           {filtered.slice(0, 40).map((it) => (
@@ -193,11 +286,20 @@ export default async function ActionCenterPage({
                       {it.kind}
                     </Badge>
                     <Badge>{it.badge}</Badge>
+                    <Badge tone={slaTone(it.sla)}>{slaLabel(it.sla)} · {it.age}d</Badge>
+                    {it.unassigned ? <Badge tone="warning">Unassigned</Badge> : null}
+                    {it.needsAttention ? <Badge tone="danger">Needs attention</Badge> : null}
                   </div>
                   <Link href={it.href} className="mt-1 block truncate text-base font-medium text-amber-400 hover:underline">
                     {it.title}
                   </Link>
-                  <p className="mt-1 text-xs text-neutral-500">{it.meta}</p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {it.meta}
+                    {" · "}
+                    Owner: {it.owner || "—"}
+                    {" · "}
+                    Aging {it.agingLabel}
+                  </p>
                 </div>
                 <div className="flex shrink-0 gap-4 text-right text-xs sm:flex-col sm:items-end">
                   <div>

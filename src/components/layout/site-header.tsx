@@ -7,6 +7,7 @@ const links = [
   { href: "/how-it-works", label: "How it works" },
   { href: "/intelligence", label: "Intelligence" },
   { href: "/company", label: "Firm" },
+  { href: "/value", label: "Value estimator" },
   { href: "/pricing", label: "Pricing" },
 ];
 

@@ -18,6 +18,14 @@ export default async function SettingsPage() {
     update: {},
     create: { organizationId: ctx.organizationId },
   });
+  const org = await prisma.organization.findUnique({ where: { id: ctx.organizationId } });
+  let timezone = "America/New_York";
+  if (settings.settingsJson) {
+    try {
+      const parsed = JSON.parse(settings.settingsJson) as { timezone?: string };
+      if (parsed.timezone) timezone = parsed.timezone;
+    } catch { /* keep default */ }
+  }
 
   if (!canEdit) {
     return (
@@ -58,6 +66,21 @@ export default async function SettingsPage() {
       </p>
 
       <form action={updateOrgSettings} className="mt-8 space-y-8">
+        <section className="si-panel space-y-3 p-4">
+          <p className="si-label">Organization display</p>
+          <p className="text-xs text-neutral-500">Branding-safe display name shown in the app shell. Timezone is stored for digests and aging labels — not used to invent metrics.</p>
+          <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+            <label className="block">
+              <span className="text-xs text-neutral-500">Display name</span>
+              <Input name="displayName" defaultValue={org?.name || ""} className="mt-1" />
+            </label>
+            <label className="block">
+              <span className="text-xs text-neutral-500">Timezone</span>
+              <Input name="timezone" defaultValue={timezone} placeholder="America/New_York" className="mt-1" />
+            </label>
+          </div>
+        </section>
+
         <section className="si-panel space-y-3 p-4">
           <p className="si-label">Detection thresholds</p>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
