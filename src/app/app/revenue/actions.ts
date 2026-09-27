@@ -463,7 +463,7 @@ export async function createOpportunityTask(opportunityId: string, formData: For
   const title = String(formData.get("title") || "").trim();
   if (!title) return { error: "Title required" };
   const dueRaw = String(formData.get("dueAt") || "");
-  const task = await prisma.task.create({
+  await prisma.task.create({
     data: {
       organizationId: ctx.organizationId,
       title,

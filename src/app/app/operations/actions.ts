@@ -14,7 +14,7 @@ import { OE_STATUSES } from "@/lib/enums";
 import { can } from "@/lib/rbac";
 import { notify, notifyOrgManagers } from "@/lib/notifications";
 import { recordLearningEvent } from "@/lib/learning";
-import { evaluateRecoveryGate, isHighValue } from "@/lib/approval-thresholds";
+import { evaluateRecoveryGate } from "@/lib/approval-thresholds";
 
 const schema = z.object({
   title: z.string().min(1).max(300),
