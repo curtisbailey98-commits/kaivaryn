@@ -14,7 +14,8 @@ import { Clock3, Cog, Gauge, ShieldCheck } from "lucide-react";
 import { automationReadinessScore } from "@/lib/leakage-taxonomy";
 import { ageDays } from "@/lib/sla";
 import { getOperationsChartData } from "@/lib/chart-data";
-import { DynAreaChart, DynBarChart, AnimatedGaugeBar, CHART } from "@/components/charts/dynamic";
+import { DynAreaChart, DynBarChart, AnimatedGaugeBar } from "@/components/charts/dynamic";
+import { CHART } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";
 

@@ -7,7 +7,8 @@ import { EmptyState } from "@/components/ui/states";
 import { markAllNotificationsRead, markNotificationRead } from "../actions";
 import Link from "next/link";
 import { getNotificationsChartData } from "@/lib/chart-data";
-import { DynBarChart, KpiSpark, CHART } from "@/components/charts/dynamic";
+import { DynBarChart, KpiSpark } from "@/components/charts/dynamic";
+import { CHART } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";
 

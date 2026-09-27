@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { updateOrgSettings } from "./actions";
 import { EmptyState } from "@/components/ui/states";
 import { getSettingsUsageChartData } from "@/lib/chart-data";
-import { DynAreaChart, KpiSpark, CHART } from "@/components/charts/dynamic";
+import { DynAreaChart, KpiSpark } from "@/components/charts/dynamic";
+import { CHART } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";
 

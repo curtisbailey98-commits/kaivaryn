@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { queueWeeklyDigest } from "../operations/actions";
 import { getWeeklyBriefChartData } from "@/lib/chart-data";
-import { DynLineChart, DynComposedChart, DynBarChart, CHART } from "@/components/charts/dynamic";
+import { DynLineChart, DynComposedChart, DynBarChart } from "@/components/charts/dynamic";
+import { CHART } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";
 

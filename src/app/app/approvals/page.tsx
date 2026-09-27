@@ -7,7 +7,8 @@ import { EmptyState } from "@/components/ui/states";
 import { ageDays, slaBucket, slaLabel, slaTone } from "@/lib/sla";
 import { decideApproval, bulkDecideApprovals } from "../operations/actions";
 import { getApprovalsChartData } from "@/lib/chart-data";
-import { DynBarChart, DynComposedChart, KpiSpark, CHART } from "@/components/charts/dynamic";
+import { DynBarChart, DynComposedChart, KpiSpark } from "@/components/charts/dynamic";
+import { CHART } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";
 

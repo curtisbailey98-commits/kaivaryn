@@ -4,7 +4,8 @@ import { requireEntitlement } from "@/lib/entitlements";
 import { getOperationsChartData, getReadinessRadarData, trendToCumulativeRecovered } from "@/lib/chart-data";
 import { EmptyState } from "@/components/ui/states";
 import { Badge } from "@/components/ui/badge";
-import { DynAreaChart, DynBarChart, DynRadarChart, DynStepChart, AnimatedGaugeBar, CHART } from "@/components/charts/dynamic";
+import { DynAreaChart, DynBarChart, DynRadarChart, DynStepChart, AnimatedGaugeBar } from "@/components/charts/dynamic";
+import { CHART } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";
 

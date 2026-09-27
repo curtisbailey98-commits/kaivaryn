@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { updateDemoStatus } from "./actions";
 import type { DemoRequestStatus } from "@/lib/enums";
 import { getAdminDemoFunnelData } from "@/lib/chart-data";
-import { AnimatedFunnelBars, DynBarChart, CHART } from "@/components/charts/dynamic";
+import { AnimatedFunnelBars, DynBarChart } from "@/components/charts/dynamic";
+import { CHART } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";
 

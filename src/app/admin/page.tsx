@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAdminDemoFunnelData } from "@/lib/chart-data";
-import { DynBarChart, AnimatedFunnelBars, CHART } from "@/components/charts/dynamic";
+import { DynBarChart, AnimatedFunnelBars } from "@/components/charts/dynamic";
+import { CHART } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";
 

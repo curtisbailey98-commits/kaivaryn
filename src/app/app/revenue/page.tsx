@@ -15,7 +15,8 @@ import { MetricCard } from "@/components/ui/metric-card";
 import { classifyLeakageType, LEAKAGE_TYPES } from "@/lib/leakage-taxonomy";
 import { ageDays } from "@/lib/sla";
 import { getRevenueChartData, revenueFunnelToWaterfall, trendToCumulativeRecovered } from "@/lib/chart-data";
-import { DynAreaChart, DynDonutChart, DynWaterfallChart, DynStepChart, AnimatedFunnelBars, CHART } from "@/components/charts/dynamic";
+import { DynAreaChart, DynDonutChart, DynWaterfallChart, DynStepChart, AnimatedFunnelBars } from "@/components/charts/dynamic";
+import { CHART } from "@/components/charts/theme";
 import { formatMoneyTick } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";

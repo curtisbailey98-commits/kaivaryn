@@ -11,7 +11,8 @@ import { EmptyState } from "@/components/ui/states";
 import { getLearningSummary } from "@/lib/learning";
 import { TrendingUp, Settings2, ShieldCheck, Bell, ArrowRight } from "lucide-react";
 import { getWeeklyBriefChartData, getActionCenterChartData } from "@/lib/chart-data";
-import { DynAreaChart, DynBarChart, DynComposedChart, PulseSpark, KpiSpark, CHART } from "@/components/charts/dynamic";
+import { DynAreaChart, DynBarChart, DynComposedChart, PulseSpark, KpiSpark } from "@/components/charts/dynamic";
+import { CHART } from "@/components/charts/theme";
 import { ActivityStrip, CountUp, CountUpCurrency } from "@/components/motion";
 
 export default async function AppHomePage() {

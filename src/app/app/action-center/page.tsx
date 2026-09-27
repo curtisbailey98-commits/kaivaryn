@@ -9,7 +9,8 @@ import { urgencyScore, impactForRanking } from "@/lib/financial-impact";
 import { ageDays, slaBucket, slaLabel, slaTone, agingBucketLabel } from "@/lib/sla";
 import { runIntelligence } from "../actions";
 import { Button } from "@/components/ui/button";
-import { DynBarChart, Sparkline, CHART } from "@/components/charts/dynamic";
+import { DynBarChart, Sparkline } from "@/components/charts/dynamic";
+import { CHART } from "@/components/charts/theme";
 import { getActionCenterChartData } from "@/lib/chart-data";
 import { ActivityStrip, StatusDot } from "@/components/motion";
 
