@@ -13,6 +13,16 @@ const STRIPE = process.env.STRIPE_PAYMENT_LINK || "https://buy.stripe.com/14AaEZ
 const ZOOM = process.env.ZOOM_MEETING_URL || ZOOM_SCHEDULER_URL;
 
 async function wipeOrg(orgId: string) {
+  await prisma.siStageOutput.deleteMany({ where: { organizationId: orgId } });
+  await prisma.siCycleInvariant.deleteMany({ where: { organizationId: orgId } });
+  await prisma.siZeroState.deleteMany({ where: { organizationId: orgId } });
+  await prisma.siPrediction.deleteMany({ where: { organizationId: orgId } });
+  await prisma.siLesson.deleteMany({ where: { organizationId: orgId } });
+  await prisma.siMemoryItem.deleteMany({ where: { organizationId: orgId } });
+  await prisma.siErrorRecord.deleteMany({ where: { organizationId: orgId } });
+  await prisma.siMetaReturn.deleteMany({ where: { organizationId: orgId } });
+  await prisma.siMethodRegistry.deleteMany({ where: { organizationId: orgId } });
+  await prisma.siCognitionCycle.deleteMany({ where: { organizationId: orgId } });
   await prisma.evidence.deleteMany({ where: { organizationId: orgId } });
   await prisma.finding.deleteMany({ where: { organizationId: orgId } });
   await prisma.statusHistory.deleteMany({ where: { organizationId: orgId } });

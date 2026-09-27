@@ -43,6 +43,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/app/revenue", label: "Revenue Recovery", icon: TrendingUp },
       { href: "/app/operations", label: "Operations Efficiency", icon: Settings2 },
+      { href: "/app/intelligence", label: "Client Intelligence", icon: Brain },
     ],
   },
   {

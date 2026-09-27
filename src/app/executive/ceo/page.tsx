@@ -52,6 +52,47 @@ export default async function CeoCommandCenter() {
         </CardContent>
       </Card>
 
+      <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-neutral-950 to-neutral-950">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
+          <div>
+            <CardTitle className="text-emerald-200">720 SI · Nine-return intelligence</CardTitle>
+            <CardDescription className="mt-1 max-w-2xl">
+              RR/OE recursive cycles with Witness-only ZERO_STATE_NEXT, CYCLE_INVARIANT, and bounded META_RETURN_81.
+              CHIEF manufactures agents; SI cycles learn from product outcomes — do not rebuild CHIEF/ECC.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/app/intelligence">
+              <Button size="sm" variant="secondary">Client Intelligence</Button>
+            </Link>
+            <Link href="/executive/chief">
+              <Button size="sm" variant="outline">CHIEF Foundry</Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-xs text-neutral-400 sm:grid-cols-3">
+          <div className="rounded-md border border-neutral-800 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-600">Canonical ZERO heads</p>
+            <p className="mt-1 text-lg font-semibold text-emerald-300">{data.si.canonicalHeads}</p>
+          </div>
+          <div className="rounded-md border border-neutral-800 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-600">Cycle statuses</p>
+            <p className="mt-1 text-neutral-300">
+              {data.si.cycleCounts.length
+                ? data.si.cycleCounts.map((c) => `${c.product.split("_")[0]}:${c.status}=${c._count._all}`).join(" · ")
+                : "No cycles yet"}
+            </p>
+          </div>
+          <div className="rounded-md border border-neutral-800 px-3 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-600">CHIEF integration</p>
+            <p className="mt-1">{data.si.chiefIntegration.note}</p>
+            <Link href={data.si.chiefIntegration.href} className="mt-1 inline-block text-amber-400 hover:underline">
+              Open CHIEF →
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 1. Executive overview */}
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500">1 · Company status</h2>

@@ -20,14 +20,15 @@ Audited: `/workspace/720-si` (app monorepo + deploy). Strategy: **Reuse → Refa
 | **Auth** | HMAC cookie `si_session` (single-owner) | **UPGRADE** → NextAuth credentials + multi-tenant Membership (Kaivaryn needs orgs/roles) |
 | **Idempotency** | Middleware + `idempotency_keys` | **DEFER** light: use for Stripe webhook later; not blocking MVP |
 | **Jobs / queues** | BullMQ-style Redis `queue.ts` / `jobs.ts` | **SKELETON**: in-process job log table optional; no Redis on free path |
-| **Cycles / Command / Inbox / Agents** | Core SI OS | **REFERENCE only** — not product surface for Kaivaryn consulting platform; Action Center covers operator queue |
+| **Cycles / Command / Inbox / Agents** | Core SI OS | **INTEGRATED (2026-09)** — Nine-return R1–R9 inside RR+OE (`src/lib/si/*`), Witness-only ZERO_STATE_NEXT, CYCLE_INVARIANT, bounded META_RETURN_81→729 track, champion/challenger methods; UI `/app/intelligence`; CEO visibility; CHIEF remains agent foundry (not rebuilt) |
 | **Build/GitHub ship** | `build_github.ts`, Live Products | **REUSE deploy scripts patterns** for Kaivaryn Docker/Render; keep SI Render deploy intact |
 | **Stripe** | Payment Link paste; secret flag separate | **USE** fixed link `https://buy.stripe.com/14AaEZgJsdDNeTFePLeUU01` in `PricingConfig` |
 | **Dockerfile / render.yaml** | Multi-stage node20, image runtime | **ADAPT** single Next web service + SQLite volume or file DB |
 | **PWA chrome** | OsDock, status bar, tiles | **LIGHT PORT**: AppShell discipline; optional dock later |
 
 ## Do NOT absorb (keep SI deploy alone)
-- Full cognition cycle worker, nest levels, META81, Redis dependency, SI Postgres schema as Kaivaryn primary DB
+- Redis/BullMQ worker and SI Postgres as Kaivaryn primary DB (Kaivaryn uses Prisma Postgres + in-process resumable stages)
+- Autonomous nest spawn Z1–Z3 in production without measured evidence (bounded META track only)
 - Destroying/reusing SI Render services (`si-api`, `si-web`, `si-postgres`) for Kaivaryn
 
 ## Packages layout (Kaivaryn)
@@ -35,8 +36,9 @@ Audited: `/workspace/720-si` (app monorepo + deploy). Strategy: **Reuse → Refa
 /workspace/kaivaryn/
   packages/si-patterns/   # copied/adapted portable TS (tokens doc, approval helpers, connector honesty)
   src/lib/intelligence.ts # anti-fabrication (done)
+  src/lib/si/*            # nine-return cycles, Witness ZERO_STATE, META81, methods (2026-09)
   src/lib/audit.ts        # append audit (done; SI-inspired)
-  prisma/schema.prisma    # multi-tenant Kaivaryn domain
+  prisma/schema.prisma    # multi-tenant Kaivaryn domain + Si* models
 ```
 
 ## Demo pipeline (Kaivaryn-specific upgrade)

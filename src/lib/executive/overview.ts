@@ -3,6 +3,7 @@
  * Missing integrations are labeled — never faked.
  */
 import { prisma } from "@/lib/prisma";
+import { getExecutiveSiSummary } from "@/lib/si/dashboard";
 
 export async function getExecutiveOverview() {
   const [
@@ -27,6 +28,7 @@ export async function getExecutiveOverview() {
     pendingFoundry,
     executions,
     notifications,
+    siSummary,
   ] = await Promise.all([
     prisma.organization.count(),
     prisma.user.count(),
@@ -59,6 +61,7 @@ export async function getExecutiveOverview() {
     prisma.foundryApproval.findMany({ where: { status: "PENDING" }, orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.agentExecution.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
     prisma.notification.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
+    getExecutiveSiSummary(),
   ]);
 
   const missingIntegrations: { key: string; label: string; status: "missing" | "configured" }[] = [
@@ -138,6 +141,7 @@ export async function getExecutiveOverview() {
       recentAudit: auditRecent,
     },
     notifications,
+    si: siSummary,
     generatedAt: new Date().toISOString(),
   };
 }

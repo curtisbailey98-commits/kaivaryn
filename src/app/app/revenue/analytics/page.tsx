@@ -6,6 +6,8 @@ import { EmptyState } from "@/components/ui/states";
 import { Badge } from "@/components/ui/badge";
 import { DynAreaChart, DynBarChart, DynDonutChart } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
+import { getProductIntelligenceDashboard } from "@/lib/si/dashboard";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,7 @@ export default async function RevenueAnalyticsPage() {
   await requireEntitlement(ctx.organizationId, "REVENUE_RECOVERY");
 
   const chartData = await getRevenueChartData(ctx.organizationId);
+  const si = await getProductIntelligenceDashboard(ctx.organizationId, "REVENUE_RECOVERY");
   if (!chartData.funnel.some((s) => s.count > 0) && !chartData.trend.some((t) => t.projected || t.recovered)) {
     return (
       <div>
@@ -30,6 +33,21 @@ export default async function RevenueAnalyticsPage() {
       <h1 className="mt-3 text-xl font-semibold">Revenue analytics</h1>
       {ctx.organization?.isDemo ? <Badge tone="demo" className="mt-2">DEMO</Badge> : null}
       <p className="mt-2 text-xs text-neutral-500">{chartData.sourceNote}</p>
+      <Card className="mt-6 border-amber-500/20">
+        <CardHeader>
+          <CardTitle className="text-base">720 SI · RR intelligence</CardTitle>
+          <CardDescription>
+            Succeeded cycles {si.kpis.cycles_succeeded} · toward META81 {si.meta.toward_meta81}/9 · canonical{" "}
+            {si.kpis.canonical_zero_state ? "YES" : "NO"} · learning {si.kpis.learning_confidence}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/app/intelligence" className="text-sm text-amber-400 hover:text-amber-300">
+            Open Client Intelligence dashboard →
+          </Link>
+        </CardContent>
+      </Card>
+
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <DynAreaChart
           title="Recovered vs projected over time"

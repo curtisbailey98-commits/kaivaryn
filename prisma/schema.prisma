@@ -133,6 +133,15 @@ model Organization {
   learningEvents         LearningEvent[]
   learningProfiles       LearningProfile[]
   acquisitionAccounts    AcquisitionAccount[] @relation("AcquisitionOnboardingOrg")
+  siCycles               SiCognitionCycle[]
+  siZeroStates           SiZeroState[]
+  siInvariants           SiCycleInvariant[]
+  siPredictions          SiPrediction[]
+  siLessons              SiLesson[]
+  siMemories             SiMemoryItem[]
+  siMetaReturns          SiMetaReturn[]
+  siMethods              SiMethodRegistry[]
+  siErrors               SiErrorRecord[]
 }
 
 model Membership {
@@ -1391,4 +1400,244 @@ model ExecAuditEvent {
   @@index([createdAt])
   @@index([action])
   @@index([actorId])
+}
+
+// ——— 720 SI nine-cycle recursive intelligence (Kaivaryn RR/OE lineage) ———
+// Stages R1–R9 = REALITY→…→WITNESS. Only Witness finalizes ZERO_STATE_NEXT.
+// Bounded META_RETURN_81 (9×9) → Meta-Invariant; 729 = 9 meta windows max track.
+
+model SiCognitionCycle {
+  id               String    @id @default(cuid())
+  organizationId   String
+  product          String    // REVENUE_RECOVERY | OPERATIONS_EFFICIENCY
+  intent           String
+  status           String    @default("queued") // queued|running|paused|succeeded|failed|aborted
+  currentStage     String    @default("REALITY")
+  stageStatus      String    @default("stage_pending")
+  nestLevel        Int       @default(0)
+  nestLabel        String    @default("I")
+  returnIndex      Int       @default(0) // completed R1–R9 count so far
+  idempotencyKey   String
+  priorZeroStateId String?
+  zeroStateId      String?
+  invariantId      String?
+  methodKey        String?
+  methodRole       String?   // champion | challenger | null
+  evidencePackUri  String?
+  failureCode      String?
+  failureDetail    String?
+  tokensUsed       Int       @default(0)
+  computeMsUsed    Int       @default(0)
+  tokensLimit      Int       @default(100000)
+  computeMsLimit   Int       @default(300000)
+  createdById      String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stageOutputs SiStageOutput[]
+  zeroStates   SiZeroState[]
+  invariants   SiCycleInvariant[]
+  predictions  SiPrediction[]
+  lessons      SiLesson[]
+  memories     SiMemoryItem[]
+  errors       SiErrorRecord[]
+
+  @@unique([organizationId, product, idempotencyKey])
+  @@index([organizationId, product, status])
+  @@index([organizationId, product, completedAt])
+  @@index([status, currentStage])
+}
+
+model SiStageOutput {
+  id              String   @id @default(cuid())
+  cycleId         String
+  organizationId  String
+  stage           String   // REALITY…WITNESS | ZERO_RETURN
+  returnIndex     Int      // 1–9
+  outputJson      String
+  evidencePackUri String?
+  contentHash     String
+  tokensUsed      Int      @default(0)
+  computeMs       Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  cycle SiCognitionCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, stage])
+  @@index([organizationId, cycleId])
+  @@index([organizationId, stage])
+}
+
+model SiZeroState {
+  id              String   @id @default(cuid())
+  organizationId  String
+  product         String
+  cycleId         String
+  continuityKey   String
+  writtenByStage  String   // WITNESS | BOOTSTRAP | RECOVERY — only Witness sets isCanonical for live cycles
+  isCanonical     Boolean  @default(false)
+  version         Int      @default(1)
+  payloadJson     String
+  contentHash     String
+  priorHash       String?
+  evidencePackUri String?
+  createdAt       DateTime @default(now())
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cycle        SiCognitionCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, product, isCanonical])
+  @@index([continuityKey, isCanonical])
+  @@index([cycleId])
+}
+
+model SiCycleInvariant {
+  id              String   @id @default(cuid())
+  organizationId  String
+  product         String
+  cycleId         String
+  kind            String   @default("CYCLE_INVARIANT") // CYCLE_INVARIANT | META_INVARIANT
+  statement       String
+  evidenceJson    String
+  contentHash     String
+  metaReturnId    String?
+  createdAt       DateTime @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cycle        SiCognitionCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, kind])
+  @@index([organizationId, product, kind])
+}
+
+model SiPrediction {
+  id              String    @id @default(cuid())
+  organizationId  String
+  product         String
+  cycleId         String
+  statement       String
+  confidence      Float
+  predictedJson   String?
+  status          String    @default("open") // open | resolved_positive | resolved_negative | expired
+  outcomeJson     String?
+  resolvedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cycle        SiCognitionCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, product, status])
+  @@index([cycleId])
+}
+
+model SiLesson {
+  id              String   @id @default(cuid())
+  organizationId  String
+  product         String
+  cycleId         String?
+  sourceErrorId   String?
+  lesson          String
+  methodKey       String?
+  promoted        Boolean  @default(false)
+  evidenceJson    String?
+  createdAt       DateTime @default(now())
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cycle        SiCognitionCycle? @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, product, createdAt])
+}
+
+model SiMemoryItem {
+  id              String   @id @default(cuid())
+  organizationId  String
+  product         String
+  cycleId         String?
+  kind            String   // episodic | semantic | temporal | contradiction
+  summary         String
+  detailJson      String?
+  refsJson        String?
+  createdAt       DateTime @default(now())
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cycle        SiCognitionCycle? @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, product, kind])
+  @@index([organizationId, product, createdAt])
+}
+
+model SiMetaReturn {
+  id                 String    @id @default(cuid())
+  organizationId     String
+  product            String
+  protocolVersion    String    @default("81") // 81 | 729-track
+  windowCycleIdsJson String
+  stageHistoryCount  Int       @default(0)
+  expectedStageCount Int       @default(81)
+  analysisJson       String
+  investmentJson     String    @default("{}")
+  returnObservedJson String    @default("{}")
+  returnRatio        Float?
+  status             String    @default("pending_evidence") // pending_evidence | computed | accepted | rejected
+  baselineRef        String?
+  evidencePackUri    String?
+  methodId           String?
+  metaInvariantId    String?
+  windowIndex        Int       @default(0) // 0–8 toward 729 (9×81)
+  idempotencyKey     String
+  judgedBy           String?
+  acceptedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, product, idempotencyKey])
+  @@index([organizationId, product, status])
+  @@index([organizationId, product, windowIndex])
+}
+
+model SiMethodRegistry {
+  id               String    @id @default(cuid())
+  organizationId   String
+  product          String
+  methodKey        String
+  role             String    @default("challenger") // champion | challenger | retired
+  version          Int       @default(1)
+  description      String
+  paramsJson       String    @default("{}")
+  empiricalJson    String    @default("{}") // sampleSize, successRate, avgDelta, etc.
+  status           String    @default("proposed") // proposed | active | deprecated | retired
+  validatedAgainst String?   // baseline methodKey or meta return id
+  promotedAt       DateTime?
+  rolledBackAt     DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, product, methodKey, version])
+  @@index([organizationId, product, role, status])
+}
+
+model SiErrorRecord {
+  id              String   @id @default(cuid())
+  organizationId  String
+  product         String
+  cycleId         String?
+  stage           String?
+  code            String
+  detail          String
+  recovered       Boolean  @default(false)
+  recoveryJson    String?
+  createdAt       DateTime @default(now())
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cycle        SiCognitionCycle? @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, product, createdAt])
+  @@index([cycleId])
 }
