@@ -14,6 +14,9 @@ import { CircleDollarSign, Crosshair, Download, LineChart, Plus, ShieldCheck, Tr
 import { MetricCard } from "@/components/ui/metric-card";
 import { classifyLeakageType, LEAKAGE_TYPES } from "@/lib/leakage-taxonomy";
 import { ageDays } from "@/lib/sla";
+import { getRevenueChartData } from "@/lib/chart-data";
+import { DynAreaChart, DynDonutChart, AnimatedFunnelBars, CHART } from "@/components/charts/dynamic";
+import { formatMoneyTick } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +61,7 @@ export default async function RevenuePage({
     if (searchParams.to) where.identifiedAt.lte = new Date(searchParams.to);
   }
 
-  const [opps, agg, highConfidence, pendingApprovals, byStatus, allForTaxonomy] = await Promise.all([
+  const [opps, agg, highConfidence, pendingApprovals, byStatus, allForTaxonomy, chartData] = await Promise.all([
     prisma.opportunity.findMany({
       where,
       orderBy: [{ score: "desc" }, { potentialAmount: "desc" }],
@@ -83,6 +86,7 @@ export default async function RevenuePage({
       select: { type: true, potentialAmount: true, recoveredAmount: true, status: true },
       take: 500,
     }),
+    getRevenueChartData(ctx.organizationId),
   ]);
 
   const sources = Array.from(new Set(opps.map((o) => o.source).filter(Boolean) as string[]));
@@ -181,6 +185,38 @@ export default async function RevenuePage({
             <p className="mt-0.5 text-xs text-neutral-500">{formatCurrency(s.potential)} potential</p>
           </Link>
         ))}
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <AnimatedFunnelBars
+          className="lg:col-span-1"
+          title="Recovery funnel"
+          description="Stage counts from live Opportunity status"
+          stages={chartData.funnel}
+          footnote={chartData.sourceNote}
+        />
+        <DynAreaChart
+          className="lg:col-span-1"
+          title="Recovered vs projected"
+          description="Weekly identified potential vs recovered"
+          data={chartData.trend}
+          series={[
+            { key: "projected", label: "Projected (identified)", color: CHART.amber },
+            { key: "recovered", label: "Recovered", color: CHART.emerald },
+          ]}
+          footnote={chartData.sourceNote}
+          height={280}
+        />
+        <DynDonutChart
+          className="lg:col-span-1"
+          title="Leakage taxonomy"
+          description="Potential by leakage type"
+          data={chartData.taxonomy}
+          centerLabel="Potential"
+          centerValue={formatMoneyTick(chartData.taxonomy.reduce((n, t) => n + t.value, 0))}
+          footnote={chartData.sourceNote}
+          height={280}
+        />
       </div>
 
       {taxonomy.length > 0 ? (

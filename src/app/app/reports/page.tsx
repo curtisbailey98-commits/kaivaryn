@@ -5,6 +5,8 @@ import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { queueWeeklyDigest } from "../operations/actions";
+import { getWeeklyBriefChartData } from "@/lib/chart-data";
+import { DynLineChart, CHART } from "@/components/charts/dynamic";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,7 @@ export default async function ReportsPage({
     ? searchParams.type
     : "rr_summary") as ReportType;
   const report = await buildReport(ctx.organizationId, type);
+  const weekly = await getWeeklyBriefChartData(ctx.organizationId);
 
   return (
     <div>
@@ -65,6 +68,23 @@ export default async function ReportsPage({
       </div>
       <p className="mt-2 text-xs text-neutral-600">Weekly digest creates an EmailDraft + in-app notice. SMTP send is never faked.</p>
       {searchParams.ok ? <p className="mt-2 text-sm text-emerald-400">{searchParams.msg || "Queued"}</p> : null}
+
+      <div className="mt-8">
+        <DynLineChart
+          title="Weekly trend"
+          description="Identified opportunity and recovered/realized outcomes by week"
+          data={weekly.weeks}
+          series={[
+            { key: "projectedRr", label: "RR identified", color: CHART.amber },
+            { key: "projectedOe", label: "OE identified", color: CHART.sky },
+            { key: "recovered", label: "RR recovered", color: CHART.emerald },
+            { key: "realized", label: "OE realized", color: "#34d399" },
+          ]}
+          money
+          height={280}
+          footnote={weekly.sourceNote}
+        />
+      </div>
 
       <div className="si-panel mt-8 p-4">
         <div className="flex flex-wrap items-center gap-2">

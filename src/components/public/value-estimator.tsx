@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { EstimatorResultBars } from "@/components/charts/estimator-bars";
 
 function money(n: number) {
   return new Intl.NumberFormat("en-US", {
@@ -101,6 +102,8 @@ export function ValueEstimator() {
         <p className="mt-2 text-sm text-neutral-400">
           Base case {money(result.total.base)} · derived only from your inputs
         </p>
+
+        <EstimatorResultBars rrBase={result.rr.base} oeBase={result.oe.base} totalBase={result.total.base} />
 
         <div className="mt-8 space-y-4">
           <div className="rounded-xl border border-white/[0.08] bg-neutral-950/60 p-4">

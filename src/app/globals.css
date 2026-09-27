@@ -109,3 +109,12 @@ body::before {
     @apply rounded-lg border border-neutral-700 px-5 py-3 text-sm font-medium text-neutral-100 transition hover:border-neutral-500 hover:bg-white/[0.04] active:scale-[.98];
   }
 }
+
+/* Chart kit entrance */
+@keyframes chart-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.chart-enter {
+  animation: chart-enter 480ms ease-out both;
+}

@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { requireOrgAccess, assertOrgId } from "@/lib/tenant";
 import { requireEntitlement } from "@/lib/entitlements";
-import { prisma } from "@/lib/prisma";
-import { formatCurrency } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getOperationsChartData } from "@/lib/chart-data";
 import { EmptyState } from "@/components/ui/states";
 import { Badge } from "@/components/ui/badge";
+import { DynAreaChart, DynBarChart, AnimatedGaugeBar, CHART } from "@/components/charts/dynamic";
 
 export const dynamic = "force-dynamic";
 
@@ -13,33 +12,42 @@ export default async function OpsAnalyticsPage() {
   const ctx = await requireOrgAccess();
   assertOrgId(ctx.organizationId);
   await requireEntitlement(ctx.organizationId, "OPERATIONS_EFFICIENCY");
-  const items = await prisma.inefficiency.findMany({ where: { organizationId: ctx.organizationId } });
-  if (!items.length) {
+  const chartData = await getOperationsChartData(ctx.organizationId);
+  if (!chartData.heat.length && !chartData.trend.some((t) => t.projected || t.realized)) {
     return <><Link href="/app/operations" className="text-xs text-neutral-500">← Ops</Link><EmptyState className="mt-6" title="No data" /></>;
-  }
-  const byDept: Record<string, { waste: number; recovered: number }> = {};
-  for (const i of items) {
-    const d = i.department || "Unspecified";
-    byDept[d] ??= { waste: 0, recovered: 0 };
-    byDept[d].waste += i.estimatedWasteAnnual;
-    byDept[d].recovered += i.recoveredAnnual;
   }
   return (
     <div>
       <Link href="/app/operations" className="text-xs text-neutral-500">← Operations</Link>
       <h1 className="mt-3 text-xl font-semibold">Operations analytics</h1>
       {ctx.organization?.isDemo ? <Badge tone="demo" className="mt-2">DEMO</Badge> : null}
-      <Card className="mt-6">
-        <CardHeader><CardTitle>By department</CardTitle></CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          {Object.entries(byDept).map(([k, v]) => (
-            <div key={k} className="flex justify-between border-b border-neutral-900 py-1">
-              <span>{k}</span>
-              <span className="text-neutral-400">waste {formatCurrency(v.waste)} / recovered {formatCurrency(v.recovered)}</span>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+      <p className="mt-2 text-xs text-neutral-500">{chartData.sourceNote}</p>
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <DynAreaChart
+          className="lg:col-span-2"
+          title="Projected vs realized savings"
+          data={chartData.trend}
+          series={[
+            { key: "projected", label: "Projected", color: CHART.amber },
+            { key: "realized", label: "Realized", color: CHART.emerald },
+          ]}
+          footnote={chartData.sourceNote}
+        />
+        <AnimatedGaugeBar
+          title="Automation readiness"
+          value={chartData.readiness}
+          footnote="Average readiness across inefficiencies"
+        />
+        <DynBarChart
+          className="lg:col-span-3"
+          title="Department heat"
+          data={chartData.heat}
+          series={[{ key: "waste", label: "Waste / yr", color: CHART.violet }]}
+          money
+          layout="vertical"
+          height={280}
+        />
+      </div>
     </div>
   );
 }

@@ -9,6 +9,8 @@ import { urgencyScore, impactForRanking } from "@/lib/financial-impact";
 import { ageDays, slaBucket, slaLabel, slaTone, agingBucketLabel } from "@/lib/sla";
 import { runIntelligence } from "../actions";
 import { Button } from "@/components/ui/button";
+import { DynBarChart, Sparkline, CHART } from "@/components/charts/dynamic";
+import { getActionCenterChartData } from "@/lib/chart-data";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +47,7 @@ export default async function ActionCenterPage({
     create: { organizationId: ctx.organizationId },
   });
 
-  const [pendingApprovals, opps, ineff, recentAudit, unread] = await Promise.all([
+  const [pendingApprovals, opps, ineff, recentAudit, unread, chartData] = await Promise.all([
     prisma.approvalRequest.findMany({
       where: { organizationId: ctx.organizationId, status: "PENDING" },
       orderBy: { createdAt: "desc" },
@@ -78,6 +80,7 @@ export default async function ActionCenterPage({
     prisma.notification.count({
       where: { organizationId: ctx.organizationId, userId: ctx.user.id, readAt: null },
     }),
+    getActionCenterChartData(ctx.organizationId),
   ]);
 
   const now = new Date();
@@ -245,6 +248,34 @@ export default async function ActionCenterPage({
             {label} · {count}
           </span>
         ))}
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <DynBarChart
+          title="Aging buckets"
+          description="Distribution of open executive actions"
+          data={chartData.aging}
+          series={[{ key: "count", label: "Items", color: CHART.amber }]}
+          height={220}
+          footnote={chartData.sourceNote}
+        />
+        <div className="si-glass p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-white">SLA breach sparkline</h3>
+              <p className="mt-0.5 text-xs text-neutral-500">Open items in aging/breach over recent weeks</p>
+            </div>
+            <p className="text-2xl font-semibold text-rose-300">{slaRiskCount}</p>
+          </div>
+          <Sparkline
+            className="mt-4"
+            height={120}
+            data={chartData.slaSpark}
+            color={CHART.rose}
+            label="SLA risk"
+          />
+          <p className="mt-2 text-[10px] text-neutral-600">{chartData.sourceNote}</p>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { ZOOM_SCHEDULER_URL } from "@/lib/constants";
+import { ExampleFrameworkChart } from "@/components/charts/example-framework-chart";
 
 export const metadata: Metadata = {
   title: "Executive AI Consulting Firm",
@@ -121,6 +122,16 @@ export default function HomePage() {
             {operatingModel.map(([number, title, body]) => <div key={number} className="bg-neutral-950 p-6 sm:p-7"><p className="font-mono text-xs text-amber-500">{number}</p><h3 className="mt-4 text-base font-semibold text-white">{title}</h3><p className="mt-2 text-sm leading-6 text-neutral-500">{body}</p></div>)}
           </div>
         </div>
+      </section>
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+        <div className="mb-8 max-w-2xl">
+          <p className="public-kicker">Example framework</p>
+          <h2 className="public-heading mt-4">How modeled opportunity becomes verified result.</h2>
+          <p className="mt-3 text-sm leading-6 text-neutral-400">
+            An illustrative series showing Kaivaryn&apos;s operating rhythm. Not a customer&apos;s live data and not a performance claim.
+          </p>
+        </div>
+        <ExampleFrameworkChart />
       </section>
       <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
         <div className="public-card flex flex-col items-start justify-between gap-8 bg-amber-500/[0.06] p-7 sm:flex-row sm:items-center sm:p-10">

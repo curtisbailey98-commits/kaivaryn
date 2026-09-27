@@ -13,6 +13,8 @@ import { MetricCard } from "@/components/ui/metric-card";
 import { Clock3, Cog, Gauge, ShieldCheck } from "lucide-react";
 import { automationReadinessScore } from "@/lib/leakage-taxonomy";
 import { ageDays } from "@/lib/sla";
+import { getOperationsChartData } from "@/lib/chart-data";
+import { DynAreaChart, DynBarChart, AnimatedGaugeBar, CHART } from "@/components/charts/dynamic";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +44,7 @@ export default async function OperationsPage({
     ...(VIEWS[view].where || {}),
   };
 
-  const [items, agg, autoCount, criticalCount, pendingApprovals, hours, heatRows] = await Promise.all([
+  const [items, agg, autoCount, criticalCount, pendingApprovals, hours, chartData] = await Promise.all([
     prisma.inefficiency.findMany({
       where,
       orderBy: [{ score: "desc" }, { projectedSavings: "desc" }],
@@ -62,12 +64,7 @@ export default async function OperationsPage({
     }),
     prisma.approvalRequest.count({ where: { organizationId: ctx.organizationId, status: "PENDING" } }),
     prisma.inefficiency.aggregate({ where: { organizationId: ctx.organizationId }, _sum: { projectedHoursWeekly: true, realizedHoursWeekly: true } }),
-    prisma.inefficiency.groupBy({
-      by: ["department"],
-      where: { organizationId: ctx.organizationId, status: { notIn: ["DISMISSED"] } },
-      _count: true,
-      _sum: { projectedSavings: true, realizedSavings: true, estimatedWasteAnnual: true },
-    }),
+    getOperationsChartData(ctx.organizationId),
   ]);
 
   const intel = analyzeOperationsSignals({
@@ -112,16 +109,6 @@ export default async function OperationsPage({
         const realized = agg._sum.realizedSavings ?? agg._sum.recoveredAnnual ?? 0;
         const gap = Math.max(0, projected - realized);
         const precision = projected > 0 ? Math.round((realized / projected) * 1000) / 10 : 0;
-        const heat = heatRows
-          .map((h) => ({
-            dept: h.department || "Unspecified",
-            count: h._count,
-            waste: h._sum.estimatedWasteAnnual ?? 0,
-            projected: h._sum.projectedSavings ?? 0,
-            realized: h._sum.realizedSavings ?? 0,
-          }))
-          .sort((a, b) => b.waste - a.waste)
-          .slice(0, 6);
         const readinessAvg = items.length
           ? Math.round(
               items.reduce(
@@ -150,27 +137,36 @@ export default async function OperationsPage({
               </div>
               <p className="mt-3 text-xs text-neutral-500">Projected is never treated as banked savings. Record realized outcomes only after verified execution.</p>
             </div>
-            <div className="mt-4 grid gap-3 lg:grid-cols-2">
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Automation readiness (view avg)</p>
-                <p className="mt-2 text-3xl font-semibold text-white">{readinessAvg}<span className="text-base text-neutral-500">/100</span></p>
-                <p className="mt-1 text-xs text-neutral-500">Score from candidate flag, confidence, evidence, impact, and priority — not a promise that automation ran.</p>
-              </div>
-              <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Bottleneck heat by department</p>
-                {heat.length === 0 ? (
-                  <p className="mt-3 text-sm text-neutral-500">No department signals yet.</p>
-                ) : (
-                  <ul className="mt-3 space-y-2">
-                    {heat.map((h) => (
-                      <li key={h.dept} className="flex items-center justify-between gap-2 text-sm">
-                        <span className="truncate text-neutral-300">{h.dept}</span>
-                        <span className="shrink-0 text-xs text-neutral-500">{h.count} · {formatCurrency(h.waste)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <DynAreaChart
+                className="lg:col-span-1"
+                title="Savings over time"
+                description="Projected vs realized by week"
+                data={chartData.trend}
+                series={[
+                  { key: "projected", label: "Projected", color: CHART.amber },
+                  { key: "realized", label: "Realized", color: CHART.emerald },
+                ]}
+                footnote={chartData.sourceNote}
+                height={260}
+              />
+              <DynBarChart
+                className="lg:col-span-1"
+                title="Dept bottleneck heat"
+                description="Estimated annual waste by department"
+                data={chartData.heat}
+                series={[{ key: "waste", label: "Waste / yr", color: CHART.violet }]}
+                money
+                layout="vertical"
+                height={260}
+                footnote={chartData.sourceNote}
+              />
+              <AnimatedGaugeBar
+                title="Automation readiness"
+                description="Average score for items in this view"
+                value={readinessAvg || chartData.readiness}
+                footnote="From candidate flag, confidence, evidence, impact, priority — not a promise automation ran"
+              />
             </div>
           </>
         );

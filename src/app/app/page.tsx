@@ -10,6 +10,8 @@ import { AttentionBanner, NextBestAction } from "@/components/ui/attention";
 import { EmptyState } from "@/components/ui/states";
 import { getLearningSummary } from "@/lib/learning";
 import { TrendingUp, Settings2, ShieldCheck, Bell, ArrowRight } from "lucide-react";
+import { getWeeklyBriefChartData, getActionCenterChartData } from "@/lib/chart-data";
+import { DynAreaChart, DynBarChart, Sparkline, CHART } from "@/components/charts/dynamic";
 
 export default async function AppHomePage() {
   const ctx = await requireOrgAccess();
@@ -19,7 +21,7 @@ export default async function AppHomePage() {
   });
   const hasRevenue = entitlements.some((e) => e.product === "REVENUE_RECOVERY");
   const hasOps = entitlements.some((e) => e.product === "OPERATIONS_EFFICIENCY");
-  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks, learning, topOpportunities, topInefficiencies, highConfidenceRevenue, criticalOperations] = await Promise.all([
+  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks, learning, chartWeekly, chartAction, topOpportunities, topInefficiencies, highConfidenceRevenue, criticalOperations] = await Promise.all([
     prisma.opportunity.aggregate({
       where: { organizationId: ctx.organizationId },
       _sum: { estimatedAmount: true, recoveredAmount: true, verifiedAmount: true },
@@ -34,6 +36,8 @@ export default async function AppHomePage() {
     prisma.notification.count({ where: { organizationId: ctx.organizationId, userId: ctx.user.id, readAt: null } }),
     prisma.task.count({ where: { organizationId: ctx.organizationId, status: "OPEN" } }),
     getLearningSummary(ctx.organizationId),
+    getWeeklyBriefChartData(ctx.organizationId),
+    getActionCenterChartData(ctx.organizationId),
     hasRevenue
       ? prisma.opportunity.findMany({
           where: { organizationId: ctx.organizationId, status: { notIn: ["RECOVERED", "VERIFIED", "DISMISSED"] } },
@@ -147,6 +151,42 @@ export default async function AppHomePage() {
             icon={Bell}
             href="/app/notifications"
           />
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DynAreaChart
+          title="Weekly value motion"
+          description="Identified opportunity vs recovered/realized by week"
+          footnote={chartWeekly.sourceNote}
+          data={chartWeekly.weeks}
+          series={[
+            { key: "projectedRr", label: "RR identified", color: CHART.amber },
+            { key: "projectedOe", label: "OE identified", color: CHART.sky },
+            { key: "recovered", label: "RR recovered", color: CHART.emerald },
+            { key: "realized", label: "OE realized", color: "#34d399" },
+          ]}
+          height={280}
+        />
+        <div className="space-y-4">
+          <DynBarChart
+            title="Open work by aging"
+            description="Current open items across aging buckets"
+            footnote={chartAction.sourceNote}
+            data={chartAction.aging}
+            series={[{ key: "count", label: "Open items", color: CHART.amber }]}
+            height={200}
+          />
+          <div className="si-glass p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-white">SLA risk sparkline</p>
+                <p className="text-xs text-neutral-500">Open items in aging/breach over recent weeks</p>
+              </div>
+              <p className="text-lg font-semibold text-rose-300">{chartAction.slaSpark.at(-1)?.value ?? 0}</p>
+            </div>
+            <Sparkline data={chartAction.slaSpark} color={CHART.rose} label="SLA risk" height={56} className="mt-2" />
+          </div>
         </div>
       </div>
 

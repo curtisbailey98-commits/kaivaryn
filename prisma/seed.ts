@@ -407,6 +407,12 @@ async function main() {
   });
 
   const settings = await prisma.orgSettings.findUniqueOrThrow({ where: { organizationId: org.id } });
+  const daysAgo = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    d.setHours(10, 0, 0, 0);
+    return d;
+  };
 
   const mkOpp = async (o: {
     title: string;
@@ -420,10 +426,13 @@ async function main() {
     recovered?: number;
     assigneeId?: string;
     recoveredAt?: Date | null;
+    identifiedAt?: Date;
+    ageDaysHint?: number;
   }) => {
+    const identifiedAt = o.identifiedAt ?? daysAgo(o.ageDaysHint ?? 7);
     const scored = scoreWorkItem({
       amount: o.amount,
-      ageDays: 7,
+      ageDays: Math.max(0, Math.floor((Date.now() - identifiedAt.getTime()) / 86400000)),
       priorityHint: o.priority,
       evidenceCount: 1,
       settings,
@@ -447,8 +456,10 @@ async function main() {
         recoveredAmount: o.recovered ?? 0,
         verifiedAmount: o.status === "VERIFIED" ? o.recovered ?? 0 : 0,
         assigneeId: o.assigneeId,
+        identifiedAt,
         recoveredAt: o.recoveredAt ?? null,
-        verifiedAt: o.status === "VERIFIED" ? new Date() : null,
+        verifiedAt: o.status === "VERIFIED" ? (o.recoveredAt ?? new Date()) : null,
+        createdAt: identifiedAt,
       },
     });
     await prisma.statusHistory.create({
@@ -483,6 +494,7 @@ async function main() {
     status: "IDENTIFIED",
     priority: OpportunityPriority.CRITICAL,
     amount: 182000,
+    identifiedAt: daysAgo(45),
   });
   await mkOpp({
     title: "[DEMO] Uncollected late fees",
@@ -495,6 +507,8 @@ async function main() {
     amount: 64000,
     recovered: 12000,
     assigneeId: demoUser.id,
+    identifiedAt: daysAgo(28),
+    recoveredAt: daysAgo(10),
   });
   await mkOpp({
     title: "[DEMO] Missed change-order revenue",
@@ -505,6 +519,7 @@ async function main() {
     status: "UNDER_REVIEW",
     priority: OpportunityPriority.HIGH,
     amount: 95500,
+    identifiedAt: daysAgo(18),
   });
   await mkOpp({
     title: "[DEMO] Duplicate discount applied",
@@ -516,7 +531,8 @@ async function main() {
     priority: OpportunityPriority.MEDIUM,
     amount: 22000,
     recovered: 22000,
-    recoveredAt: new Date(),
+    recoveredAt: daysAgo(21),
+    identifiedAt: daysAgo(49),
     assigneeId: demoUser.id,
   });
   await mkOpp({
@@ -530,6 +546,33 @@ async function main() {
     amount: 210000,
     recovered: 45000,
     assigneeId: demoOwner.id,
+    identifiedAt: daysAgo(35),
+    recoveredAt: daysAgo(7),
+  });
+  await mkOpp({
+    title: "[DEMO] Contract rate variance — renewals",
+    description: "DEMO: Renewals billed at legacy rates below current schedule.",
+    source: "contracts",
+    department: "Finance",
+    type: "contract",
+    status: "IDENTIFIED",
+    priority: OpportunityPriority.HIGH,
+    amount: 88000,
+    identifiedAt: daysAgo(12),
+  });
+  await mkOpp({
+    title: "[DEMO] Denial write-off cluster",
+    description: "DEMO: Cluster of denials closed without appeal.",
+    source: "claims",
+    department: "Revenue Cycle",
+    type: "denial",
+    status: "RECOVERED",
+    priority: OpportunityPriority.MEDIUM,
+    amount: 31000,
+    recovered: 27500,
+    identifiedAt: daysAgo(56),
+    recoveredAt: daysAgo(14),
+    assigneeId: demoUser.id,
   });
 
   const mkIneff = async (o: {
@@ -547,10 +590,13 @@ async function main() {
     assigneeId?: string;
     processId?: string;
     resolvedAt?: Date | null;
+    identifiedAt?: Date;
+    ageDaysHint?: number;
   }) => {
+    const identifiedAt = o.identifiedAt ?? daysAgo(o.ageDaysHint ?? 10);
     const scored = scoreWorkItem({
       amount: o.waste,
-      ageDays: 10,
+      ageDays: Math.max(0, Math.floor((Date.now() - identifiedAt.getTime()) / 86400000)),
       priorityHint: o.priority,
       evidenceCount: 1,
       settings,
@@ -576,7 +622,10 @@ async function main() {
         projectedHoursWeekly: o.hours,
         automationCandidate: o.auto ?? false,
         assigneeId: o.assigneeId,
+        identifiedAt,
         resolvedAt: o.resolvedAt ?? null,
+        verifiedAt: o.status === "VERIFIED" || o.status === "REALIZED" ? (o.resolvedAt ?? new Date()) : null,
+        createdAt: identifiedAt,
       },
     });
     await prisma.statusHistory.create({
@@ -614,6 +663,7 @@ async function main() {
     hours: 24,
     auto: true,
     processId: procInvoice.id,
+    identifiedAt: daysAgo(40),
   });
   await mkIneff({
     title: "[DEMO] Duplicate data entry across ERP and CRM",
@@ -628,6 +678,8 @@ async function main() {
     hours: 40,
     auto: true,
     assigneeId: demoUser.id,
+    identifiedAt: daysAgo(33),
+    resolvedAt: daysAgo(9),
   });
   await mkIneff({
     title: "[DEMO] Ad-hoc report generation",
@@ -639,6 +691,7 @@ async function main() {
     priority: InefficiencyPriority.MEDIUM,
     waste: 36000,
     hours: 12,
+    identifiedAt: daysAgo(16),
   });
   await mkIneff({
     title: "[DEMO] Exception queue backlog",
@@ -651,7 +704,36 @@ async function main() {
     waste: 54000,
     realized: 40000,
     hours: 18,
-    resolvedAt: new Date(),
+    identifiedAt: daysAgo(52),
+    resolvedAt: daysAgo(20),
+  });
+  await mkIneff({
+    title: "[DEMO] Handoff lag — sales to delivery",
+    description: "DEMO: Average 9-day lag between close and kickoff.",
+    source: "process_map",
+    department: "Delivery",
+    type: "handoff_delay",
+    status: "IDENTIFIED",
+    priority: InefficiencyPriority.HIGH,
+    waste: 67000,
+    hours: 15,
+    auto: true,
+    identifiedAt: daysAgo(8),
+  });
+  await mkIneff({
+    title: "[DEMO] Spreadsheet inventory sync",
+    description: "DEMO: Nightly inventory counts reconciled in sheets.",
+    source: "time_study",
+    department: "Ops",
+    type: "manual_process",
+    status: "REALIZED",
+    priority: InefficiencyPriority.MEDIUM,
+    waste: 42000,
+    realized: 28000,
+    hours: 10,
+    auto: true,
+    identifiedAt: daysAgo(60),
+    resolvedAt: daysAgo(25),
   });
 
   await prisma.approvalRequest.create({
