@@ -26,10 +26,15 @@ export function CountUp({
   /** Optional custom formatter; receives the animated number. */
   format?: (n: number) => string;
 }) {
-  const [display, setDisplay] = useState(0);
+  // Honest first paint: never flash $0 when the ledger value is non-zero.
+  const [display, setDisplay] = useState(value);
   const [started, setStarted] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   const reduced = useReducedMotion();
+
+  useEffect(() => {
+    setDisplay(value);
+  }, [value]);
 
   useEffect(() => {
     if (reduced) {
@@ -60,7 +65,9 @@ export function CountUp({
     }
     let raf = 0;
     const start = performance.now();
-    const from = 0;
+    // Subtle ease from ~92% → 100% so first paint stays truthful
+    const from = value * 0.92;
+    setDisplay(from);
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
       setDisplay(from + (value - from) * easeOutCubic(t));
