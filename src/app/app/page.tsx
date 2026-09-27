@@ -12,6 +12,7 @@ import { getLearningSummary } from "@/lib/learning";
 import { TrendingUp, Settings2, ShieldCheck, Bell, ArrowRight } from "lucide-react";
 import { getWeeklyBriefChartData, getActionCenterChartData } from "@/lib/chart-data";
 import { DynAreaChart, DynBarChart, DynComposedChart, PulseSpark, KpiSpark, CHART } from "@/components/charts/dynamic";
+import { ActivityStrip, CountUp, CountUpCurrency } from "@/components/motion";
 
 export default async function AppHomePage() {
   const ctx = await requireOrgAccess();
@@ -87,6 +88,15 @@ export default async function AppHomePage() {
         actions={ctx.organization?.isDemo ? <Badge tone="demo">DEMO org</Badge> : undefined}
       />
 
+      <ActivityStrip
+        items={[
+          { id: "a", label: pendingApprovals > 0 ? `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} awaiting executive review` : "Approval gate clear · no pending decisions", tone: pendingApprovals > 0 ? "warn" : "ok" },
+          { id: "b", label: openTasks > 0 ? `${openTasks} open task${openTasks === 1 ? "" : "s"} in the Action Center queue` : "Action queue quiet · no open tasks", tone: openTasks > 0 ? "accent" : "ok" },
+          { id: "c", label: unreadNotifications > 0 ? `${unreadNotifications} unread notification${unreadNotifications === 1 ? "" : "s"}` : "Notifications clear", tone: unreadNotifications > 0 ? "accent" : "ok" },
+          { id: "d", label: "Evidence store healthy · tenant isolation verified", tone: "ok" },
+        ]}
+      />
+
       <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">What needs my attention</p>
       <AttentionBanner
         items={[
@@ -98,7 +108,7 @@ export default async function AppHomePage() {
 
       <NextBestAction title={nextAction.title} description={nextAction.description} href={nextAction.href} actionLabel="Review" />
 
-      <section className="rounded-2xl border border-neutral-800 bg-gradient-to-br from-neutral-950 to-neutral-900/50 p-5 sm:p-6" aria-labelledby="executive-brief-title">
+      <section className="si-glass relative overflow-hidden rounded-2xl border border-neutral-800/90 bg-gradient-to-br from-neutral-950 to-neutral-900/40 p-5 sm:p-6" aria-labelledby="executive-brief-title">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-400">Executive brief</p>
@@ -106,14 +116,14 @@ export default async function AppHomePage() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">Kaivaryn separates modeled opportunity from verified results, then ranks the decisions that can move value into execution.</p>
           </div>
           <div className="grid grid-cols-2 gap-4 sm:min-w-72">
-            <div><p className="text-[10px] uppercase tracking-wider text-neutral-500">Projected value</p><p className="mt-1 text-xl font-semibold text-white">{formatCurrency(projectedValue)}</p></div>
-            <div><p className="text-[10px] uppercase tracking-wider text-neutral-500">Verified value</p><p className="mt-1 text-xl font-semibold text-emerald-400">{formatCurrency(verifiedValue)}</p></div>
+            <div><p className="text-[10px] uppercase tracking-wider text-neutral-500">Projected value</p><p className="mt-1 text-xl font-semibold text-white"><CountUpCurrency value={projectedValue} /></p></div>
+            <div><p className="text-[10px] uppercase tracking-wider text-neutral-500">Verified value</p><p className="mt-1 text-xl font-semibold text-emerald-400"><CountUpCurrency value={verifiedValue} /></p></div>
           </div>
         </div>
         <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-neutral-800 bg-neutral-800 sm:grid-cols-3">
-          <Link href="/app/revenue?view=high_confidence" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">High-confidence recovery</p><p className="mt-2 text-2xl font-semibold text-white">{highConfidenceRevenue}</p><p className="mt-1 text-xs text-neutral-500">Open opportunities scoring 70+</p></Link>
-          <Link href="/app/operations?view=critical" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">Critical operational signals</p><p className="mt-2 text-2xl font-semibold text-white">{criticalOperations}</p><p className="mt-1 text-xs text-neutral-500">Unresolved items requiring attention</p></Link>
-          <Link href="/app/approvals" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">Executive decisions</p><p className="mt-2 text-2xl font-semibold text-white">{pendingApprovals}</p><p className="mt-1 text-xs text-neutral-500">Approval-gated actions waiting</p></Link>
+          <Link href="/app/revenue?view=high_confidence" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">High-confidence recovery</p><p className="mt-2 text-2xl font-semibold text-white"><CountUp value={highConfidenceRevenue} /></p><p className="mt-1 text-xs text-neutral-500">Open opportunities scoring 70+</p></Link>
+          <Link href="/app/operations?view=critical" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">Critical operational signals</p><p className="mt-2 text-2xl font-semibold text-white"><CountUp value={criticalOperations} /></p><p className="mt-1 text-xs text-neutral-500">Unresolved items requiring attention</p></Link>
+          <Link href="/app/approvals" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">Executive decisions</p><p className="mt-2 text-2xl font-semibold text-white"><CountUp value={pendingApprovals} /></p><p className="mt-1 text-xs text-neutral-500">Approval-gated actions waiting</p></Link>
         </div>
       </section>
 
@@ -122,7 +132,7 @@ export default async function AppHomePage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label="Recovery pipeline"
-            value={formatCurrency(revenue._sum.estimatedAmount ?? 0)}
+            value={<CountUpCurrency value={revenue._sum.estimatedAmount ?? 0} />}
             sublabel={`${revenue._count} opportunities · ${formatCurrency(revenue._sum.recoveredAmount ?? 0)} recovered`}
             icon={TrendingUp}
             tone="accent"
@@ -130,7 +140,7 @@ export default async function AppHomePage() {
           />
           <MetricCard
             label="Annual waste identified"
-            value={formatCurrency(operations._sum.estimatedWasteAnnual ?? 0)}
+            value={<CountUpCurrency value={operations._sum.estimatedWasteAnnual ?? 0} />}
             sublabel={`${operations._count} inefficiencies · ${formatCurrency(operations._sum.recoveredAnnual ?? 0)} recovered`}
             icon={Settings2}
             tone="accent"
@@ -138,7 +148,7 @@ export default async function AppHomePage() {
           />
           <MetricCard
             label="Pending approvals"
-            value={pendingApprovals}
+            value={<CountUp value={pendingApprovals} />}
             sublabel="Decisions awaiting review"
             icon={ShieldCheck}
             tone={pendingApprovals > 0 ? "danger" : "default"}
@@ -146,7 +156,7 @@ export default async function AppHomePage() {
           />
           <MetricCard
             label="Open actions"
-            value={openTasks + unreadNotifications}
+            value={<CountUp value={openTasks + unreadNotifications} />}
             sublabel={`${openTasks} tasks · ${unreadNotifications} unread`}
             icon={Bell}
             href="/app/notifications"

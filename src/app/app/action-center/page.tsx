@@ -11,6 +11,7 @@ import { runIntelligence } from "../actions";
 import { Button } from "@/components/ui/button";
 import { DynBarChart, Sparkline, CHART } from "@/components/charts/dynamic";
 import { getActionCenterChartData } from "@/lib/chart-data";
+import { ActivityStrip, StatusDot } from "@/components/motion";
 
 export const dynamic = "force-dynamic";
 
@@ -189,10 +190,17 @@ export default async function ActionCenterPage({
   const slaRiskCount = items.filter((i) => i.sla === "aging" || i.sla === "breach").length;
 
   return (
-    <div>
+    <div className="space-y-4">
+      <ActivityStrip
+        items={[
+          { id: "1", label: "Queue ranked by impact × urgency × SLA — decisions only, no fake external success", tone: "accent" },
+          { id: "2", label: "Mission control online · tenant isolation verified", tone: "ok" },
+          { id: "3", label: "High-value actions remain approval-gated until review", tone: "warn" },
+        ]}
+      />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="si-label text-amber-500">Executive</p>
+          <p className="si-label flex items-center gap-2 text-amber-500"><StatusDot tone="accent" />Executive</p>
           <h1 className="mt-1 text-2xl font-semibold">Action Center</h1>
           <p className="mt-2 max-w-2xl text-sm text-neutral-400">
             Unified queue ranked by financial impact, urgency, and SLA risk. Approvals record decisions only —

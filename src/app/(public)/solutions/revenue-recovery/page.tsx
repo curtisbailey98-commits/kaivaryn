@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ExampleFrameworkChart } from "@/components/charts/example-framework-chart";
 import type { Metadata } from "next";
 import { ZOOM_SCHEDULER_URL } from "@/lib/constants";
+import { AmbientField, BreathGrid, Reveal, Magnetic, SectionRule } from "@/components/motion";
 
 export const metadata: Metadata = { title: "Revenue Recovery" };
 
@@ -36,35 +37,42 @@ export default function RevenueRecoveryPage() {
   return (
     <>
       <section className="relative overflow-hidden border-b border-neutral-900">
-        <div className="public-grid pointer-events-none absolute inset-0 opacity-30" />
+        <AmbientField intensity="hero" />
+        <BreathGrid opacity={0.28} />
         <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-          <p className="public-kicker text-amber-400">Solution / Revenue Recovery</p>
-          <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-[-0.04em] text-white sm:text-6xl">
-            Recover value that is already hiding in your operation.
-          </h1>
-          <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-400 sm:text-lg">
-            Kaivaryn turns leakage signals into a ranked, owned recovery queue — with estimates never confused for cash.
-            Built for finance and revenue leaders who need a consulting-grade operating system, not a vanity dashboard.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link>
-            <a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="public-button-secondary">Schedule on Zoom</a>
-            <Link href="/value" className="public-button-secondary">Estimate opportunity</Link>
-            <Link href="/pricing" className="public-button-secondary">View pricing</Link>
-          </div>
+          <Reveal>
+            <p className="public-kicker text-amber-400">Solution / Revenue Recovery</p>
+            <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-6xl">
+              Recover value that is already hiding in your operation.
+            </h1>
+            <div className="mt-5 h-px w-20 bg-gradient-to-r from-amber-400 to-transparent" />
+            <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-400 sm:text-lg">
+              Kaivaryn turns leakage signals into a ranked, owned recovery queue — with estimates never confused for cash.
+              Built for finance and revenue leaders who need a consulting-grade operating system, not a vanity dashboard.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Magnetic><Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link></Magnetic>
+              <a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="public-button-secondary">Schedule on Zoom</a>
+              <Link href="/value" className="public-button-secondary">Estimate opportunity</Link>
+              <Link href="/pricing" className="public-button-secondary">View pricing</Link>
+            </div>
+          </Reveal>
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
         <p className="public-kicker text-amber-400">Problem</p>
         <h2 className="mt-3 text-3xl font-semibold text-white">Where recovery work usually breaks.</h2>
+        <SectionRule className="mt-8 mb-2" />
         <div className="mt-8 grid gap-5 lg:grid-cols-3">
           {problem.map(([t, b], i) => (
-            <div key={t} className="public-card p-7">
-              <p className="font-mono text-xs text-amber-500">0{i + 1}</p>
-              <h3 className="mt-4 text-lg font-semibold text-white">{t}</h3>
-              <p className="mt-3 text-sm leading-6 text-neutral-500">{b}</p>
-            </div>
+            <Reveal key={t} delay={i * 70}>
+              <div className="public-card h-full p-7">
+                <p className="font-mono text-xs text-amber-500">0{i + 1}</p>
+                <h3 className="mt-4 text-lg font-semibold text-white">{t}</h3>
+                <p className="mt-3 text-sm leading-6 text-neutral-500">{b}</p>
+              </div>
+            </Reveal>
           ))}
         </div>
       </section>
@@ -121,7 +129,7 @@ export default function RevenueRecoveryPage() {
         </div>
       </section>
           <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
-        <ExampleFrameworkChart />
+        <Reveal variant="scale"><ExampleFrameworkChart /></Reveal>
       </section>
 </>
   );
