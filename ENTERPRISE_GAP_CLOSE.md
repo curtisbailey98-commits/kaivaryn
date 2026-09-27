@@ -46,9 +46,9 @@ Audited: 2026-09-21 against `/workspace/kaivaryn` (foundation already ships publ
 - Fake send / fake integration success  
 - Touch 720 SI Render services  
 
-## Completion (2026-09-21 ET)
+## Completion v1 (2026-09-21 ET)
 
-Shipped on `main` (`d31132f`), Render deploy **live**, health **200**.
+Shipped on `main` (`d31132f` → docs `62a456d`, Zoom fields `1bfcaba`). Render deploy **live**, health **200**.
 
 | # | Item | Result |
 |---|------|--------|
@@ -74,3 +74,58 @@ Shipped on `main` (`d31132f`), Render deploy **live**, health **200**.
 | 20 | Reuse 720 SI | Done — approvals/connectors/anti-fabrication/health; SI Render untouched |
 
 Validation: `npm run test:enterprise` ALL PASSED. Stripe link unchanged in PricingConfig.
+
+## Completion v2 (2026-09-21 ET) — honesty / executive gap close
+
+**Do not rebuild.** Closed remaining honesty gaps vs re-sent enterprise brief. Credentials unchanged.
+
+| # | Item | v2 result |
+|---|------|-----------|
+| 1 | Tenant isolation + RBAC | Unchanged (still enforced) |
+| 2 | Persistent models | Extended `OrgSettings`: manager/admin approval limits, `requireApprovalAbove`, notify prefs + `notifyEmailEnabled` (SMTP honest) |
+| 3 | Detection engines | Unchanged |
+| 4 | Scoring | Unchanged |
+| 5 | Workflows + StatusHistory | Unchanged |
+| 6 | Actions | High-value recovery/savings gated; above threshold → `HIGH_VALUE_*` ApprovalRequest (step-up); approve applies amounts, never external exec |
+| 7 | Financial impact engine | Unchanged |
+| 8 | Executive Action Center | Ask (NL) + Reports shortcuts + compact NL form panel |
+| 9 | Intelligence E/A/R/D | Unchanged |
+| 10 | **NL query** | **Done** — deterministic interpreters in `src/lib/nl-query.ts`; UI `/app/query` (RBAC read+); example questions + keyword fallback; tenant-scoped only |
+| 11 | CSV imports | Flash confirmation on complete |
+| 12 | Jobs | Unchanged |
+| 13 | Notifications | Prefs editable in Settings; assign/recovery/high-value respect toggles |
+| 14 | Search | Unchanged (keyword); NL is separate path |
+| 15 | **Exports / reports** | **Done** — RR Summary, Ops Summary, Weekly Brief, Monthly Impact as CSV + printable HTML (`/app/reports`, `/api/reports`); PDF via browser print |
+| 16 | Audit | Unchanged |
+| 17 | Demo seed | Zoom scheduler URL seeded on every reseed (free Render) |
+| 18 | Analytics | Unchanged |
+| 19 | **UX** | **Done** — `FlashToast` on `?ok=` / `?error=` / `?msg=` for assign, status, recovery, savings, import, settings, approvals |
+| 20 | Reuse 720 SI | Unchanged; SI Render untouched |
+
+### v2 also
+
+- **Client admin** — `/app/settings` edits detection thresholds, scoring weights, approval amount/role gates, notification prefs (Admin+)
+- **Zoom** — `PricingConfig.zoomMeetingUrl` = `https://scheduler.zoom.us/curtis-bailey/kaivaryn-executive-demo`; thank-you CTA shows Join/schedule when set
+- Tests extended: NL intents, report aggregates, threshold gate matrix, OrgSettings fields
+
+### Still honest blockers / non-fake
+
+- **SQLite ephemeral on free Render** — disk wiped on redeploy; `startCommand` reseeds (demo journey restored; not durable prod storage)
+- **Email send / CRM external** — drafts + approval queue only; `notifyEmailEnabled` needs SMTP; integrations stay `needsIntegration` until credentials connected
+- **PDF** — printable HTML (Print → PDF); no heavy PDF dependency
+
+Validation: `npm run test:enterprise` ALL PASSED.
+
+
+## Completion v3 (2026-09-27 ET) — Demo Zoom CTA + public polish + SaaS merge
+
+| # | Item | Result |
+|---|------|--------|
+| 1 | Demo Zoom CTA | **Done** — `/demo` always shows **Schedule executive demo on Zoom** → `ZOOM_SCHEDULER_URL` / `PricingConfig.zoomMeetingUrl`; thank-you always shows same CTA |
+| 2 | Prospect Zoom field | **Removed** from public form; admin per-lead `zoomLink` retained |
+| 3 | Constant | `ZOOM_SCHEDULER_URL` in `src/lib/constants.ts`; seed + `getPricingConfig` fallback use it |
+| 4 | Public polish | Hero, solutions, how-it-works, pricing denser executive copy; Book Demo + Zoom schedule + Stripe activate paths (no fake stats/logos) |
+| 5 | SaaS deepen | NL Ask `/app/query`, Reports `/app/reports`+`/api/reports`, approval thresholds, FlashToast, Org Settings — merged from pending work |
+| 6 | Marketing rebuild | **Not done** — upgrade in place only |
+
+Validation: `npm run test:enterprise` ALL PASSED after merge.

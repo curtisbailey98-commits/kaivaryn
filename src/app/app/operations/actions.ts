@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, assertOrgId } from "@/lib/tenant";
 import { writeAudit } from "@/lib/audit";
@@ -11,8 +12,9 @@ import { normalizeOpsAmounts } from "@/lib/financial-impact";
 import { scoreWorkItem } from "@/lib/scoring";
 import { OE_STATUSES } from "@/lib/enums";
 import { can } from "@/lib/rbac";
-import { notify } from "@/lib/notifications";
+import { notify, notifyOrgManagers } from "@/lib/notifications";
 import { recordLearningEvent } from "@/lib/learning";
+import { evaluateRecoveryGate, isHighValue } from "@/lib/approval-thresholds";
 
 const schema = z.object({
   title: z.string().min(1).max(300),
@@ -126,7 +128,7 @@ export async function createInefficiency(formData: FormData) {
   });
   revalidatePath("/app/operations");
   revalidatePath("/app/action-center");
-  return { ok: true, id: created.id };
+  redirect(`/app/operations/${created.id}?ok=1&msg=${encodeURIComponent("Inefficiency created")}`);
 }
 
 export async function updateInefficiency(id: string, formData: FormData) {
@@ -243,7 +245,7 @@ export async function updateInefficiency(id: string, formData: FormData) {
   revalidatePath("/app/operations");
   revalidatePath(`/app/operations/${id}`);
   revalidatePath("/app/action-center");
-  return { ok: true };
+  redirect(`/app/operations/${id}?ok=1&msg=${encodeURIComponent("Inefficiency updated")}`);
 }
 
 export async function addInefficiencyNote(inefficiencyId: string, formData: FormData) {
@@ -259,7 +261,7 @@ export async function addInefficiencyNote(inefficiencyId: string, formData: Form
     data: { inefficiencyId, authorId: ctx.user.id, body },
   });
   revalidatePath(`/app/operations/${inefficiencyId}`);
-  return { ok: true };
+  redirect(`/app/operations/${inefficiencyId}?ok=1&msg=${encodeURIComponent("Note added")}`);
 }
 
 export async function recordSavings(inefficiencyId: string, formData: FormData) {
@@ -268,10 +270,59 @@ export async function recordSavings(inefficiencyId: string, formData: FormData) 
   const row = await prisma.inefficiency.findFirst({
     where: { id: inefficiencyId, organizationId: ctx.organizationId },
   });
-  if (!row) return { error: "Not found" };
+  if (!row) {
+    redirect(`/app/operations?error=1&msg=${encodeURIComponent("Not found")}`);
+  }
   const realized = Number(formData.get("realizedSavings") || 0);
   const verified = formData.get("verified") === "on" || formData.get("verified") === "true";
-  if (!Number.isFinite(realized) || realized < 0) return { error: "Invalid amount" };
+  if (!Number.isFinite(realized) || realized < 0) {
+    redirect(`/app/operations/${inefficiencyId}?error=1&msg=${encodeURIComponent("Invalid amount")}`);
+  }
+  const settings = await orgSettings(ctx.organizationId);
+  const gate = evaluateRecoveryGate({
+    amount: realized,
+    role: ctx.effectiveRole,
+    settings: {
+      highValueThreshold: settings.highValueThreshold,
+      managerApprovalLimit: settings.managerApprovalLimit,
+      adminApprovalLimit: settings.adminApprovalLimit,
+      requireApprovalAbove: settings.requireApprovalAbove,
+    },
+  });
+  if (!gate.ok) {
+    redirect(`/app/operations/${inefficiencyId}?error=1&msg=${encodeURIComponent(gate.reason)}`);
+  }
+  if (gate.mode === "queue_approval") {
+    await prisma.approvalRequest.create({
+      data: {
+        organizationId: ctx.organizationId,
+        type: "HIGH_VALUE_SAVINGS",
+        title: `High-value savings: ${row.title}`,
+        description: gate.reason,
+        status: "PENDING",
+        payloadJson: JSON.stringify({
+          inefficiencyId,
+          realizedSavings: realized,
+          verified,
+          executesExternally: false,
+        }),
+        requestedById: ctx.user.id,
+      },
+    });
+    if (settings.notifyHighValue) {
+      await notifyOrgManagers({
+        organizationId: ctx.organizationId,
+        title: "High-value savings needs approval",
+        body: `${row.title}: ${realized}`,
+        href: "/app/approvals",
+      });
+    }
+    revalidatePath("/app/approvals");
+    redirect(
+      `/app/operations/${inefficiencyId}?ok=1&msg=${encodeURIComponent("Queued for approval (high-value threshold)")}`
+    );
+  }
+
   const toStatus = verified ? "VERIFIED" : "REALIZED";
   await prisma.inefficiency.update({
     where: { id: inefficiencyId },
@@ -310,8 +361,16 @@ export async function recordSavings(inefficiencyId: string, formData: FormData) 
     entityId: inefficiencyId,
     metadata: { realized, verified },
   });
+  if (settings.notifyRecovery) {
+    await notifyOrgManagers({
+      organizationId: ctx.organizationId,
+      title: `Savings recorded: ${row.title}`,
+      body: `Amount ${realized}${verified ? " (verified)" : ""}`,
+      href: `/app/operations/${inefficiencyId}`,
+    });
+  }
   revalidatePath(`/app/operations/${inefficiencyId}`);
-  return { ok: true };
+  redirect(`/app/operations/${inefficiencyId}?ok=1&msg=${encodeURIComponent("Savings recorded")}`);
 }
 
 export async function decideApproval(id: string, formData: FormData) {
@@ -372,6 +431,83 @@ export async function decideApproval(id: string, formData: FormData) {
     entityId: id,
     metadata: { note: executionNote },
   });
+  // Apply queued high-value financial records when approved (still no external exec)
+  if (decision === "APPROVED" && (req.type === "HIGH_VALUE_RECOVERY" || req.type === "HIGH_VALUE_SAVINGS")) {
+    try {
+      const payload = req.payloadJson ? JSON.parse(req.payloadJson) : {};
+      if (req.type === "HIGH_VALUE_RECOVERY" && payload.opportunityId) {
+        const opp = await prisma.opportunity.findFirst({
+          where: { id: payload.opportunityId, organizationId: ctx.organizationId },
+        });
+        if (opp) {
+          const recovered = Number(payload.recoveredAmount || 0);
+          const verified = Boolean(payload.verified);
+          const toStatus = verified
+            ? "VERIFIED"
+            : recovered > 0 && recovered < (opp.potentialAmount || recovered)
+              ? "PARTIALLY_RECOVERED"
+              : "RECOVERED";
+          await prisma.opportunity.update({
+            where: { id: opp.id },
+            data: {
+              recoveredAmount: recovered,
+              verifiedAmount: verified ? recovered : opp.verifiedAmount,
+              status: toStatus,
+              recoveredAt: new Date(),
+              verifiedAt: verified ? new Date() : null,
+            },
+          });
+          await recordStatusChange({
+            organizationId: ctx.organizationId,
+            entityType: "Opportunity",
+            entityId: opp.id,
+            fromStatus: opp.status,
+            toStatus,
+            actorId: ctx.user.id,
+            note: `Approved high-value recovery ${recovered}`,
+          });
+          executionNote = `Approved and applied recovery ${recovered} (no external execution).`;
+        }
+      }
+      if (req.type === "HIGH_VALUE_SAVINGS" && payload.inefficiencyId) {
+        const row = await prisma.inefficiency.findFirst({
+          where: { id: payload.inefficiencyId, organizationId: ctx.organizationId },
+        });
+        if (row) {
+          const realized = Number(payload.realizedSavings || 0);
+          const verified = Boolean(payload.verified);
+          const toStatus = verified ? "VERIFIED" : "REALIZED";
+          await prisma.inefficiency.update({
+            where: { id: row.id },
+            data: {
+              realizedSavings: realized,
+              recoveredAnnual: realized,
+              status: toStatus,
+              resolvedAt: new Date(),
+              verifiedAt: verified ? new Date() : null,
+            },
+          });
+          await recordStatusChange({
+            organizationId: ctx.organizationId,
+            entityType: "Inefficiency",
+            entityId: row.id,
+            fromStatus: row.status,
+            toStatus,
+            actorId: ctx.user.id,
+            note: `Approved high-value savings ${realized}`,
+          });
+          executionNote = `Approved and applied savings ${realized} (no external execution).`;
+        }
+      }
+      await prisma.approvalRequest.update({
+        where: { id },
+        data: { decisionNote: executionNote },
+      });
+    } catch {
+      /* leave decision recorded */
+    }
+  }
+
   await notify({
     organizationId: ctx.organizationId,
     userId: req.requestedById,
@@ -381,5 +517,5 @@ export async function decideApproval(id: string, formData: FormData) {
   });
   revalidatePath("/app/approvals");
   revalidatePath("/app/action-center");
-  return { ok: true, message: executionNote };
+  redirect(`/app/approvals?ok=1&msg=${encodeURIComponent(executionNote)}`);
 }

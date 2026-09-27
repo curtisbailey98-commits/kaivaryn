@@ -38,7 +38,8 @@ Stored in `PricingConfig` (not hardcoded):
 ## Key routes
 
 - Public: `/`, `/solutions/*`, `/how-it-works`, `/intelligence`, `/pricing`, `/demo`, `/company`, `/contact`
-- App: `/app`, `/app/action-center`, `/app/revenue`, `/app/operations`, `/app/learning`, `/app/integrations`, `/app/approvals`, `/app/onboarding`
+- App: `/app`, `/app/action-center`, `/app/query`, `/app/reports`, `/app/revenue`, `/app/operations`, `/app/learning`, `/app/settings`, `/app/integrations`, `/app/approvals`, `/app/onboarding`
+- Demo Zoom scheduler: `https://scheduler.zoom.us/curtis-bailey/kaivaryn-executive-demo`
 - Admin (SUPER_ADMIN): `/admin/*`
 - Health: `GET /api/health`
 

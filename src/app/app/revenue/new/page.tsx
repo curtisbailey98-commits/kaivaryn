@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { createOpportunity } from "../actions";
 import { requireOrgAccess, assertOrgId } from "@/lib/tenant";
 import { requireEntitlement } from "@/lib/entitlements";
@@ -14,8 +13,7 @@ export default async function NewOpportunityPage() {
 
   async function action(formData: FormData) {
     "use server";
-    const res = await createOpportunity(formData);
-    if (res.id) redirect(`/app/revenue/${res.id}`);
+    await createOpportunity(formData); // redirects with flash on success
   }
 
   return (

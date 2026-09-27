@@ -2,6 +2,10 @@ export const APP_NAME = "Kaivaryn";
 export const STRIPE_PAYMENT_LINK_FALLBACK =
   "https://buy.stripe.com/14AaEZgJsdDNeTFePLeUU01";
 
+/** Kaivaryn executive demo Zoom scheduler — primary CTA on /demo and thank-you. */
+export const ZOOM_SCHEDULER_URL =
+  "https://scheduler.zoom.us/curtis-bailey/kaivaryn-executive-demo";
+
 export const ROLES = [
   "SUPER_ADMIN",
   "OWNER",

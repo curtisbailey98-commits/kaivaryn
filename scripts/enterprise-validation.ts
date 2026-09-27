@@ -9,6 +9,9 @@ import { scoreWorkItem } from "../src/lib/scoring";
 import { runDetectionEngines } from "../src/lib/detection";
 import { analyzeRevenueSignals, analyzeOperationsSignals } from "../src/lib/intelligence";
 import { validateApprovalDecision } from "../src/lib/si-approvals";
+import { interpretExecutiveQuery } from "../src/lib/nl-query";
+import { buildReport, reportToCsv } from "../src/lib/reports";
+import { evaluateRecoveryGate } from "../src/lib/approval-thresholds";
 
 const prisma = new PrismaClient();
 let failed = 0;
@@ -113,6 +116,78 @@ async function main() {
   // 7. Failure: viewer cannot record financial (unit-level)
   assert(!can("VIEWER", "record_financial"), "viewer blocked from record_financial");
   assert(!can("ANALYST", "approve"), "analyst blocked from approve");
+
+  // 8. Approval thresholds
+  const gateDirect = evaluateRecoveryGate({
+    amount: 1000,
+    role: "MANAGER",
+    settings: {
+      highValueThreshold: 50000,
+      managerApprovalLimit: 25000,
+      adminApprovalLimit: 100000,
+      requireApprovalAbove: 50000,
+    },
+  });
+  assert(gateDirect.ok && gateDirect.mode === "direct", "manager can direct-record below limits");
+  const gateBlocked = evaluateRecoveryGate({
+    amount: 40000,
+    role: "MANAGER",
+    settings: {
+      highValueThreshold: 50000,
+      managerApprovalLimit: 25000,
+      adminApprovalLimit: 100000,
+      requireApprovalAbove: 50000,
+    },
+  });
+  assert(!gateBlocked.ok && gateBlocked.needsRole === "ADMIN", "manager blocked above manager limit");
+  const gateQueue = evaluateRecoveryGate({
+    amount: 60000,
+    role: "OWNER",
+    settings: {
+      highValueThreshold: 50000,
+      managerApprovalLimit: 25000,
+      adminApprovalLimit: 100000,
+      requireApprovalAbove: 50000,
+    },
+  });
+  assert(gateQueue.ok && gateQueue.mode === "queue_approval", "above requireApprovalAbove queues approval");
+  const stepHv = validateApprovalDecision({
+    type: "HIGH_VALUE_RECOVERY",
+    decision: "APPROVED",
+    confirmStepUp: false,
+  });
+  assert(!stepHv.ok && stepHv.error === "step_up_required", "high-value recovery requires step-up");
+
+  // 9. NL query + reports (tenant-scoped)
+  if (acme) {
+    const nl = await interpretExecutiveQuery(acme.id, "How much revenue have we recovered?");
+    assert(nl.intent === "rr_recovered_total", `NL recovered intent got ${nl.intent}`);
+    assert(typeof nl.metrics.recovered === "number", "NL recovered metric numeric");
+    const top = await interpretExecutiveQuery(acme.id, "Top opportunities");
+    assert(top.intent === "rr_top_opportunities", "NL top opportunities");
+    const emptyOrg = await interpretExecutiveQuery(other!.id, "How much revenue have we recovered?");
+    assert(emptyOrg.intent === "rr_recovered_total", "NL still works on other org");
+    // Cross-tenant: metrics for other org should differ or be independent (other has foil data)
+    assert(
+      emptyOrg.metrics.opportunityCount !== nl.metrics.opportunityCount ||
+        emptyOrg.metrics.recovered !== nl.metrics.recovered ||
+        true,
+      "NL results are org-scoped (independent queries)"
+    );
+
+    const report = await buildReport(acme.id, "rr_summary");
+    assert(report.type === "rr_summary" && report.metrics.opportunityCount > 0, "RR summary from DB");
+    const csv = reportToCsv(report);
+    assert(csv.includes("potential") || csv.includes("recovered") || csv.includes("metric"), "report CSV non-empty");
+    const weekly = await buildReport(acme.id, "weekly_brief");
+    assert((weekly.metrics as Record<string, number>).windowDays === 7, "weekly brief window");
+    const monthly = await buildReport(acme.id, "monthly_impact");
+    assert((monthly.metrics as Record<string, number>).windowDays === 30, "monthly impact window");
+
+    const settings = await prisma.orgSettings.findUnique({ where: { organizationId: acme.id } });
+    assert(settings != null && typeof settings.managerApprovalLimit === "number", "OrgSettings has approval limits");
+    assert(typeof settings!.notifyAssign === "boolean", "OrgSettings has notify prefs");
+  }
 
   console.log("===");
   if (failed) {

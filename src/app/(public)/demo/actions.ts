@@ -15,14 +15,6 @@ const schema = z.object({
   products: z.array(z.string()).min(1),
   companySize: z.string().max(40).optional(),
   message: z.string().max(2000).optional(),
-  zoomLink: z
-    .string()
-    .max(500)
-    .optional()
-    .refine(
-      (v) => !v || /^https?:\/\//i.test(v),
-      "Preferred meeting link must be a valid http(s) URL"
-    ),
 });
 
 export type DemoFormState = { error?: string } | null;
@@ -32,7 +24,6 @@ export async function submitDemoRequest(
   formData: FormData
 ): Promise<DemoFormState> {
   const products = formData.getAll("products").map(String);
-  const zoomRaw = String(formData.get("zoomLink") || "").trim();
   const parsed = schema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
@@ -42,7 +33,6 @@ export async function submitDemoRequest(
     products,
     companySize: formData.get("companySize") || undefined,
     message: formData.get("message") || undefined,
-    zoomLink: zoomRaw || undefined,
   });
   if (!parsed.success) {
     return { error: "Please complete required fields with a valid email." };
@@ -58,7 +48,8 @@ export async function submitDemoRequest(
       products: data.products.join(","),
       companySize: data.companySize,
       message: data.message,
-      zoomLink: data.zoomLink || null,
+      // zoomLink is admin-only (per-lead); public form no longer collects prospect Zoom URLs
+      zoomLink: null,
       status: "NEW",
     },
   });

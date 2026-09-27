@@ -158,6 +158,17 @@ model OrgSettings {
   scoreWeightPriority     Float    @default(0.25)
   scoreWeightEvidence     Float    @default(0.2)
   highValueThreshold      Float    @default(50000)
+  // Amount/role approval gates (recovery & high-value actions)
+  managerApprovalLimit    Float    @default(25000)   // Manager may record recovery up to this
+  adminApprovalLimit      Float    @default(100000)  // Admin up to this; above → Owner
+  requireApprovalAbove    Float    @default(50000)   // At/above: queue ApprovalRequest instead of direct record
+  // In-app notification prefs (email send still needs SMTP — kept honest)
+  notifyAssign            Boolean  @default(true)
+  notifyStatusChange      Boolean  @default(true)
+  notifyRecovery          Boolean  @default(true)
+  notifyHighValue         Boolean  @default(true)
+  notifyWeeklyBrief       Boolean  @default(false)
+  notifyEmailEnabled      Boolean  @default(false) // requires SMTP; never faked
   settingsJson            String?  // extra knobs
   updatedAt               DateTime @updatedAt
   createdAt               DateTime @default(now())
@@ -187,7 +198,7 @@ model PricingConfig {
   standardPriceCents     Int      @default(2000000)
   currency               String   @default("USD")
   stripePaymentLink      String
-  zoomMeetingUrl         String?  // global Join/schedule Zoom CTA for /demo thank-you
+  zoomMeetingUrl         String?  // Kaivaryn Zoom scheduler CTA for /demo + thank-you
   updatedAt              DateTime @updatedAt
   createdAt              DateTime @default(now())
 }
@@ -232,7 +243,7 @@ model DemoRequest {
   products    String
   companySize String?
   message     String?
-  zoomLink    String?  // per-lead meeting URL (prospect preferred or admin-scheduled)
+  zoomLink    String?  // admin-only per-lead meeting URL (not collected on public /demo form)
   status      String   @default("NEW")
   notes       String?
   createdAt   DateTime @default(now())

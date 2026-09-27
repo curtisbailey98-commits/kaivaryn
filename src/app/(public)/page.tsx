@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { ZOOM_SCHEDULER_URL } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Executive AI Consulting Firm",
@@ -35,6 +36,7 @@ export default function HomePage() {
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link>
+              <a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="public-button-secondary">Schedule on Zoom</a>
               <Link href="/how-it-works" className="public-button-secondary">See the operating model</Link>
             </div>
             <div className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-xs text-neutral-500">

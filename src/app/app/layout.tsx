@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { requireOrgAccess } from "@/lib/tenant";
+import { FlashToast } from "@/components/ui/flash-toast";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrgAccess();
@@ -10,6 +12,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       isDemo={ctx.organization?.isDemo}
       isSuperAdmin={ctx.isSuperAdmin}
     >
+      <Suspense fallback={null}>
+        <FlashToast />
+      </Suspense>
       {children}
     </AppShell>
   );

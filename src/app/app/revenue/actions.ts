@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, assertOrgId } from "@/lib/tenant";
 import { writeAudit } from "@/lib/audit";
@@ -9,8 +10,9 @@ import { recordStatusChange } from "@/lib/status-history";
 import { normalizeRevenueAmounts } from "@/lib/financial-impact";
 import { scoreWorkItem } from "@/lib/scoring";
 import { RR_STATUSES } from "@/lib/enums";
-import { notify } from "@/lib/notifications";
+import { notify, notifyOrgManagers } from "@/lib/notifications";
 import { recordLearningEvent } from "@/lib/learning";
+import { evaluateRecoveryGate, isHighValue } from "@/lib/approval-thresholds";
 
 const opportunitySchema = z.object({
   title: z.string().min(1).max(300),
@@ -106,7 +108,7 @@ export async function createOpportunity(formData: FormData) {
   });
   revalidatePath("/app/revenue");
   revalidatePath("/app/action-center");
-  return { ok: true, id: created.id };
+  redirect(`/app/revenue/${created.id}?ok=1&msg=${encodeURIComponent("Opportunity created")}`);
 }
 
 export async function updateOpportunity(id: string, formData: FormData) {
@@ -224,7 +226,7 @@ export async function updateOpportunity(id: string, formData: FormData) {
   revalidatePath("/app/revenue");
   revalidatePath(`/app/revenue/${id}`);
   revalidatePath("/app/action-center");
-  return { ok: true };
+  redirect(`/app/revenue/${id}?ok=1&msg=${encodeURIComponent("Opportunity updated")}`);
 }
 
 export async function addOpportunityNote(opportunityId: string, formData: FormData) {
@@ -240,7 +242,7 @@ export async function addOpportunityNote(opportunityId: string, formData: FormDa
     data: { opportunityId, authorId: ctx.user.id, body },
   });
   revalidatePath(`/app/revenue/${opportunityId}`);
-  return { ok: true };
+  redirect(`/app/revenue/${opportunityId}?ok=1&msg=${encodeURIComponent("Note added")}`);
 }
 
 export async function assignOpportunity(opportunityId: string, formData: FormData) {
@@ -258,7 +260,8 @@ export async function assignOpportunity(opportunityId: string, formData: FormDat
     if (!m) return { error: "Assignee not in organization" };
   }
   await prisma.opportunity.update({ where: { id: opportunityId }, data: { assigneeId } });
-  if (assigneeId) {
+  const settings = await orgSettings(ctx.organizationId);
+  if (assigneeId && settings.notifyAssign) {
     await notify({
       organizationId: ctx.organizationId,
       userId: assigneeId,
@@ -276,7 +279,7 @@ export async function assignOpportunity(opportunityId: string, formData: FormDat
     metadata: { assigneeId },
   });
   revalidatePath(`/app/revenue/${opportunityId}`);
-  return { ok: true };
+  redirect(`/app/revenue/${opportunityId}?ok=1&msg=${encodeURIComponent(assigneeId ? "Assigned" : "Unassigned")}`);
 }
 
 export async function recordRecovery(opportunityId: string, formData: FormData) {
@@ -285,10 +288,70 @@ export async function recordRecovery(opportunityId: string, formData: FormData) 
   const opp = await prisma.opportunity.findFirst({
     where: { id: opportunityId, organizationId: ctx.organizationId },
   });
-  if (!opp) return { error: "Not found" };
+  if (!opp) {
+    redirect(`/app/revenue?error=1&msg=${encodeURIComponent("Not found")}`);
+  }
   const recovered = Number(formData.get("recoveredAmount") || 0);
   const verified = formData.get("verified") === "on" || formData.get("verified") === "true";
-  if (!Number.isFinite(recovered) || recovered < 0) return { error: "Invalid amount" };
+  if (!Number.isFinite(recovered) || recovered < 0) {
+    redirect(`/app/revenue/${opportunityId}?error=1&msg=${encodeURIComponent("Invalid amount")}`);
+  }
+  const settings = await orgSettings(ctx.organizationId);
+  const gate = evaluateRecoveryGate({
+    amount: recovered,
+    role: ctx.effectiveRole,
+    settings: {
+      highValueThreshold: settings.highValueThreshold,
+      managerApprovalLimit: settings.managerApprovalLimit,
+      adminApprovalLimit: settings.adminApprovalLimit,
+      requireApprovalAbove: settings.requireApprovalAbove,
+    },
+  });
+  if (!gate.ok) {
+    redirect(
+      `/app/revenue/${opportunityId}?error=1&msg=${encodeURIComponent(gate.reason)}`
+    );
+  }
+  if (gate.mode === "queue_approval") {
+    const approval = await prisma.approvalRequest.create({
+      data: {
+        organizationId: ctx.organizationId,
+        type: "HIGH_VALUE_RECOVERY",
+        title: `High-value recovery: ${opp.title}`,
+        description: gate.reason,
+        status: "PENDING",
+        payloadJson: JSON.stringify({
+          opportunityId,
+          recoveredAmount: recovered,
+          verified,
+          executesExternally: false,
+        }),
+        requestedById: ctx.user.id,
+      },
+    });
+    if (settings.notifyHighValue) {
+      await notifyOrgManagers({
+        organizationId: ctx.organizationId,
+        title: "High-value recovery needs approval",
+        body: `${opp.title}: ${recovered}`,
+        href: "/app/approvals",
+      });
+    }
+    await writeAudit({
+      organizationId: ctx.organizationId,
+      actorId: ctx.user.id,
+      action: "opportunity.recovery_queued",
+      entityType: "ApprovalRequest",
+      entityId: approval.id,
+      metadata: { recovered, verified },
+    });
+    revalidatePath("/app/approvals");
+    revalidatePath("/app/action-center");
+    redirect(
+      `/app/revenue/${opportunityId}?ok=1&msg=${encodeURIComponent("Queued for approval (high-value threshold)")}`
+    );
+  }
+
   const money = normalizeRevenueAmounts({
     potentialAmount: opp.potentialAmount,
     approvedAmount: opp.approvedAmount,
@@ -335,9 +398,25 @@ export async function recordRecovery(opportunityId: string, formData: FormData) 
     entityId: opportunityId,
     metadata: { recovered, verified },
   });
+  if (settings.notifyRecovery) {
+    await notifyOrgManagers({
+      organizationId: ctx.organizationId,
+      title: `Recovery recorded: ${opp.title}`,
+      body: `Amount ${recovered}${verified ? " (verified)" : ""}`,
+      href: `/app/revenue/${opportunityId}`,
+    });
+  }
+  if (settings.notifyHighValue && isHighValue(recovered, settings.highValueThreshold)) {
+    await notifyOrgManagers({
+      organizationId: ctx.organizationId,
+      title: "High-value recovery recorded",
+      body: `${opp.title}: ${recovered}`,
+      href: `/app/revenue/${opportunityId}`,
+    });
+  }
   revalidatePath(`/app/revenue/${opportunityId}`);
   revalidatePath("/app/action-center");
-  return { ok: true };
+  redirect(`/app/revenue/${opportunityId}?ok=1&msg=${encodeURIComponent("Recovery recorded")}`);
 }
 
 export async function draftOpportunityEmail(opportunityId: string, formData: FormData) {
@@ -371,7 +450,7 @@ export async function draftOpportunityEmail(opportunityId: string, formData: For
     metadata: { note: "Draft only — no send" },
   });
   revalidatePath(`/app/revenue/${opportunityId}`);
-  return { ok: true, id: draft.id, message: "Draft saved. No email was sent." };
+  redirect(`/app/revenue/${opportunityId}?ok=1&msg=${encodeURIComponent("Draft saved. No email was sent.")}`);
 }
 
 export async function createOpportunityTask(opportunityId: string, formData: FormData) {
@@ -397,7 +476,7 @@ export async function createOpportunityTask(opportunityId: string, formData: For
     },
   });
   revalidatePath(`/app/revenue/${opportunityId}`);
-  return { ok: true, id: task.id };
+  redirect(`/app/revenue/${opportunityId}?ok=1&msg=${encodeURIComponent("Task created")}`);
 }
 
 /** External action → approval queue; never fake success. */
@@ -443,11 +522,8 @@ export async function requestExternalAction(opportunityId: string, formData: For
   });
   revalidatePath("/app/approvals");
   revalidatePath("/app/action-center");
-  return {
-    ok: true,
-    id: approval.id,
-    message: needsIntegration
-      ? `Queued for approval. Needs integration: ${needsIntegration}`
-      : "Queued for approval. No external execution until approved.",
-  };
+  const message = needsIntegration
+    ? `Queued for approval. Needs integration: ${needsIntegration}`
+    : "Queued for approval. No external execution until approved.";
+  redirect(`/app/revenue/${opportunityId}?ok=1&msg=${encodeURIComponent(message)}`);
 }

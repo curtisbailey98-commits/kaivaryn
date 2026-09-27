@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createInefficiency } from "../actions";
 import { requireOrgAccess, assertOrgId } from "@/lib/tenant";
@@ -14,8 +13,7 @@ export default async function NewInefficiencyPage() {
 
   async function action(formData: FormData) {
     "use server";
-    const res = await createInefficiency(formData);
-    if (res.id) redirect(`/app/operations/${res.id}`);
+    await createInefficiency(formData); // redirects with flash on success
   }
 
   return (

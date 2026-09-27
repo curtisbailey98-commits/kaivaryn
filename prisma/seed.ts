@@ -3,9 +3,12 @@ import { Role, Product, OpportunityPriority, InefficiencyPriority, IntegrationSt
 import { hash } from "bcryptjs";
 import { scoreWorkItem } from "../src/lib/scoring";
 import { runDetectionEngines } from "../src/lib/detection";
+import { ZOOM_SCHEDULER_URL } from "../src/lib/constants";
 
 const prisma = new PrismaClient();
+
 const STRIPE = process.env.STRIPE_PAYMENT_LINK || "https://buy.stripe.com/14AaEZgJsdDNeTFePLeUU01";
+const ZOOM = process.env.ZOOM_MEETING_URL || ZOOM_SCHEDULER_URL;
 
 async function wipeOrg(orgId: string) {
   await prisma.evidence.deleteMany({ where: { organizationId: orgId } });
@@ -42,7 +45,7 @@ async function main() {
       introductoryPriceCents: 1_000_000,
       standardPriceCents: 2_000_000,
       stripePaymentLink: STRIPE,
-      zoomMeetingUrl: "https://scheduler.zoom.us/curtis-bailey/kaivaryn-executive-demo",
+      zoomMeetingUrl: ZOOM,
     },
     create: {
       key: "default",
@@ -51,7 +54,7 @@ async function main() {
       standardPriceCents: 2_000_000,
       currency: "USD",
       stripePaymentLink: STRIPE,
-      zoomMeetingUrl: "https://scheduler.zoom.us/curtis-bailey/kaivaryn-executive-demo",
+      zoomMeetingUrl: ZOOM,
     },
   });
 

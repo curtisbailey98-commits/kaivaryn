@@ -154,6 +154,12 @@ export default async function ActionCenterPage({
               {unread} notifications
             </Link>
           ) : null}
+          <Link href="/app/query" className="rounded-md border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-amber-600">
+            Ask (NL)
+          </Link>
+          <Link href="/app/reports" className="rounded-md border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-amber-600">
+            Reports
+          </Link>
           <form action={runIntelligence}>
             <Button type="submit" variant="secondary">Run intelligence</Button>
           </form>
@@ -208,6 +214,24 @@ export default async function ActionCenterPage({
           ))}
         </ul>
       )}
+
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Ask (NL)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form action="/app/query" method="get" className="flex flex-col gap-2 sm:flex-row">
+            <input
+              name="q"
+              placeholder='e.g. "How much revenue have we recovered?"'
+              className="h-10 flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-3 text-sm"
+            />
+            <button type="submit" className="h-10 rounded-md bg-amber-500 px-4 text-sm font-semibold text-neutral-950">
+              Ask
+            </button>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card className="mt-8">
         <CardHeader>

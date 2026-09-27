@@ -14,6 +14,9 @@ import {
   ShieldCheck,
   Rocket,
   Brain,
+  MessageSquare,
+  FileBarChart,
+  SlidersHorizontal,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +30,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/app", label: "Home", icon: LayoutDashboard },
       { href: "/app/action-center", label: "Action Center", icon: Zap },
+      { href: "/app/query", label: "Ask (NL)", icon: MessageSquare },
     ],
   },
   {
@@ -40,6 +44,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Operations",
     items: [
       { href: "/app/findings", label: "Findings", icon: FileSearch },
+      { href: "/app/reports", label: "Reports", icon: FileBarChart },
       { href: "/app/imports", label: "Imports", icon: Upload },
       { href: "/app/jobs", label: "Jobs", icon: Activity },
       { href: "/app/search", label: "Search", icon: Search },
@@ -51,6 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/app/notifications", label: "Notifications", icon: Bell },
       { href: "/app/approvals", label: "Approvals", icon: ShieldCheck },
       { href: "/app/learning", label: "Learning", icon: Brain },
+      { href: "/app/settings", label: "Org settings", icon: SlidersHorizontal },
       { href: "/app/integrations", label: "Integrations", icon: Plug },
       { href: "/app/onboarding", label: "Onboarding", icon: Rocket },
     ],

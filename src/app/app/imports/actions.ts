@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requirePermission, assertOrgId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { runImportJob } from "@/lib/imports";
@@ -47,5 +48,5 @@ export async function submitImport(formData: FormData) {
   revalidatePath("/app/jobs");
   revalidatePath("/app/revenue");
   revalidatePath("/app/operations");
-  
+  redirect(`/app/imports?ok=1&msg=${encodeURIComponent("Import completed")}`);
 }
