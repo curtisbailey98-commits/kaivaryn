@@ -7,11 +7,13 @@ import { promises as fs } from "fs";
 import path from "path";
 import { prisma } from "@/lib/prisma";
 import { writeAudit } from "@/lib/audit";
-import { matchTemplate, BUILTIN_TEMPLATES } from "./templates";
+import { matchTemplate, BUILTIN_TEMPLATES, buildTemplateWebBundle } from "./templates";
 import { runEvalHarness } from "./eval";
 import { assertNoSelfGrant, sanitizeToolsForAgent } from "./permissions";
 import { executeAgentSource } from "./runtime";
 import { canApproveFoundryDeploy, canDeployProduction } from "@/lib/rbac";
+import { isWebRuntime, publishSameDomainAgent } from "./deploy-web";
+import { webAgentRunnerSource } from "./webgen";
 
 const AGENTS_ROOT = path.join(process.cwd(), "data", "agents");
 
@@ -108,12 +110,21 @@ export async function manufactureAgent(params: {
     const tools = sanitizeToolsForAgent(template.defaultTools);
     const selfGrant = assertNoSelfGrant({ requestedBy: "CHIEF", tools: template.defaultTools });
 
+    const kind =
+      template.category === "SECURITY_INTAKE"
+        ? "SECURITY_INTAKE"
+        : template.category === "STATIC_SITE"
+          ? "STATIC_SITE"
+          : template.category === "WEB_APP"
+            ? "WEB_APP"
+            : "INTERNAL";
+
     const agent = await prisma.agentDefinition.create({
       data: {
         slug: baseSlug,
         name: `${template.name} (${baseSlug.slice(-6)})`,
         description: `Manufactured by CHIEF from instruction: ${params.instruction.slice(0, 240)}`,
-        kind: template.category === "SECURITY_INTAKE" ? "SECURITY_INTAKE" : "INTERNAL",
+        kind,
         status: "DRAFT",
         ownerRole,
         capabilitiesJson: JSON.stringify(architecture),
@@ -129,15 +140,34 @@ export async function manufactureAgent(params: {
     const versionNum = 1;
     const packageDir = path.join(AGENTS_ROOT, agent.slug, `v${versionNum}`);
     await fs.mkdir(packageDir, { recursive: true });
-    const sourceCode = template.starterCode;
+
+    const webBundle = buildTemplateWebBundle(template, params.instruction, agent.slug);
+    const runtime = template.webRuntime || "json-runner";
+    const sourceCode = webBundle
+      ? webAgentRunnerSource(template.webRuntime!, webBundle.title)
+      : template.starterCode;
+
+    if (webBundle) {
+      const webDir = path.join(packageDir, "web");
+      await fs.mkdir(webDir, { recursive: true });
+      for (const [fileName, content] of Object.entries(webBundle.files)) {
+        await fs.writeFile(path.join(webDir, fileName), content, "utf8");
+      }
+    }
+
     const packageManifest = {
       slug: agent.slug,
       version: versionNum,
       tools,
       architecture,
-      entry: "agent.js",
+      entry: webBundle ? "web/index.html" : "agent.js",
+      runtime,
+      livePath: webBundle ? `/a/${agent.slug}` : null,
       generatedBy: "CHIEF",
       generatedAt: new Date().toISOString(),
+      web: webBundle
+        ? { title: webBundle.title, runtime: webBundle.runtime, files: Object.keys(webBundle.files) }
+        : null,
     };
     await fs.writeFile(path.join(packageDir, "agent.js"), sourceCode, "utf8");
     await fs.writeFile(path.join(packageDir, "package.json"), JSON.stringify(packageManifest, null, 2), "utf8");
@@ -146,11 +176,15 @@ export async function manufactureAgent(params: {
       data: {
         agentId: agent.id,
         version: versionNum,
-        changelog: "Initial manufacture via CHIEF Foundry",
+        changelog: webBundle
+          ? `Initial ${runtime} package via CHIEF Foundry (live UI)`
+          : "Initial manufacture via CHIEF Foundry",
         status: "STAGED",
         packagePath: path.relative(process.cwd(), packageDir),
         packageJson: JSON.stringify(packageManifest),
         sourceCode,
+        webBundleJson: webBundle ? JSON.stringify(webBundle) : null,
+        runtime,
         architectureJson: JSON.stringify(architecture),
         toolsJson: JSON.stringify(tools),
         createdById: params.requesterId,
@@ -245,7 +279,13 @@ export async function manufactureAgent(params: {
         versionId: version.id,
         environment: "STAGING",
         status: "PENDING",
-        notes: "Staged pending executive approval",
+        notes: webBundle
+          ? `Staged ${runtime} package — will publish at /a/${agent.slug} on approval`
+          : "Staged pending executive approval",
+        adapter: webBundle ? "same-domain" : "sandbox",
+        liveUrl: webBundle ? `/a/${agent.slug}` : null,
+        healthUrl: webBundle ? `/api/a/${agent.slug}/health` : null,
+        healthStatus: "UNKNOWN",
       },
     });
 
@@ -383,29 +423,66 @@ export async function decideFoundryApproval(params: {
 
     await prisma.agentVersion.update({ where: { id: approval.version.id }, data: { status: "APPROVED" } });
 
-    // Activate staging
-    await prisma.agentDeployment.updateMany({
-      where: { agentId: approval.job.agentId, environment: "STAGING", status: "PENDING" },
-      data: { status: "ACTIVE", approvedById: params.deciderId, activatedAt: new Date() },
-    });
+    const agentRow = approval.version.agent;
+    const runtime = approval.version.runtime || "json-runner";
+    let deploymentId: string;
+    let liveMeta: Record<string, unknown> = {};
 
-    const prod = await prisma.agentDeployment.create({
-      data: {
+    if (isWebRuntime(runtime) && approval.version.webBundleJson) {
+      let bundle = null;
+      try {
+        bundle = JSON.parse(approval.version.webBundleJson);
+      } catch {
+        bundle = null;
+      }
+      const published = await publishSameDomainAgent({
         agentId: approval.job.agentId,
         versionId: approval.version.id,
-        environment: "PRODUCTION",
-        status: "ACTIVE",
+        slug: agentRow.slug,
         approvedById: params.deciderId,
-        activatedAt: new Date(),
-        notes: params.note || "Approved via CHIEF Foundry",
-      },
-    });
+        note: params.note || "Approved via CHIEF Foundry (live web)",
+        bundle,
+      });
+      deploymentId = published.deploymentId;
+      liveMeta = {
+        liveUrl: published.liveUrl,
+        healthUrl: published.healthUrl,
+        healthStatus: published.healthStatus,
+        adapter: "same-domain",
+        previousDeploymentId: published.previousDeploymentId,
+      };
+    } else {
+      await prisma.agentDeployment.updateMany({
+        where: { agentId: approval.job.agentId, environment: "STAGING", status: "PENDING" },
+        data: { status: "ACTIVE", approvedById: params.deciderId, activatedAt: new Date() },
+      });
+
+      const prod = await prisma.agentDeployment.create({
+        data: {
+          agentId: approval.job.agentId,
+          versionId: approval.version.id,
+          environment: "PRODUCTION",
+          status: "ACTIVE",
+          approvedById: params.deciderId,
+          activatedAt: new Date(),
+          notes: params.note || "Approved via CHIEF Foundry",
+          adapter: "sandbox",
+          healthStatus: "N/A",
+        },
+      });
+      deploymentId = prod.id;
+    }
 
     await prisma.foundryJob.update({
       where: { id: approval.jobId },
       data: { status: "DEPLOYED", stage: "deployed", completedAt: new Date() },
     });
-    await pushActivity(approval.jobId, { event: "deployed", deploymentId: prod.id, environment: "PRODUCTION" });
+    await pushActivity(approval.jobId, {
+      event: "deployed",
+      deploymentId,
+      environment: "PRODUCTION",
+      ...liveMeta,
+    });
 
     await prisma.execAuditEvent.create({
       data: {
@@ -413,12 +490,12 @@ export async function decideFoundryApproval(params: {
         action: "chief.deploy.approved",
         dashboard: "CHIEF",
         entityType: "AgentDeployment",
-        entityId: prod.id,
-        metadataJson: JSON.stringify({ jobId: approval.jobId }),
+        entityId: deploymentId,
+        metadataJson: JSON.stringify({ jobId: approval.jobId, ...liveMeta }),
       },
     });
 
-    return { ok: true, deploymentId: prod.id };
+    return { ok: true, deploymentId };
   }
 
   await prisma.foundryJob.update({

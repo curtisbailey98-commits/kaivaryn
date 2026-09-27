@@ -39,7 +39,10 @@ export default async function ChiefFoundryPage({
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Instruct CHIEF</CardTitle>
-            <CardDescription>Curtis / Don chat entry — manufactures a sandboxed internal agent end-to-end.</CardDescription>
+            <CardDescription>
+              Curtis / Don chat entry — manufactures sandbox agents <em>or</em> live website/app packages
+              (templates: static-site, web-app, next-microsite) then deploys to <code className="text-amber-400">/a/&lt;slug&gt;</code> after approval.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form action={instructChief} className="space-y-3">
@@ -48,7 +51,7 @@ export default async function ChiefFoundryPage({
                 required
                 minLength={8}
                 rows={4}
-                defaultValue="Manufacture a small internal ops status reporter that summarizes platform and org health metrics with no external side effects"
+                defaultValue="Build a live internal status page for Kaivaryn platform health"
                 className="w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 focus:border-amber-500/50 focus:outline-none"
               />
               <Button type="submit">Manufacture agent</Button>
@@ -141,18 +144,24 @@ export default async function ChiefFoundryPage({
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2">Owner</th>
                 <th className="px-3 py-2">Deploy</th>
+                <th className="px-3 py-2">Live</th>
+                <th className="px-3 py-2">Health</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
-              {snap.agents.map((a) => (
+              {snap.agents.map((a) => {
+                const prod = a.deployments.find((d) => d.environment === "PRODUCTION" && d.status === "ACTIVE");
+                const liveUrl = prod?.liveUrl || null;
+                const health = prod?.healthStatus || null;
+                return (
                 <tr key={a.id} className="border-t border-neutral-900">
                   <td className="px-3 py-2 text-neutral-200">{a.name}</td>
                   <td className="px-3 py-2">{a.kind}</td>
                   <td className="px-3 py-2"><StatusBadge status={a.status} /></td>
                   <td className="px-3 py-2">{a.ownerRole}</td>
                   <td className="px-3 py-2">
-                    {a.deployments.filter((d) => d.environment === "PRODUCTION").length ? (
+                    {prod ? (
                       <Badge tone="success">PROD</Badge>
                     ) : a.deployments.length ? (
                       <Badge tone="warning">STAGED</Badge>
@@ -161,7 +170,19 @@ export default async function ChiefFoundryPage({
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    {a.deployments.some((d) => d.environment === "PRODUCTION" && d.status === "ACTIVE") ? (
+                    {liveUrl ? (
+                      <a href={liveUrl.startsWith("http") ? liveUrl : liveUrl} target="_blank" rel="noreferrer" className="text-amber-400 hover:underline">
+                        {liveUrl.replace(/^https?:\/\/[^/]+/, "") || liveUrl}
+                      </a>
+                    ) : (
+                      <span className="text-neutral-600">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {health ? <StatusBadge status={health} /> : <span className="text-neutral-600">—</span>}
+                  </td>
+                  <td className="px-3 py-2">
+                    {prod ? (
                       <form action={runChiefAgent}>
                         <input type="hidden" name="agentId" value={a.id} />
                         <Button type="submit" size="sm" variant="secondary">Run</Button>
@@ -169,7 +190,7 @@ export default async function ChiefFoundryPage({
                     ) : null}
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
           {snap.agents.length === 0 ? <p className="p-4 text-neutral-500">Registry empty</p> : null}

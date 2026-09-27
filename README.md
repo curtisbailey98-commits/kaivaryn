@@ -42,6 +42,7 @@ Stored in `PricingConfig` (not hardcoded):
 - Demo Zoom scheduler: `https://scheduler.zoom.us/curtis-bailey/kaivaryn-executive-demo`
 - Admin (SUPER_ADMIN): `/admin/*`
 - Health: `GET /api/health`
+- CHIEF live agents: `/a/<slug>` (after Foundry approve) · health `GET /api/a/<slug>/health` · console `/executive/chief`
 
 ## Live
 

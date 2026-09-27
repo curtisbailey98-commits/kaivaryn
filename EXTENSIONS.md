@@ -39,6 +39,22 @@ Key modules:
 - UI: `/executive/chief`
 - Actions: `src/app/executive/actions.ts`
 
+## Live website / app agents (same-domain)
+
+CHIEF can manufacture **real HTML/CSS/JS packages** (not JSON stubs) from templates:
+
+| Template slug | Trigger phrases (examples) | Live path |
+|---|---|---|
+| `static-site` | "build a status page", "static site", "website" | `/a/<slug>` |
+| `web-app` | "build a mini app that…", "web app" | `/a/<slug>` |
+| `next-microsite` | "landing page", "microsite" | `/a/<slug>` |
+
+Pipeline addition: generate `webBundleJson` → eval (`hasHtml`/`hasTitle`) → human approve → `publishSameDomainAgent` → public URL `https://kaivaryn.onrender.com/a/<slug>` with health at `/api/a/<slug>/health`. Registry stores `liveUrl`, `healthStatus`, `adapter=same-domain`, `previousDeploymentId` (rollback).
+
+Instruct via `/executive/chief` (CEO/CSEO). Example: *Build a live internal status page for Kaivaryn platform health*.
+
+Modules: `src/lib/chief/webgen.ts`, `src/lib/chief/deploy-web.ts`, route `src/app/a/[slug]/[[...path]]/route.ts`.
+
 ## Prisma models
 
 `AgentDefinition`, `AgentVersion`, `AgentTemplate`, `AgentEvalRun`, `AgentDeployment`, `AgentExecution`, `FoundryJob`, `FoundryApproval`, `ToolPermissionGrant`, `ExecutiveDashboardPref`, `SecurityAgentSpec`, `ExecAuditEvent`.

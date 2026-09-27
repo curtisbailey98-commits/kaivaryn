@@ -1,4 +1,6 @@
-/** Reusable CHIEF agent templates (sandbox-safe). */
+/** Reusable CHIEF agent templates — sandbox runners + live website/app packages. */
+
+import { generateWebBundle, webAgentRunnerSource, type WebRuntime } from "./webgen";
 
 export type AgentTemplateDef = {
   slug: string;
@@ -9,6 +11,8 @@ export type AgentTemplateDef = {
   defaultTools: { toolId: string; scope: string }[];
   evalHarness: { name: string; assert: string }[];
   starterCode: string;
+  /** When set, Foundry generates a real HTML package for same-domain live deploy. */
+  webRuntime?: WebRuntime;
 };
 
 export const BUILTIN_TEMPLATES: AgentTemplateDef[] = [
@@ -86,12 +90,129 @@ export function run(input, ctx) {
 }
 `,
   },
+  {
+    slug: "static-site",
+    name: "Static Site / Status Page",
+    description:
+      "Generates a real static HTML/CSS/JS microsite (e.g. internal status page) and deploys it live at /a/<slug> after human approval.",
+    category: "STATIC_SITE",
+    webRuntime: "static-site",
+    architecture: {
+      runtime: "static-site",
+      isolation: "same-domain-public",
+      sideEffects: "none",
+      deployAdapter: "same-domain",
+      livePath: "/a/<slug>",
+      outputs: ["index.html", "styles.css", "app.js", "health.json"],
+    },
+    defaultTools: [
+      { toolId: "platform.health.read", scope: "READ" },
+      { toolId: "agent.report.write", scope: "WRITE" },
+    ],
+    evalHarness: [
+      { name: "has_html", assert: "output.hasHtml" },
+      { name: "has_title", assert: "output.hasTitle" },
+      { name: "no_unrestricted_tools", assert: "tools.sanitized" },
+      { name: "returns_status_shape", assert: "output.hasStatus" },
+    ],
+    starterCode: webAgentRunnerSource("static-site", "Internal Status Page"),
+  },
+  {
+    slug: "web-app",
+    name: "Mini Web App",
+    description:
+      "Generates a small interactive web app (client-side) and deploys it live at /a/<slug> after human approval.",
+    category: "WEB_APP",
+    webRuntime: "web-app",
+    architecture: {
+      runtime: "web-app",
+      isolation: "same-domain-public",
+      sideEffects: "browser-local-only",
+      deployAdapter: "same-domain",
+      livePath: "/a/<slug>",
+    },
+    defaultTools: [{ toolId: "agent.report.write", scope: "WRITE" }],
+    evalHarness: [
+      { name: "has_html", assert: "output.hasHtml" },
+      { name: "has_title", assert: "output.hasTitle" },
+      { name: "no_unrestricted_tools", assert: "tools.sanitized" },
+    ],
+    starterCode: webAgentRunnerSource("web-app", "Mini App"),
+  },
+  {
+    slug: "next-microsite",
+    name: "Next Microsite (static emit)",
+    description:
+      "Landing / marketing microsite packaged as static HTML and served under Kaivaryn /a/<slug> (no separate Render billing).",
+    category: "WEB_APP",
+    webRuntime: "next-microsite",
+    architecture: {
+      runtime: "next-microsite",
+      isolation: "same-domain-public",
+      sideEffects: "none",
+      deployAdapter: "same-domain",
+      livePath: "/a/<slug>",
+      note: "Emitted as static HTML compatible with Next hosting; not a separate Next process.",
+    },
+    defaultTools: [{ toolId: "agent.report.write", scope: "WRITE" }],
+    evalHarness: [
+      { name: "has_html", assert: "output.hasHtml" },
+      { name: "has_title", assert: "output.hasTitle" },
+      { name: "no_unrestricted_tools", assert: "tools.sanitized" },
+    ],
+    starterCode: webAgentRunnerSource("next-microsite", "Public Microsite"),
+  },
 ];
 
 export function matchTemplate(instruction: string): AgentTemplateDef {
   const lower = instruction.toLowerCase();
-  if (lower.includes("security") || lower.includes("cseo") || lower.includes("intake")) {
+
+  // Security intake first (keep existing behavior)
+  if (
+    (lower.includes("security") || lower.includes("cseo") || lower.includes("intake")) &&
+    !lower.includes("landing") &&
+    !lower.includes("website") &&
+    !lower.includes("microsite") &&
+    !lower.includes("web app") &&
+    !lower.includes("status page")
+  ) {
     return BUILTIN_TEMPLATES.find((t) => t.slug === "security-intake-recorder")!;
   }
+
+  // Live website / app agents
+  if (
+    lower.includes("web app") ||
+    lower.includes("mini app") ||
+    lower.includes("mini-app") ||
+    (lower.includes("app that") && (lower.includes("build") || lower.includes("manufacture")))
+  ) {
+    return BUILTIN_TEMPLATES.find((t) => t.slug === "web-app")!;
+  }
+  if (
+    lower.includes("landing") ||
+    lower.includes("marketing site") ||
+    lower.includes("microsite") ||
+    lower.includes("next-microsite")
+  ) {
+    return BUILTIN_TEMPLATES.find((t) => t.slug === "next-microsite")!;
+  }
+  if (
+    lower.includes("status page") ||
+    lower.includes("static site") ||
+    lower.includes("static-site") ||
+    lower.includes("website") ||
+    lower.includes("web page") ||
+    lower.includes("live page") ||
+    (lower.includes("build") && lower.includes("page"))
+  ) {
+    return BUILTIN_TEMPLATES.find((t) => t.slug === "static-site")!;
+  }
+
   return BUILTIN_TEMPLATES.find((t) => t.slug === "internal-ops-status")!;
+}
+
+/** Build web bundle for a template+instruction+slug (used by Foundry generate). */
+export function buildTemplateWebBundle(template: AgentTemplateDef, instruction: string, slug: string) {
+  if (!template.webRuntime) return null;
+  return generateWebBundle({ runtime: template.webRuntime, instruction, slug });
 }

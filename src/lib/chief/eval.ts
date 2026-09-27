@@ -47,6 +47,14 @@ export async function runEvalHarness(params: {
           detail = passed ? "empty rejected" : "empty accepted incorrectly";
         }
         break;
+      case "output.hasHtml":
+        passed = Boolean(exec.output?.hasHtml || exec.output?.hasLiveUi);
+        detail = passed ? "html/live UI flag present" : "missing hasHtml";
+        break;
+      case "output.hasTitle":
+        passed = Boolean(exec.output?.hasTitle || (exec.output?.brief as { title?: string })?.title);
+        detail = passed ? "title present" : "missing title";
+        break;
       default:
         passed = exec.ok;
         detail = `unknown assert ${test.assert}; runtime ok=${exec.ok}`;

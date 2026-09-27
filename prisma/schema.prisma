@@ -1143,7 +1143,7 @@ model AgentDefinition {
   slug            String   @unique
   name            String
   description     String?
-  kind            String   @default("INTERNAL") // INTERNAL | SECURITY_INTAKE | WORKFORCE
+  kind            String   @default("INTERNAL") // INTERNAL | SECURITY_INTAKE | WORKFORCE | WEB_APP | STATIC_SITE
   status          String   @default("DRAFT") // DRAFT | REGISTERED | DEPRECATED
   ownerRole       String   @default("CEO") // CEO | CSEO | SHARED
   capabilitiesJson String  @default("[]")
@@ -1172,6 +1172,8 @@ model AgentVersion {
   packagePath      String?  // relative path under data/agents/
   packageJson      String?  // manifest + source entry
   sourceCode       String?  // sandboxed TS/JSON runner source
+  webBundleJson    String?  // { files: { "index.html": "...", ... }, entry, runtime }
+  runtime          String   @default("json-runner") // json-runner | static-site | web-app | next-microsite
   architectureJson String   @default("{}")
   toolsJson        String   @default("[]")
   evalSummaryJson  String?
@@ -1233,6 +1235,13 @@ model AgentDeployment {
   activatedAt   DateTime?
   rolledBackAt  DateTime?
   notes         String?
+  // Live website/app agent registry
+  liveUrl       String?
+  healthUrl     String?
+  healthStatus  String?   // OK | DEGRADED | DOWN | UNKNOWN | N/A
+  healthCheckedAt DateTime?
+  adapter       String?   // same-domain | render-static | github-pages | sandbox
+  previousDeploymentId String? // rollback pointer
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -1241,6 +1250,7 @@ model AgentDeployment {
 
   @@index([agentId, status])
   @@index([environment, status])
+  @@index([liveUrl])
 }
 
 model AgentExecution {

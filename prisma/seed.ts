@@ -4,6 +4,8 @@ import { hash } from "bcryptjs";
 import { scoreWorkItem } from "../src/lib/scoring";
 import { runDetectionEngines } from "../src/lib/detection";
 import { ZOOM_SCHEDULER_URL } from "../src/lib/constants";
+import { generateWebBundle, webAgentRunnerSource } from "../src/lib/chief/webgen";
+import { publicBaseUrl } from "../src/lib/chief/deploy-web";
 
 const prisma = new PrismaClient();
 
@@ -855,6 +857,90 @@ async function main() {
 
   // silence unused dept vars
   void sales;
+
+  // Stable CHIEF live demo agent — same-domain /a/internal-status
+  {
+    const slug = "internal-status";
+    const bundle = generateWebBundle({
+      runtime: "static-site",
+      instruction: "Build a live internal status page for Kaivaryn platform health",
+      slug,
+      titleHint: "Kaivaryn Internal Status",
+    });
+    const sourceCode = webAgentRunnerSource("static-site", bundle.title);
+    const base = publicBaseUrl();
+    const agent = await prisma.agentDefinition.upsert({
+      where: { slug },
+      update: {
+        name: "Kaivaryn Internal Status Page",
+        description: "CHIEF-manufactured live status microsite (seeded demo)",
+        kind: "STATIC_SITE",
+        status: "REGISTERED",
+        ownerRole: "CEO",
+        capabilitiesJson: JSON.stringify({ runtime: "static-site", deployAdapter: "same-domain" }),
+      },
+      create: {
+        slug,
+        name: "Kaivaryn Internal Status Page",
+        description: "CHIEF-manufactured live status microsite (seeded demo)",
+        kind: "STATIC_SITE",
+        status: "REGISTERED",
+        ownerRole: "CEO",
+        capabilitiesJson: JSON.stringify({ runtime: "static-site", deployAdapter: "same-domain" }),
+        createdById: curtis.id,
+      },
+    });
+    let version = await prisma.agentVersion.findFirst({ where: { agentId: agent.id, version: 1 } });
+    if (!version) {
+      version = await prisma.agentVersion.create({
+        data: {
+          agentId: agent.id,
+          version: 1,
+          changelog: "Seeded live status page",
+          status: "APPROVED",
+          packagePath: `data/agents/${slug}/v1`,
+          packageJson: JSON.stringify({ slug, runtime: "static-site", entry: "web/index.html" }),
+          sourceCode,
+          webBundleJson: JSON.stringify(bundle),
+          runtime: "static-site",
+          architectureJson: JSON.stringify({ runtime: "static-site", deployAdapter: "same-domain" }),
+          toolsJson: JSON.stringify([{ toolId: "platform.health.read", scope: "READ" }]),
+          createdById: curtis.id,
+        },
+      });
+    } else {
+      version = await prisma.agentVersion.update({
+        where: { id: version.id },
+        data: {
+          status: "APPROVED",
+          sourceCode,
+          webBundleJson: JSON.stringify(bundle),
+          runtime: "static-site",
+        },
+      });
+    }
+    await prisma.agentDeployment.updateMany({
+      where: { agentId: agent.id, environment: "PRODUCTION", status: "ACTIVE" },
+      data: { status: "ROLLED_BACK", rolledBackAt: new Date() },
+    });
+    await prisma.agentDeployment.create({
+      data: {
+        agentId: agent.id,
+        versionId: version.id,
+        environment: "PRODUCTION",
+        status: "ACTIVE",
+        approvedById: curtis.id,
+        activatedAt: new Date(),
+        notes: "Seeded CHIEF live demo agent",
+        liveUrl: `${base}/a/${slug}`,
+        healthUrl: `${base}/api/a/${slug}/health`,
+        healthStatus: "OK",
+        healthCheckedAt: new Date(),
+        adapter: "same-domain",
+      },
+    });
+    console.log(`  Live agent:  ${base}/a/${slug}`);
+  }
 
   console.log("Seed complete.");
   console.log(`  Super admin: admin@kaivaryn.com / ${process.env.NODE_ENV === "production" ? "[BOOTSTRAP_ADMIN_PASSWORD env]" : "KaivarynAdmin!2026"}`);
