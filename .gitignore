@@ -46,3 +46,4 @@ deploy-render-state.json
 kaivaryn-main-updated.zip
 prisma/*.db
 prisma/prisma/
+data/agents/

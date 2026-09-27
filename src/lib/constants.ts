@@ -8,6 +8,8 @@ export const ZOOM_SCHEDULER_URL =
 
 export const ROLES = [
   "SUPER_ADMIN",
+  "CEO",
+  "CSEO",
   "OWNER",
   "ADMIN",
   "MANAGER",

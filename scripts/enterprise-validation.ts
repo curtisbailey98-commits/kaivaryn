@@ -52,6 +52,9 @@ async function main() {
   assert(can("ADMIN", "manage_settings") && !can("ADMIN", "admin_console"), "Admin: settings, not platform console");
   assert(can("OWNER", "manage_members"), "Owner: members");
   assert(can("SUPER_ADMIN", "admin_console"), "SUPER_ADMIN: admin console");
+  assert(can("CEO", "executive_console") && can("CEO", "chief_deploy"), "CEO: executive+deploy");
+  assert(can("CSEO", "cseo_console") && !can("CSEO", "chief_deploy"), "CSEO: security, gated deploy perm");
+  assert(!can("MANAGER", "executive_console"), "Manager: no executive console");
   assert(effectiveRole("SUPER_ADMIN", "VIEWER") === "SUPER_ADMIN", "platform SUPER_ADMIN wins");
   assert(effectiveRole("VIEWER", "MANAGER") === "MANAGER", "membership role used when not SA");
 

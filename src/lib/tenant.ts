@@ -1,6 +1,6 @@
 import type { Role } from "@/lib/enums";
 import type { Permission } from "@/lib/rbac";
-import { can, effectiveRole } from "@/lib/rbac";
+import { can, effectiveRole, isExecutivePlatformRole } from "@/lib/rbac";
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 import { prisma } from "./prisma";
@@ -53,6 +53,7 @@ export async function getSessionContext() {
     membershipRole,
     effectiveRole: eff,
     isSuperAdmin: user.role === "SUPER_ADMIN",
+    isExecutive: isExecutivePlatformRole(user.role),
   };
 }
 
@@ -61,11 +62,11 @@ export async function requireOrgAccess(opts?: { allowSuperAdminCrossTenant?: boo
   const ctx = await getSessionContext();
   if (!ctx) redirect("/login");
 
-  if (opts?.allowSuperAdminCrossTenant && ctx.isSuperAdmin && opts.orgIdOverride) {
+  if (opts?.allowSuperAdminCrossTenant && (ctx.isSuperAdmin || ctx.isExecutive) && opts.orgIdOverride) {
     return { ...ctx, organizationId: opts.orgIdOverride };
   }
 
-  if (!ctx.organizationId && !ctx.isSuperAdmin) {
+  if (!ctx.organizationId && !ctx.isSuperAdmin && !ctx.isExecutive) {
     redirect("/app/onboarding");
   }
 

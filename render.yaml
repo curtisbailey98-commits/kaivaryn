@@ -20,6 +20,10 @@ services:
         sync: false
       - key: BOOTSTRAP_ADMIN_PASSWORD
         generateValue: true
+      - key: BOOTSTRAP_CEO_PASSWORD
+        sync: false
+      - key: BOOTSTRAP_CSEO_PASSWORD
+        sync: false
       - key: STRIPE_PAYMENT_LINK
         value: https://buy.stripe.com/14AaEZgJsdDNeTFePLeUU01
       - key: STRIPE_WEBHOOK_SECRET

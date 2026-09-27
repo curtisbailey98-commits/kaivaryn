@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       userEmail={ctx.user.email}
       orgName={ctx.organization?.name}
       isDemo={ctx.organization?.isDemo}
-      isSuperAdmin={ctx.isSuperAdmin}
+      isSuperAdmin={ctx.isSuperAdmin || ctx.isExecutive}
     >
       <Suspense fallback={null}>
         <FlashToast />

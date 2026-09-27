@@ -38,6 +38,17 @@ model User {
   emailDrafts            EmailDraft[]
   intelligenceRuns       IntelligenceRun[]
   learningEvents         LearningEvent[]
+
+  // CHIEF Foundry / executive
+  agentDefinitionsCreated AgentDefinition[] @relation("AgentDefCreator")
+  agentVersionsCreated    AgentVersion[]     @relation("AgentVersionCreator")
+  foundryJobsRequested    FoundryJob[]       @relation("FoundryJobRequester")
+  foundryApprovalsDecided FoundryApproval[]  @relation("FoundryApprovalDecider")
+  toolPermissionGrants    ToolPermissionGrant[] @relation("ToolGrantActor")
+  agentExecutions         AgentExecution[]   @relation("AgentExecActor")
+  executiveDashboardPrefs ExecutiveDashboardPref?
+  securityAgentSpecs      SecurityAgentSpec[] @relation("SecuritySpecSubmitter")
+  execAuditEvents         ExecAuditEvent[]   @relation("ExecAuditActor")
 }
 
 model Account {
@@ -1120,4 +1131,254 @@ model PaymentEvent {
   account AcquisitionAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, createdAt])
+}
+
+
+// =============================================================================
+// CHIEF Foundry — internal AI agent manufacturer (Kaivaryn executives only)
+// =============================================================================
+
+model AgentDefinition {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  description     String?
+  kind            String   @default("INTERNAL") // INTERNAL | SECURITY_INTAKE | WORKFORCE
+  status          String   @default("DRAFT") // DRAFT | REGISTERED | DEPRECATED
+  ownerRole       String   @default("CEO") // CEO | CSEO | SHARED
+  capabilitiesJson String  @default("[]")
+  policyJson      String   @default("{}")
+  createdById     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  createdBy   User?           @relation("AgentDefCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  versions    AgentVersion[]
+  deployments AgentDeployment[]
+  executions  AgentExecution[]
+  foundryJobs FoundryJob[]
+  toolGrants  ToolPermissionGrant[]
+
+  @@index([status])
+  @@index([kind])
+}
+
+model AgentVersion {
+  id               String   @id @default(cuid())
+  agentId          String
+  version          Int
+  changelog        String?
+  status           String   @default("STAGED") // STAGED | APPROVED | REJECTED | SUPERSEDED
+  packagePath      String?  // relative path under data/agents/
+  packageJson      String?  // manifest + source entry
+  sourceCode       String?  // sandboxed TS/JSON runner source
+  architectureJson String   @default("{}")
+  toolsJson        String   @default("[]")
+  evalSummaryJson  String?
+  createdById      String?
+  createdAt        DateTime @default(now())
+
+  agent       AgentDefinition   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  createdBy   User?             @relation("AgentVersionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  evalRuns    AgentEvalRun[]
+  deployments AgentDeployment[]
+  approvals   FoundryApproval[]
+  foundryJobs FoundryJob[]
+
+  @@unique([agentId, version])
+  @@index([status])
+}
+
+model AgentTemplate {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  description     String?
+  category        String   @default("INTERNAL")
+  architectureJson String  @default("{}")
+  starterCode     String
+  defaultToolsJson String  @default("[]")
+  evalHarnessJson String   @default("[]")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AgentEvalRun {
+  id            String   @id @default(cuid())
+  versionId     String
+  status        String   @default("QUEUED") // QUEUED | RUNNING | PASSED | FAILED
+  suiteName     String   @default("default")
+  score         Float?
+  passed        Int      @default(0)
+  failed        Int      @default(0)
+  resultsJson   String   @default("[]")
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime @default(now())
+
+  version AgentVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([versionId, createdAt])
+  @@index([status])
+}
+
+model AgentDeployment {
+  id            String    @id @default(cuid())
+  agentId       String
+  versionId     String
+  environment   String    @default("STAGING") // STAGING | PRODUCTION
+  status        String    @default("PENDING") // PENDING | ACTIVE | ROLLED_BACK | FAILED
+  approvedById  String?
+  activatedAt   DateTime?
+  rolledBackAt  DateTime?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  agent   AgentDefinition @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  version AgentVersion    @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, status])
+  @@index([environment, status])
+}
+
+model AgentExecution {
+  id            String    @id @default(cuid())
+  agentId       String
+  deploymentId  String?
+  triggeredById String?
+  status        String    @default("QUEUED") // QUEUED | RUNNING | SUCCEEDED | FAILED | DENIED
+  inputJson     String    @default("{}")
+  outputJson    String?
+  errorMessage  String?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  agent       AgentDefinition @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  triggeredBy User?           @relation("AgentExecActor", fields: [triggeredById], references: [id], onDelete: SetNull)
+
+  @@index([agentId, createdAt])
+  @@index([status])
+}
+
+model FoundryJob {
+  id              String    @id @default(cuid())
+  instruction     String
+  status          String    @default("RECEIVED") // RECEIVED | DESIGNING | GENERATING | EVALUATING | AWAITING_APPROVAL | APPROVED | DEPLOYED | FAILED | CANCELLED
+  stage           String    @default("intake")
+  requesterId     String?
+  requesterRole   String?
+  agentId         String?
+  versionId       String?
+  templateSlug    String?
+  architectureJson String?
+  errorMessage    String?
+  activityJson    String    @default("[]")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+
+  requester User?            @relation("FoundryJobRequester", fields: [requesterId], references: [id], onDelete: SetNull)
+  agent     AgentDefinition? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  version   AgentVersion?    @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  approvals FoundryApproval[]
+
+  @@index([status, createdAt])
+  @@index([requesterId])
+}
+
+model FoundryApproval {
+  id            String    @id @default(cuid())
+  jobId         String
+  versionId     String?
+  type          String    @default("DEPLOY") // DEPLOY | TOOL_GRANT | PRIVILEGE | POLICY
+  title         String
+  description   String?
+  status        String    @default("PENDING") // PENDING | APPROVED | REJECTED | EXPIRED
+  requestedRole String?
+  // CHIEF cannot approve its own unrestricted privilege grants
+  selfGrantBlocked Boolean @default(false)
+  payloadJson   String?
+  decidedById   String?
+  decidedAt     DateTime?
+  decisionNote  String?
+  createdAt     DateTime  @default(now())
+
+  job       FoundryJob    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  version   AgentVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  decidedBy User?         @relation("FoundryApprovalDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([jobId])
+}
+
+model ToolPermissionGrant {
+  id            String    @id @default(cuid())
+  agentId       String
+  toolId        String
+  scope         String    @default("READ") // READ | WRITE | EXECUTE | ADMIN
+  status        String    @default("ACTIVE") // ACTIVE | REVOKED | PENDING
+  grantedById   String?
+  // Unrestricted/admin scopes require human executive — never CHIEF self-grant
+  requiresHuman Boolean   @default(true)
+  expiresAt     DateTime?
+  createdAt     DateTime  @default(now())
+  revokedAt     DateTime?
+
+  agent     AgentDefinition @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  grantedBy User?           @relation("ToolGrantActor", fields: [grantedById], references: [id], onDelete: SetNull)
+
+  @@unique([agentId, toolId, scope])
+  @@index([status])
+}
+
+model ExecutiveDashboardPref {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  activeDashboard String   @default("CEO") // CEO | CSEO
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SecurityAgentSpec {
+  id                  String   @id @default(cuid())
+  title               String
+  submittedById       String?
+  status              String   @default("DRAFT") // DRAFT | SUBMITTED | UNDER_REVIEW | ACCEPTED | REJECTED
+  responsibilitiesJson String  @default("[]")
+  capabilitiesJson    String   @default("[]")
+  policiesJson        String   @default("{}")
+  technicalReqsJson   String   @default("{}")
+  toolPermissionsJson String   @default("[]")
+  integrationsJson    String   @default("[]")
+  monitoringJson      String   @default("{}")
+  evalsJson           String   @default("[]")
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  submittedBy User? @relation("SecuritySpecSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+}
+
+model ExecAuditEvent {
+  id          String   @id @default(cuid())
+  actorId     String?
+  action      String
+  dashboard   String?  // CEO | CSEO | CHIEF | SHARED
+  entityType  String?
+  entityId    String?
+  metadataJson String?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation("ExecAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([action])
+  @@index([actorId])
 }

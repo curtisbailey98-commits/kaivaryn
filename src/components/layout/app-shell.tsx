@@ -105,6 +105,13 @@ export function AppShell({
               <div>
                 <p className="px-2.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">Platform</p>
                 <Link
+                  href="/executive/ceo"
+                  className="mt-1 flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-amber-400/90 transition hover:bg-neutral-900"
+                >
+                  <Rocket className="h-4 w-4 shrink-0" strokeWidth={2} />
+                  Executive Command
+                </Link>
+                <Link
                   href="/admin"
                   className="mt-1 flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-amber-400/90 transition hover:bg-neutral-900"
                 >

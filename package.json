@@ -16,7 +16,8 @@
     "test:execution": "tsx scripts/execution-validation.ts",
     "test:readiness": "tsx scripts/production-readiness.ts",
     "typecheck": "tsc --noEmit",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test:chief": "tsx scripts/chief-validation.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

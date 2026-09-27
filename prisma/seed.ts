@@ -72,6 +72,54 @@ async function main() {
     },
   });
 
+
+  // Executive identities — CEO Curtis Bailey, CSEO Don Lewis (internal only)
+  // Prefer BOOTSTRAP_CEO_PASSWORD / BOOTSTRAP_CSEO_PASSWORD. Fallback is a strong default
+  // used only when unset (rotate immediately in production after first login).
+  const ceoPassword = process.env.BOOTSTRAP_CEO_PASSWORD || "Kv-CEO-Curtis!2026-X7mQ";
+  const cseoPassword = process.env.BOOTSTRAP_CSEO_PASSWORD || "Kv-CSEO-Don!2026-R4nP";
+
+  async function upsertExecutive(email: string, name: string, role: string, password: string) {
+    const passwordHash = await hash(password, 12);
+    return prisma.user.upsert({
+      where: { email },
+      update: { passwordHash, role, name },
+      create: { email, name, passwordHash, role },
+    });
+  }
+
+  const curtis = await upsertExecutive("curtis@kaivaryn.com", "Curtis Bailey", Role.CEO, ceoPassword);
+  await prisma.executiveDashboardPref.upsert({
+    where: { userId: curtis.id },
+    update: { activeDashboard: "CEO" },
+    create: { userId: curtis.id, activeDashboard: "CEO" },
+  });
+
+  const don = await upsertExecutive("don@kaivaryn.com", "Don Lewis", Role.CSEO, cseoPassword);
+  await prisma.executiveDashboardPref.upsert({
+    where: { userId: don.id },
+    update: { activeDashboard: "CSEO" },
+    create: { userId: don.id, activeDashboard: "CSEO" },
+  });
+
+  const hq = await prisma.organization.upsert({
+    where: { slug: "kaivaryn-hq" },
+    update: { name: "Kaivaryn HQ (Internal)", isDemo: false },
+    create: { name: "Kaivaryn HQ (Internal)", slug: "kaivaryn-hq", isDemo: false },
+  });
+  for (const [userId, role] of [
+    [curtis.id, Role.OWNER],
+    [don.id, Role.ADMIN],
+    [admin.id, Role.OWNER],
+  ] as const) {
+    await prisma.membership.upsert({
+      where: { organizationId_userId: { organizationId: hq.id, userId } },
+      update: { role },
+      create: { organizationId: hq.id, userId, role },
+    });
+  }
+
+
   const demoHash = await hash("DemoClient!2026", 12);
   const demoUser = await prisma.user.upsert({
     where: { email: "demo@kaivaryn.com" },
@@ -810,6 +858,8 @@ async function main() {
 
   console.log("Seed complete.");
   console.log(`  Super admin: admin@kaivaryn.com / ${process.env.NODE_ENV === "production" ? "[BOOTSTRAP_ADMIN_PASSWORD env]" : "KaivarynAdmin!2026"}`);
+  console.log("  CEO:         curtis@kaivaryn.com / [see BOOTSTRAP_CEO_PASSWORD or seed fallback]");
+  console.log("  CSEO:        don@kaivaryn.com / [see BOOTSTRAP_CSEO_PASSWORD or seed fallback]");
   console.log("  Demo user:   demo@kaivaryn.com / DemoClient!2026");
   console.log("  Demo org:    Acme Demo (DEMO)");
   console.log("  Other org:   Other Co (TEST) — isolation foil");

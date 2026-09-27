@@ -2,6 +2,8 @@
 
 export const Role = {
   SUPER_ADMIN: "SUPER_ADMIN",
+  CEO: "CEO",
+  CSEO: "CSEO",
   OWNER: "OWNER",
   ADMIN: "ADMIN",
   MANAGER: "MANAGER",
@@ -219,3 +221,53 @@ export const AcquisitionPlaybook = {
   WORKFLOW_AUTOMATION: "workflow_automation",
 } as const;
 export type AcquisitionPlaybook = (typeof AcquisitionPlaybook)[keyof typeof AcquisitionPlaybook];
+
+/** Platform executive roles — internal Kaivaryn leadership only (not tenant SaaS). */
+export const ExecutiveRole = {
+  CEO: "CEO",
+  CSEO: "CSEO",
+} as const;
+export type ExecutiveRole = (typeof ExecutiveRole)[keyof typeof ExecutiveRole];
+
+/** Platform roles that may enter executive surfaces (CEO Command / CSEO / CHIEF). */
+export const EXECUTIVE_PLATFORM_ROLES = ["CEO", "CSEO", "SUPER_ADMIN"] as const;
+
+export const AgentKind = {
+  INTERNAL: "INTERNAL",
+  SECURITY_INTAKE: "SECURITY_INTAKE",
+  WORKFORCE: "WORKFORCE",
+} as const;
+export type AgentKind = (typeof AgentKind)[keyof typeof AgentKind];
+
+export const FoundryJobStatus = {
+  RECEIVED: "RECEIVED",
+  DESIGNING: "DESIGNING",
+  GENERATING: "GENERATING",
+  EVALUATING: "EVALUATING",
+  AWAITING_APPROVAL: "AWAITING_APPROVAL",
+  APPROVED: "APPROVED",
+  DEPLOYED: "DEPLOYED",
+  FAILED: "FAILED",
+  CANCELLED: "CANCELLED",
+} as const;
+export type FoundryJobStatus = (typeof FoundryJobStatus)[keyof typeof FoundryJobStatus];
+
+export const FoundryApprovalStatus = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  EXPIRED: "EXPIRED",
+} as const;
+
+export const AgentDeploymentStatus = {
+  PENDING: "PENDING",
+  ACTIVE: "ACTIVE",
+  ROLLED_BACK: "ROLLED_BACK",
+  FAILED: "FAILED",
+} as const;
+
+export const ExecutiveDashboard = {
+  CEO: "CEO",
+  CSEO: "CSEO",
+} as const;
+export type ExecutiveDashboard = (typeof ExecutiveDashboard)[keyof typeof ExecutiveDashboard];

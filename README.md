@@ -75,3 +75,14 @@ Docker: `docker build -t kaivaryn .` then prune: `docker builder prune -af && do
 ## SMTP
 
 Unset → password reset links logged server-side. Set `SMTP_*` when credentials available.
+
+
+## Executive (internal)
+
+- CEO Command Center: `/executive/ceo` (Curtis Bailey)
+- CSEO Security Command: `/executive/cseo` (Don Lewis — shell + stubs)
+- CHIEF Foundry: `/executive/chief` (agent manufacturer)
+- Security intake: `/executive/chief/intake`
+- Extension points: see `EXTENSIONS.md`
+
+Roles `CEO` / `CSEO` / `SUPER_ADMIN` only. Tenant SaaS under `/app` unchanged.
