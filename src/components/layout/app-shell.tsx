@@ -15,6 +15,7 @@ import {
   Plug,
   ShieldCheck,
   Rocket,
+  Factory,
   Brain,
   MessageSquare,
   FileBarChart,
@@ -111,7 +112,14 @@ export function AppShell({
                   className="mt-1 flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium text-amber-400/90 transition hover:bg-neutral-900"
                 >
                   <Rocket className="h-4 w-4 shrink-0" strokeWidth={2} />
-                  Executive Command
+                  CEO Command Center
+                </Link>
+                <Link
+                  href="/executive/chief"
+                  className="mt-1 flex items-center gap-2.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20"
+                >
+                  <Factory className="h-4 w-4 shrink-0" strokeWidth={2} />
+                  CHIEF Agent Foundry
                 </Link>
                 <Link
                   href="/admin"
@@ -151,7 +159,18 @@ export function AppShell({
             <div className="absolute -right-20 top-0 h-72 w-72 rounded-full bg-amber-500/[0.04] blur-3xl" />
             <div className="absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-white/[0.015] blur-3xl" />
           </div>
-          <MobileNav groups={NAV_GROUPS} adminHref={isSuperAdmin ? "/admin" : null} />
+          <MobileNav
+            groups={NAV_GROUPS}
+            adminHref={isSuperAdmin ? "/admin" : null}
+            platformLinks={
+              isSuperAdmin
+                ? [
+                    { href: "/executive/ceo", label: "CEO Command Center" },
+                    { href: "/executive/chief", label: "CHIEF Agent Foundry" },
+                  ]
+                : null
+            }
+          />
           <div className="relative mx-auto max-w-6xl px-4 py-6 sm:px-6">
             <PageEnter>{children}</PageEnter>
           </div>

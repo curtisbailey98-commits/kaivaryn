@@ -10,12 +10,18 @@ import type { ExecutiveDashboard } from "@/lib/enums";
 export async function switchExecutiveDashboard(formData: FormData) {
   const exec = await requireExecutive("switch_executive_dashboard");
   const dashboard = String(formData.get("dashboard") || "") as ExecutiveDashboard;
-  if (dashboard !== "CEO" && dashboard !== "CSEO") {
+  if (dashboard !== "CEO" && dashboard !== "CSEO" && dashboard !== "CHIEF") {
     throw new Error("Invalid dashboard");
   }
   await setActiveDashboard(exec.user.id, exec.platformRole, dashboard);
   revalidatePath("/executive");
-  redirect(dashboard === "CEO" ? "/executive/ceo" : "/executive/cseo");
+  const dest =
+    dashboard === "CEO"
+      ? "/executive/ceo"
+      : dashboard === "CHIEF"
+        ? "/executive/chief"
+        : "/executive/cseo";
+  redirect(dest);
 }
 
 export async function instructChief(formData: FormData) {

@@ -28,7 +28,9 @@ export async function requireExecutive(permission: Permission = "executive_conso
 
   const pref = await prisma.executiveDashboardPref.findUnique({ where: { userId: ctx.user.id } });
   const defaultDash: ExecutiveDashboard = ctx.user.role === "CSEO" ? "CSEO" : "CEO";
-  const activeDashboard = (pref?.activeDashboard as ExecutiveDashboard) || defaultDash;
+  const raw = pref?.activeDashboard;
+  const activeDashboard: ExecutiveDashboard =
+    raw === "CEO" || raw === "CSEO" || raw === "CHIEF" ? raw : defaultDash;
 
   return {
     user: ctx.user,

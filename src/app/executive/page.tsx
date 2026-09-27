@@ -3,5 +3,7 @@ import { requireExecutive } from "@/lib/executive/access";
 
 export default async function ExecutiveIndex() {
   const exec = await requireExecutive();
-  redirect(exec.activeDashboard === "CSEO" ? "/executive/cseo" : "/executive/ceo");
+  if (exec.activeDashboard === "CHIEF") redirect("/executive/chief");
+  if (exec.activeDashboard === "CSEO") redirect("/executive/cseo");
+  redirect("/executive/ceo");
 }

@@ -268,6 +268,7 @@ export const AgentDeploymentStatus = {
 
 export const ExecutiveDashboard = {
   CEO: "CEO",
+  CHIEF: "CHIEF",
   CSEO: "CSEO",
 } as const;
 export type ExecutiveDashboard = (typeof ExecutiveDashboard)[keyof typeof ExecutiveDashboard];

@@ -1347,7 +1347,7 @@ model ToolPermissionGrant {
 model ExecutiveDashboardPref {
   id              String   @id @default(cuid())
   userId          String   @unique
-  activeDashboard String   @default("CEO") // CEO | CSEO
+  activeDashboard String   @default("CEO") // CEO | CHIEF | CSEO
   updatedAt       DateTime @updatedAt
   createdAt       DateTime @default(now())
 

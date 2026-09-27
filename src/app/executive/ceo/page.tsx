@@ -22,10 +22,35 @@ export default async function CeoCommandCenter() {
         description="Company status across revenue, acquisition, RR/OE SaaS, agent workforce, and CHIEF Foundry — real database metrics. Missing integrations labeled."
         actions={
           <Link href="/executive/chief">
-            <Button size="sm">Open CHIEF Foundry</Button>
+            <Button size="sm">Open CHIEF Agent Foundry</Button>
           </Link>
         }
       />
+
+      <Card className="border-amber-500/40 bg-gradient-to-br from-amber-500/15 via-neutral-950 to-neutral-950 shadow-[0_0_40px_rgba(245,158,11,0.08)]">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
+          <div>
+            <CardTitle className="text-amber-200">CHIEF Agent Foundry</CardTitle>
+            <CardDescription className="mt-1 max-w-2xl">
+              Manufacture, evaluate, approve, and deploy internal agents and live website packages. Primary executive workspace for Curtis.
+            </CardDescription>
+          </div>
+          <Link href="/executive/chief">
+            <Button size="sm" className="shrink-0">Enter CHIEF Agent Foundry →</Button>
+          </Link>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-3 text-xs text-neutral-400">
+          <Link href="/executive/chief" className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 font-medium text-amber-300 hover:bg-amber-500/20">
+            /executive/chief
+          </Link>
+          <Link href="/executive/chief/intake" className="rounded-md border border-neutral-700 px-3 py-2 hover:border-amber-500/40 hover:text-amber-300">
+            Security intake
+          </Link>
+          <span className="rounded-md border border-neutral-800 px-3 py-2">
+            Pending approvals: {data.agents.pendingApprovals.length} · Jobs: {data.agents.foundryJobs.length}
+          </span>
+        </CardContent>
+      </Card>
 
       {/* 1. Executive overview */}
       <section>
@@ -171,7 +196,7 @@ export default async function CeoCommandCenter() {
           </Card>
         </div>
         <div>
-          <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500">8 · CHIEF Foundry interface</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500">8 · CHIEF Agent Foundry</h2>
           <Card className="mt-3">
             <CardHeader>
               <CardTitle>Instruct CHIEF</CardTitle>
@@ -192,7 +217,7 @@ export default async function CeoCommandCenter() {
               <p className="mt-3 text-xs text-neutral-500">
                 Pending foundry approvals: {data.agents.pendingApprovals.length} · Recent jobs: {data.agents.foundryJobs.length}
               </p>
-              <Link href="/executive/chief" className="mt-2 inline-block text-xs text-amber-400 hover:underline">Full Foundry →</Link>
+              <Link href="/executive/chief" className="mt-2 inline-block text-xs text-amber-400 hover:underline">Open CHIEF Agent Foundry →</Link>
             </CardContent>
           </Card>
         </div>
@@ -283,7 +308,7 @@ export default async function CeoCommandCenter() {
                   </div>
                 ))
               )}
-              <Link href="/executive/chief" className="text-amber-400 hover:underline">Review in CHIEF →</Link>
+              <Link href="/executive/chief" className="text-amber-400 hover:underline">Review in CHIEF Agent Foundry →</Link>
             </CardContent>
           </Card>
           <Card>

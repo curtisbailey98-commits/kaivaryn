@@ -24,7 +24,7 @@ export default async function ChiefFoundryPage({
     <div className="space-y-8">
       <PageHeader
         eyebrow="CHIEF · Internal agent manufacturer"
-        title="CHIEF Foundry"
+        title="CHIEF Agent Foundry"
         description="Receive executive instructions → design architecture → generate executable package → evaluate → stage → human approval → deploy. CHIEF cannot self-grant unrestricted privileges."
       />
 

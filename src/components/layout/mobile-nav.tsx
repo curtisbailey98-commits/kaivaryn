@@ -9,7 +9,15 @@ import { SignOutButton } from "@/components/layout/sign-out-button";
 
 export type NavGroup = { label: string; items: Array<{ href: string; label: string; icon: LucideIcon }> };
 
-export function MobileNav({ groups, adminHref }: { groups: NavGroup[]; adminHref?: string | null }) {
+export function MobileNav({
+  groups,
+  adminHref,
+  platformLinks,
+}: {
+  groups: NavGroup[];
+  adminHref?: string | null;
+  platformLinks?: Array<{ href: string; label: string }> | null;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -55,6 +63,27 @@ export function MobileNav({ groups, adminHref }: { groups: NavGroup[]; adminHref
                   </div>
                 </div>
               ))}
+              {platformLinks?.length ? (
+                <div>
+                  <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">Platform</p>
+                  <div className="mt-1 space-y-0.5">
+                    {platformLinks.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setOpen(false)}
+                        className={
+                          link.href.includes("/chief")
+                            ? "block min-h-11 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-sm font-semibold text-amber-300 hover:bg-amber-500/20"
+                            : "block min-h-11 rounded-md px-2.5 py-2 text-sm font-medium text-amber-400/90 hover:bg-neutral-900"
+                        }
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {adminHref ? (
                 <Link href={adminHref} onClick={() => setOpen(false)} className="block min-h-11 rounded-md px-2.5 py-2 text-sm font-medium text-amber-400/90 hover:bg-neutral-900">
                   Admin console
