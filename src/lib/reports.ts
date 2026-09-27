@@ -145,10 +145,10 @@ export async function buildReport(organizationId: string, type: ReportType) {
         inefficiencyCount: agg._count,
         projectedSavings: money(agg._sum.projectedSavings),
         realizedSavings: money(agg._sum.realizedSavings),
-        projectedHoursWeekly: money(agg._sum.projectedHoursWeekly),
-        realizedHoursWeekly: money(agg._sum.realizedHoursWeekly),
+        projectedHoursWeekly: Math.round((agg._sum.projectedHoursWeekly ?? 0) * 10) / 10,
+        realizedHoursWeekly: Math.round((agg._sum.realizedHoursWeekly ?? 0) * 10) / 10,
       },
-      note: "Projected ≠ realized. Automation candidates are approval-gated.",
+      note: "Projected savings ≠ realized savings. Hours are time, not dollars. Automation candidates are approval-gated.",
       sections: [
         {
           name: "By status",

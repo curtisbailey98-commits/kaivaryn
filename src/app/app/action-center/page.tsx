@@ -13,6 +13,7 @@ import { DynBarChart, Sparkline } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
 import { getActionCenterChartData } from "@/lib/chart-data";
 import { ActivityStrip, StatusDot } from "@/components/motion";
+import { humanizeLabel, clientTitle } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,7 @@ export default async function ActionCenterPage({
     prisma.opportunity.findMany({
       where: {
         organizationId: ctx.organizationId,
-        status: { notIn: ["DISMISSED", "VERIFIED"] },
+        status: { notIn: ["DISMISSED", "VERIFIED", "RECOVERED"] },
       },
       orderBy: [{ score: "desc" }, { potentialAmount: "desc" }],
       take: 40,
@@ -68,7 +69,7 @@ export default async function ActionCenterPage({
     prisma.inefficiency.findMany({
       where: {
         organizationId: ctx.organizationId,
-        status: { notIn: ["DISMISSED", "VERIFIED", "RESOLVED"] },
+        status: { notIn: ["DISMISSED", "VERIFIED", "RESOLVED", "REALIZED"] },
       },
       orderBy: [{ score: "desc" }, { projectedSavings: "desc" }],
       take: 40,
@@ -124,12 +125,12 @@ export default async function ActionCenterPage({
     items.push({
       id: o.id,
       kind: "revenue",
-      title: o.title,
+      title: clientTitle(o.title),
       href: `/app/revenue/${o.id}`,
       impact: impactForRanking("RR", amount),
       urgency,
       rank: 0,
-      meta: `${o.status} · score ${o.score}`,
+      meta: `${humanizeLabel(o.status)} · score ${Math.round(o.score)}`,
       badge: o.priority,
       owner: o.assignee?.name || o.assignee?.email || null,
       age,
@@ -153,12 +154,12 @@ export default async function ActionCenterPage({
     items.push({
       id: i.id,
       kind: "operations",
-      title: i.title,
+      title: clientTitle(i.title),
       href: `/app/operations/${i.id}`,
       impact: impactForRanking("OE", amount),
       urgency,
       rank: 0,
-      meta: `${i.status} · score ${i.score}`,
+      meta: `${humanizeLabel(i.status)} · score ${Math.round(i.score)}`,
       badge: i.priority,
       owner: i.assignee?.name || i.assignee?.email || null,
       age,
@@ -194,8 +195,8 @@ export default async function ActionCenterPage({
     <div className="space-y-4">
       <ActivityStrip
         items={[
-          { id: "1", label: "Queue ranked by impact × urgency × SLA — decisions only, no fake external success", tone: "accent" },
-          { id: "2", label: "Mission control online · tenant isolation verified", tone: "ok" },
+          { id: "1", label: "Queue ranked by impact, urgency, and SLA — decisions only; no fabricated external success", tone: "accent" },
+          { id: "2", label: "Workspace online · tenant isolation verified", tone: "ok" },
           { id: "3", label: "High-value actions remain approval-gated until review", tone: "warn" },
         ]}
       />
@@ -334,9 +335,9 @@ export default async function ActionCenterPage({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone={it.kind === "approval" ? "warning" : it.kind === "revenue" ? "danger" : "info"}>
-                      {it.kind}
+                      {humanizeLabel(it.kind)}
                     </Badge>
-                    <Badge>{it.badge}</Badge>
+                    <Badge>{humanizeLabel(it.badge)}</Badge>
                     <Badge tone={slaTone(it.sla)}>{slaLabel(it.sla)} · {it.age}d</Badge>
                     {it.unassigned ? <Badge tone="warning">Unassigned</Badge> : null}
                     {it.needsAttention ? <Badge tone="danger">Needs attention</Badge> : null}
@@ -393,7 +394,7 @@ export default async function ActionCenterPage({
         <CardContent className="space-y-2 text-xs text-neutral-400">
           {recentAudit.map((a) => (
             <div key={a.id} className="flex justify-between gap-2 border-b border-neutral-900 py-1 font-mono">
-              <span>{a.action}</span>
+              <span>{humanizeLabel(a.action)}</span>
               <span>{formatDate(a.createdAt)}</span>
             </div>
           ))}

@@ -8,6 +8,29 @@ import { normalizeRevenueAmounts, normalizeOpsAmounts } from "./financial-impact
 import { recordStatusChange } from "./status-history";
 import { getLearnedAdjustment } from "./learning";
 
+
+function consumerDetectionsEnabled(settings: { settingsJson?: string | null }): boolean {
+  try {
+    const j = JSON.parse(settings.settingsJson || "{}") as { consumerDetections?: boolean };
+    return Boolean(j.consumerDetections);
+  } catch {
+    return false;
+  }
+}
+
+const RULE_TITLES: Record<string, (ctx: string) => string> = {
+  stalled_leads: (c) => `Stalled commercial opportunity: ${c}`,
+  dormant_customers: (c) => `Dormant account reactivation: ${c}`,
+  churn_risk: (c) => `Account retention risk: ${c}`,
+  failed_payments: (c) => `Failed payment recovery: ${c}`,
+  abandoned_checkout: (c) => `Uncollected checkout / order: ${c}`,
+  missed_appointments: (c) => `Missed billable engagement: ${c}`,
+  unanswered_inquiries: (c) => `Unanswered inbound inquiry: ${c}`,
+  pipeline_stalls: (c) => `Pipeline stall: ${c}`,
+  approval_delays: (c) => `Approval cycle delay: ${c}`,
+  duplicate_work: (c) => `Duplicate work cluster: ${c}`,
+};
+
 function daysAgo(d: Date | null | undefined, now = new Date()) {
   if (!d) return 9999;
   return Math.floor((now.getTime() - d.getTime()) / 86400000);
@@ -275,7 +298,7 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
       await upsertOpportunityFromRule({
         organizationId,
         ruleId: "stalled_leads",
-        title: `[DETECT] Stalled lead: ${lead.title}`,
+        title: RULE_TITLES.stalled_leads(lead.title),
         description: `Lead last touched ${daysAgo(lead.lastTouchAt, now)} days ago (threshold ${settings.stalledLeadDays}).`,
         amount: lead.amount,
         source: "detection:stalled_leads",
@@ -301,7 +324,7 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
       await upsertOpportunityFromRule({
         organizationId,
         ruleId: "dormant_customers",
-        title: `[DETECT] Dormant customer: ${c.name}`,
+        title: RULE_TITLES.dormant_customers(c.name),
         description: `No activity for ${idle} days (threshold ${settings.dormantCustomerDays}).`,
         amount: Math.max(5000, settings.highValueThreshold * 0.1),
         source: "detection:dormant_customers",
@@ -317,7 +340,7 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
       await upsertOpportunityFromRule({
         organizationId,
         ruleId: "churn_risk",
-        title: `[DETECT] Churn risk: ${c.name}`,
+        title: RULE_TITLES.churn_risk(c.name),
         description: `Inactive ${idle} days (churn threshold ${settings.churnRiskInactiveDays}).`,
         amount: Math.max(8000, settings.highValueThreshold * 0.15),
         source: "detection:churn_risk",
@@ -342,7 +365,7 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
       await upsertOpportunityFromRule({
         organizationId,
         ruleId: "failed_payments",
-        title: `[DETECT] Failed payment ${t.amount}`,
+        title: RULE_TITLES.failed_payments(String(t.amount)),
         description: `Transaction ${t.id} failed on ${t.occurredAt.toISOString()}.`,
         amount: t.amount,
         source: "detection:failed_payments",
@@ -353,14 +376,14 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
       const after = await prisma.opportunity.count({ where: { organizationId } });
       createdOpportunities += Math.max(0, after - before);
     }
-    if (t.type === "CHECKOUT" && t.status === "ABANDONED") {
+    if (t.type === "CHECKOUT" && t.status === "ABANDONED" && consumerDetectionsEnabled(settings)) {
       rulesFired.push("abandoned_checkout");
       const before = await prisma.opportunity.count({ where: { organizationId } });
       await upsertOpportunityFromRule({
         organizationId,
         ruleId: "abandoned_checkout",
-        title: `[DETECT] Abandoned checkout ${t.amount}`,
-        description: `Checkout abandoned; recovery outreach candidate.`,
+        title: RULE_TITLES.abandoned_checkout(String(t.amount)),
+        description: `Uncollected checkout or order abandonment — recovery candidate (consumer detection).`,
         amount: t.amount,
         source: "detection:abandoned_checkout",
         sourceId: t.id,
@@ -371,9 +394,10 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
     }
   }
 
-  // RR: missed appointments
+  // RR: missed appointments (consumer / services vertical — off by default for finance demos)
   if (appts.length === 0) insufficient.push("missed_appointments: no Appointment records");
   for (const a of appts) {
+    if (!consumerDetectionsEnabled(settings)) break;
     if (a.status === "MISSED" || (a.status === "SCHEDULED" && daysAgo(a.scheduledAt, now) >= 1 && a.scheduledAt < now)) {
       if (daysAgo(a.scheduledAt, now) <= settings.missedAppointmentDays + 30) {
         rulesFired.push("missed_appointments");
@@ -381,8 +405,8 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
         await upsertOpportunityFromRule({
           organizationId,
           ruleId: "missed_appointments",
-          title: `[DETECT] Missed appointment: ${a.title}`,
-          description: `Appointment scheduled ${a.scheduledAt.toISOString()} marked/treated as missed.`,
+          title: RULE_TITLES.missed_appointments(a.title),
+          description: `Billable engagement scheduled ${a.scheduledAt.toISOString()} was missed.`,
           amount: 2500,
           source: "detection:missed_appointments",
           sourceId: a.id,
@@ -403,7 +427,7 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
       await upsertOpportunityFromRule({
         organizationId,
         ruleId: "unanswered_inquiries",
-        title: `[DETECT] Unanswered inquiry: ${i.subject || i.channel}`,
+        title: RULE_TITLES.unanswered_inquiries(i.subject || i.channel),
         description: `Inbound ${i.channel} unanswered for ${Math.round(hoursAgo(i.occurredAt, now))}h (threshold ${settings.unansweredInquiryHours}h).`,
         amount: 1500,
         source: "detection:unanswered_inquiries",
@@ -423,7 +447,7 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
       await upsertOpportunityFromRule({
         organizationId,
         ruleId: "pipeline_stalls",
-        title: `[DETECT] Pipeline stall: ${lead.title}`,
+        title: RULE_TITLES.pipeline_stalls(lead.title),
         description: `Stage ${lead.stage || "unknown"} stalled ${daysAgo(lead.lastTouchAt, now)}d (threshold ${settings.pipelineStallDays}).`,
         amount: lead.amount,
         source: "detection:pipeline_stalls",
@@ -447,7 +471,7 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
       await upsertInefficiencyFromRule({
         organizationId,
         ruleId: "approval_delays",
-        title: `[DETECT] Approval/cycle delay: ${p.name}`,
+        title: RULE_TITLES.approval_delays(p.name),
         description: `Avg cycle ${p.avgCycleDays}d exceeds threshold ${settings.approvalDelayDays}d.`,
         projectedSavings: (p.avgCycleDays || 0) * 2000,
         hoursWeekly: (p.avgCycleDays || 0) * 0.5,
@@ -475,7 +499,7 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
       await upsertInefficiencyFromRule({
         organizationId,
         ruleId: "duplicate_work",
-        title: `[DETECT] Duplicate work cluster: ${key.slice(0, 48)}`,
+        title: RULE_TITLES.duplicate_work(key.slice(0, 48)),
         description: `${group.length} similar inefficiency records — possible duplicate effort.`,
         projectedSavings: group.reduce((a, g) => a + g.estimatedWasteAnnual, 0) * 0.2,
         hoursWeekly: 8,

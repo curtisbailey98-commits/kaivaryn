@@ -53,13 +53,13 @@ export function AnimatedBarChart({
         <RBarChart
           data={data}
           layout={vertical ? "vertical" : "horizontal"}
-          margin={{ top: 8, right: 8, left: vertical ? 8 : 0, bottom: 0 }}
+          margin={{ top: 8, right: 8, left: vertical ? 4 : 0, bottom: vertical ? 4 : 0 }}
         >
           <CartesianGrid stroke={CHART.grid} strokeDasharray="3 3" horizontal={!vertical} vertical={vertical} />
           {vertical ? (
             <>
               <XAxis type="number" tick={{ fill: CHART.axis, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={money ? formatMoneyTick : undefined} />
-              <YAxis type="category" dataKey={xKey} width={88} tick={{ fill: CHART.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey={xKey} width={110} tick={{ fill: CHART.axis, fontSize: 10 }} axisLine={false} tickLine={false} interval={0} />
             </>
           ) : (
             <>

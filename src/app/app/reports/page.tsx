@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requirePermission, assertOrgId } from "@/lib/tenant";
 import { buildReport, REPORT_LABELS, type ReportType } from "@/lib/reports";
 import { formatCurrency } from "@/lib/utils";
+import { humanizeLabel } from "@/lib/labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { queueWeeklyDigest } from "../operations/actions";
@@ -131,10 +132,13 @@ export default async function ReportsPage({
         <dl className="mt-6 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
           {Object.entries(report.metrics).map(([k, v]) => (
             <div key={k} className="rounded border border-neutral-900 p-3">
-              <dt className="text-[10px] uppercase tracking-wider text-neutral-500">{k}</dt>
+              <dt className="text-[10px] uppercase tracking-wider text-neutral-500">{humanizeLabel(k)}</dt>
               <dd className="mt-1 text-amber-300">
-                {typeof v === "number" &&
-                /amount|potential|recovered|verified|savings|projected|realized|pipeline/i.test(k)
+                {typeof v === "number" && /hours/i.test(k)
+                  ? `${v} h/wk`
+                  : typeof v === "number" &&
+                    /amount|potential|recovered|verified|savings|projected|realized|pipeline/i.test(k) &&
+                    !/hours/i.test(k)
                   ? formatCurrency(v)
                   : String(v)}
               </dd>

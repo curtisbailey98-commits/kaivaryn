@@ -21,3 +21,5 @@ export function formatDate(d: Date | string | null | undefined) {
     day: "numeric",
   }).format(date);
 }
+
+export { humanizeLabel, clientTitle } from "./labels";

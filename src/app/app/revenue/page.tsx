@@ -18,6 +18,8 @@ import { getRevenueChartData, revenueFunnelToWaterfall, trendToCumulativeRecover
 import { DynAreaChart, DynDonutChart, DynWaterfallChart, DynStepChart, AnimatedFunnelBars } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
 import { formatMoneyTick } from "@/components/charts/theme";
+import { MONEY, MONEY_GLOSSARY_FOOTNOTE, cashRecoveryRate } from "@/lib/money-glossary";
+import { clientTitle, humanizeLabel } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +104,7 @@ export default async function RevenuePage({
   const recovered = agg._sum.recoveredAmount ?? 0;
   const verified = agg._sum.verifiedAmount ?? 0;
   const openPipeline = Math.max(0, estimated - recovered);
-  const recoveryRate = estimated > 0 ? Math.round((recovered / estimated) * 1000) / 10 : 0;
+  const recoveryRate = cashRecoveryRate(recovered, estimated);
 
   const funnelStages = [
     { key: "identified", label: "Identified", statuses: ["IDENTIFIED", "NEW"], href: "/app/revenue?view=identified" },
@@ -153,23 +155,23 @@ export default async function RevenuePage({
       />
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Potential recoverable revenue" value={formatCurrency(estimated)} sublabel={`${agg._count} identified opportunities`} icon={CircleDollarSign} tone="accent" />
-        <MetricCard label="High-confidence opportunity" value={highConfidence} sublabel="Open opportunities scoring 70+" icon={Crosshair} />
-        <MetricCard label="Value in intervention" value={formatCurrency(agg._sum.inProgressAmount ?? 0)} sublabel={`${formatCurrency(agg._sum.approvedAmount ?? 0)} approved`} icon={TrendingUp} />
-        <MetricCard label="Verified recovery" value={formatCurrency(agg._sum.verifiedAmount ?? recovered)} sublabel={`${pendingApprovals} executive decisions pending`} icon={ShieldCheck} tone="success" />
+        <MetricCard label={MONEY.pipelinePotential.label} value={formatCurrency(estimated)} sublabel={`${agg._count} identified opportunities`} icon={CircleDollarSign} tone="accent" />
+        <MetricCard label="High-confidence" value={highConfidence} sublabel="Open opportunities scoring 70+" icon={Crosshair} />
+        <MetricCard label={MONEY.inIntervention.label} value={formatCurrency(agg._sum.inProgressAmount ?? 0)} sublabel={`${formatCurrency(agg._sum.approvedAmount ?? 0)} ${MONEY.approved.short.toLowerCase()}`} icon={TrendingUp} />
+        <MetricCard label={MONEY.cashRecovered.label} value={formatCurrency(recovered)} sublabel={verified > 0 ? `${MONEY.verifiedRecovered.label}: ${formatCurrency(verified)}` : `${pendingApprovals} approvals pending`} icon={ShieldCheck} tone="success" />
       </div>
-      <p className="mt-2 text-xs text-neutral-500">Estimated and recovered are always separate metrics. Recovery rate = recovered ÷ estimated pipeline (not a guarantee of future cash).</p>
+      <p className="mt-2 text-xs text-neutral-500">{MONEY_GLOSSARY_FOOTNOTE} Recovery rate = cash recovered ÷ pipeline potential.</p>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
           <p className="text-[10px] uppercase tracking-wider text-neutral-500">Open pipeline</p>
           <p className="mt-2 text-2xl font-semibold text-white">{formatCurrency(openPipeline)}</p>
-          <p className="mt-1 text-xs text-neutral-500">Estimated minus recovered</p>
+          <p className="mt-1 text-xs text-neutral-500">Potential minus cash recovered</p>
         </div>
         <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
           <p className="text-[10px] uppercase tracking-wider text-emerald-300">Recovery rate</p>
           <p className="mt-2 text-2xl font-semibold text-white">{recoveryRate}%</p>
-          <p className="mt-1 text-xs text-neutral-500">Recovered ÷ estimated · verified {formatCurrency(verified)}</p>
+          <p className="mt-1 text-xs text-neutral-500">Cash recovered ÷ pipeline potential{verified > 0 ? ` · verified ${formatCurrency(verified)}` : ""}</p>
         </div>
         <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
           <p className="text-[10px] uppercase tracking-wider text-neutral-500">Funnel stages</p>
@@ -183,7 +185,11 @@ export default async function RevenuePage({
           <Link key={s.key} href={s.href} className="rounded-lg border border-neutral-800 bg-neutral-950/80 p-3 transition hover:border-amber-500/40">
             <p className="text-[10px] uppercase tracking-wider text-neutral-500">{s.label}</p>
             <p className="mt-1 text-lg font-semibold text-white">{s.count}</p>
-            <p className="mt-0.5 text-xs text-neutral-500">{formatCurrency(s.potential)} potential</p>
+            {s.key === "recovered" ? (
+              <p className="mt-0.5 text-xs text-emerald-400/90">{formatCurrency(s.recovered)} cash · {formatCurrency(s.potential)} at-stage potential</p>
+            ) : (
+              <p className="mt-0.5 text-xs text-neutral-500">{formatCurrency(s.potential)} potential at stage</p>
+            )}
           </Link>
         ))}
       </div>
@@ -192,7 +198,7 @@ export default async function RevenuePage({
         <AnimatedFunnelBars
           className="lg:col-span-1"
           title="Recovery funnel"
-          description="Stage counts from live Opportunity status"
+          description="Counts · potential at stage (Recovered also shows cash)"
           stages={chartData.funnel}
           footnote={chartData.sourceNote}
         />
@@ -269,12 +275,12 @@ export default async function RevenuePage({
         <p className="si-label">Intelligence</p>
         {intel.status === "INSUFFICIENT_DATA" ? (
           <div className="mt-2">
-            <Badge tone="warning">INSUFFICIENT_DATA</Badge>
+            <Badge tone="warning">Insufficient data</Badge>
             <p className="mt-2 text-neutral-400">{intel.reason}</p>
           </div>
         ) : (
           <div className="mt-2">
-            <Badge tone="info">FINDING · {intel.confidence}</Badge>
+            <Badge tone="info">Finding · {humanizeLabel(intel.confidence)}</Badge>
             <p className="mt-2 text-neutral-200">{intel.summary}</p>
           </div>
         )}
@@ -334,8 +340,8 @@ export default async function RevenuePage({
                 <TH>Title</TH>
                 <TH>Status</TH>
                 <TH>Priority</TH>
-                <TH>Estimated</TH>
-                <TH className="hidden sm:table-cell">Recovered</TH>
+                <TH>Potential</TH>
+                <TH className="hidden sm:table-cell">Cash recovered</TH>
                 <TH className="hidden md:table-cell">Identified</TH>
               </TR>
             </THead>
@@ -344,7 +350,7 @@ export default async function RevenuePage({
                 <TR key={o.id}>
                   <TD>
                     <Link href={`/app/revenue/${o.id}`} className="text-amber-400 hover:underline">
-                      {o.title}
+                      {clientTitle(o.title)}
                     </Link>
                     <div className="text-xs text-neutral-500">{[o.source, o.department, classifyLeakageType(o.type).label].filter(Boolean).join(" · ")}{o.assignee ? ` · ${o.assignee.name || o.assignee.email}` : " · Unassigned"} · {ageDays(o.identifiedAt)}d</div>
                   </TD>

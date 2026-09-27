@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/states";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import Link from "next/link";
+import { humanizeLabel } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +36,10 @@ export default async function FindingsPage() {
           {findings.map((f) => (
             <li key={f.id} className="si-glass p-4 text-sm">
               <div className="flex flex-wrap gap-2">
-                <Badge>{f.product}</Badge>
-                <Badge tone={f.status === "INSUFFICIENT_DATA" ? "warning" : "info"}>{f.status}</Badge>
-                {f.ruleId ? <Badge tone="default">{f.ruleId}</Badge> : null}
-                <span className="text-xs text-neutral-500">{f.confidence} · {formatDate(f.createdAt)}</span>
+                <Badge>{humanizeLabel(f.product)}</Badge>
+                <Badge tone={f.status === "INSUFFICIENT_DATA" ? "warning" : "info"}>{humanizeLabel(f.status)}</Badge>
+                {f.ruleId ? <Badge tone="default">{humanizeLabel(f.ruleId)}</Badge> : null}
+                <span className="text-xs text-neutral-500">{humanizeLabel(f.confidence)} · {formatDate(f.createdAt)}</span>
               </div>
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 <div>
@@ -57,7 +58,7 @@ export default async function FindingsPage() {
                   <p className="si-label">Decision</p>
                   <p className="mt-1 text-neutral-300">{f.decision || "—"}</p>
                   {f.impactEstimate != null ? (
-                    <p className="mt-1 text-xs text-amber-400/90">Impact est. {formatCurrency(f.impactEstimate)} (engine, not LLM)</p>
+                    <p className="mt-1 text-xs text-amber-400/90">Impact estimate {formatCurrency(f.impactEstimate)}</p>
                   ) : null}
                 </div>
               </div>

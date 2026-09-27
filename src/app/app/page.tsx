@@ -9,7 +9,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { AttentionBanner, NextBestAction } from "@/components/ui/attention";
 import { EmptyState } from "@/components/ui/states";
 import { getLearningSummary } from "@/lib/learning";
-import { TrendingUp, Settings2, ShieldCheck, Bell, ArrowRight } from "lucide-react";
+import { MONEY, MONEY_GLOSSARY_FOOTNOTE, RR_CLOSED_STATUSES, OE_CLOSED_STATUSES } from "@/lib/money-glossary";
+import { ONBOARDING_STEPS } from "@/lib/constants";
+import { clientTitle } from "@/lib/labels";
+import { TrendingUp, Settings2, ShieldCheck, Bell, ArrowRight, CheckCircle2 } from "lucide-react";
 import { getWeeklyBriefChartData, getActionCenterChartData } from "@/lib/chart-data";
 import { DynAreaChart, DynBarChart, DynComposedChart, PulseSpark, KpiSpark } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
@@ -23,10 +26,13 @@ export default async function AppHomePage() {
   });
   const hasRevenue = entitlements.some((e) => e.product === "REVENUE_RECOVERY");
   const hasOps = entitlements.some((e) => e.product === "OPERATIONS_EFFICIENCY");
-  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks, learning, chartWeekly, chartAction, topOpportunities, topInefficiencies, highConfidenceRevenue, criticalOperations] = await Promise.all([
+  const rrClosed = [...RR_CLOSED_STATUSES];
+  const oeClosed = [...OE_CLOSED_STATUSES];
+
+  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks, learning, chartWeekly, chartAction, topOpportunities, topInefficiencies, highConfidenceRevenue, criticalOperations, onboarding] = await Promise.all([
     prisma.opportunity.aggregate({
       where: { organizationId: ctx.organizationId },
-      _sum: { estimatedAmount: true, recoveredAmount: true, verifiedAmount: true },
+      _sum: { estimatedAmount: true, potentialAmount: true, recoveredAmount: true, verifiedAmount: true, approvedAmount: true, inProgressAmount: true },
       _count: true,
     }),
     prisma.inefficiency.aggregate({
@@ -42,32 +48,41 @@ export default async function AppHomePage() {
     getActionCenterChartData(ctx.organizationId),
     hasRevenue
       ? prisma.opportunity.findMany({
-          where: { organizationId: ctx.organizationId, status: { notIn: ["RECOVERED", "VERIFIED", "DISMISSED"] } },
+          where: { organizationId: ctx.organizationId, status: { notIn: rrClosed } },
           orderBy: [{ priority: "asc" }, { score: "desc" }],
           take: 3,
         })
       : Promise.resolve([]),
     hasOps
       ? prisma.inefficiency.findMany({
-          where: { organizationId: ctx.organizationId, status: { notIn: ["REALIZED", "VERIFIED", "DISMISSED"] } },
+          where: { organizationId: ctx.organizationId, status: { notIn: oeClosed } },
           orderBy: [{ priority: "asc" }, { score: "desc" }],
           take: 3,
         })
       : Promise.resolve([]),
     hasRevenue
-      ? prisma.opportunity.count({ where: { organizationId: ctx.organizationId, score: { gte: 70 }, status: { notIn: ["RECOVERED", "VERIFIED", "DISMISSED"] } } })
+      ? prisma.opportunity.count({ where: { organizationId: ctx.organizationId, score: { gte: 70 }, status: { notIn: rrClosed } } })
       : Promise.resolve(0),
     hasOps
-      ? prisma.inefficiency.count({ where: { organizationId: ctx.organizationId, priority: "CRITICAL", status: { notIn: ["REALIZED", "VERIFIED", "RESOLVED", "DISMISSED"] } } })
+      ? prisma.inefficiency.count({ where: { organizationId: ctx.organizationId, priority: "CRITICAL", status: { notIn: oeClosed } } })
       : Promise.resolve(0),
+    prisma.onboardingProgress.findUnique({
+      where: { organizationId_userId: { organizationId: ctx.organizationId, userId: ctx.user.id } },
+    }),
   ]);
+  const slaOpenCount = chartAction.slaSpark.at(-1)?.value ?? 0;
 
-  const projectedValue = (revenue._sum.estimatedAmount ?? 0) + (operations._sum.projectedSavings ?? 0);
-  const verifiedValue = (revenue._sum.verifiedAmount ?? revenue._sum.recoveredAmount ?? 0) + (operations._sum.realizedSavings ?? operations._sum.recoveredAnnual ?? 0);
+  // Split KPIs — never mix RR cash with OE savings under one "Verified value"
+  const pipelinePotential = revenue._sum.potentialAmount ?? revenue._sum.estimatedAmount ?? 0;
+  const cashRecovered = revenue._sum.recoveredAmount ?? 0;
+  const verifiedRecovered = revenue._sum.verifiedAmount ?? 0;
+  const projectedSavings = operations._sum.projectedSavings ?? 0;
+  const realizedSavings = operations._sum.realizedSavings ?? operations._sum.recoveredAnnual ?? 0;
+  const projectedValue = pipelinePotential + projectedSavings;
 
   const topItems = [
-    ...topOpportunities.map((o) => ({ id: o.id, title: o.title, priority: o.priority, amount: o.potentialAmount, href: `/app/revenue/${o.id}`, kind: "Revenue" as const })),
-    ...topInefficiencies.map((i) => ({ id: i.id, title: i.title, priority: i.priority, amount: i.estimatedWasteAnnual, href: `/app/operations/${i.id}`, kind: "Operations" as const })),
+    ...topOpportunities.map((o) => ({ id: o.id, title: clientTitle(o.title), priority: o.priority, amount: o.potentialAmount, href: `/app/revenue/${o.id}`, kind: "Revenue" as const })),
+    ...topInefficiencies.map((i) => ({ id: i.id, title: clientTitle(i.title), priority: i.priority, amount: i.estimatedWasteAnnual, href: `/app/operations/${i.id}`, kind: "Operations" as const })),
   ]
     .sort((a, b) => (a.priority === b.priority ? 0 : a.priority === "CRITICAL" ? -1 : b.priority === "CRITICAL" ? 1 : 0))
     .slice(0, 5);
@@ -78,21 +93,43 @@ export default async function AppHomePage() {
     ? { title: `Review: ${topItems[0].title}`, href: topItems[0].href, description: `${topItems[0].kind} · ${topItems[0].priority} priority` }
     : { title: "Open the Action Center", href: "/app/action-center", description: "See everything ranked by urgency in one place." };
 
+  const onboardingDone = Boolean(onboarding?.completedAt);
+  const onboardingStepsDone: string[] = onboarding ? JSON.parse(onboarding.completedSteps || "[]") : [];
+  const showOnboardingStrip = !onboardingDone && onboardingStepsDone.length < ONBOARDING_STEPS.length;
+
+  // Open actions aligns with Action Center: open tasks (owned work) — notifications separate
+  const openActionsCount = openTasks;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <PageHeader
         eyebrow="Command center"
         title={ctx.user.name ? `Welcome back, ${ctx.user.name.split(" ")[0]}` : "Executive command center"}
         description={ctx.organization?.name
           ? `${ctx.organization.name} — what needs attention, what it is worth, and what Kaivaryn recommends next.`
           : "What needs attention, what it is worth, and what Kaivaryn recommends next."}
-        actions={ctx.organization?.isDemo ? <Badge tone="demo">DEMO org</Badge> : undefined}
+        actions={ctx.organization?.isDemo ? <Badge tone="demo">Demo org</Badge> : undefined}
       />
+
+      {showOnboardingStrip ? (
+        <Link
+          href="/app/onboarding"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 transition hover:border-amber-500/50"
+        >
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-400">Getting started</p>
+            <p className="mt-0.5 text-sm text-neutral-200">
+              Complete your workspace setup · {onboardingStepsDone.length}/{ONBOARDING_STEPS.length} steps done
+            </p>
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-amber-400">Continue onboarding →</span>
+        </Link>
+      ) : null}
 
       <ActivityStrip
         items={[
           { id: "a", label: pendingApprovals > 0 ? `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} awaiting executive review` : "Approval gate clear · no pending decisions", tone: pendingApprovals > 0 ? "warn" : "ok" },
-          { id: "b", label: openTasks > 0 ? `${openTasks} open task${openTasks === 1 ? "" : "s"} in the Action Center queue` : "Action queue quiet · no open tasks", tone: openTasks > 0 ? "accent" : "ok" },
+          { id: "b", label: openActionsCount > 0 ? `${openActionsCount} open action${openActionsCount === 1 ? "" : "s"} in the Action Center` : "Action queue quiet · no open tasks", tone: openActionsCount > 0 ? "accent" : "ok" },
           { id: "c", label: unreadNotifications > 0 ? `${unreadNotifications} unread notification${unreadNotifications === 1 ? "" : "s"}` : "Notifications clear", tone: unreadNotifications > 0 ? "accent" : "ok" },
           { id: "d", label: "Evidence store healthy · tenant isolation verified", tone: "ok" },
         ]}
@@ -102,47 +139,83 @@ export default async function AppHomePage() {
       <AttentionBanner
         items={[
           { label: "pending approvals", count: pendingApprovals, href: "/app/approvals", tone: "warning" },
-          { label: "open tasks", count: openTasks, href: "/app/action-center" },
+          { label: "open actions", count: openActionsCount, href: "/app/action-center" },
           { label: "unread notifications", count: unreadNotifications, href: "/app/notifications" },
         ]}
       />
 
       <NextBestAction title={nextAction.title} description={nextAction.description} href={nextAction.href} actionLabel="Review" />
 
-      <section className="si-glass relative overflow-hidden rounded-2xl border border-neutral-800/90 bg-gradient-to-br from-neutral-950 to-neutral-900/40 p-5 sm:p-6" aria-labelledby="executive-brief-title">
+      <section className="si-glass relative overflow-hidden rounded-2xl border border-neutral-800/90 bg-gradient-to-br from-neutral-950 to-neutral-900/40 p-4 sm:p-6" aria-labelledby="executive-brief-title">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-400">Executive brief</p>
             <h2 id="executive-brief-title" className="mt-2 text-xl font-semibold tracking-tight text-white">The value case, distilled.</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">Kaivaryn separates modeled opportunity from verified results, then ranks the decisions that can move value into execution.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">
+              Kaivaryn separates modeled opportunity from recorded outcomes — then ranks the decisions that move value into execution.
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-4 sm:min-w-72">
-            <div><p className="text-[10px] uppercase tracking-wider text-neutral-500">Projected value</p><p className="mt-1 text-xl font-semibold text-white"><CountUpCurrency value={projectedValue} /></p></div>
-            <div><p className="text-[10px] uppercase tracking-wider text-neutral-500">Verified value</p><p className="mt-1 text-xl font-semibold text-emerald-400"><CountUpCurrency value={verifiedValue} /></p></div>
+          <div className="grid grid-cols-2 gap-3 sm:min-w-80 sm:gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-neutral-500">Projected value</p>
+              <p className="mt-1 text-xl font-semibold text-white"><CountUpCurrency value={projectedValue} /></p>
+              <p className="mt-0.5 text-[10px] text-neutral-600">Potential + projected savings</p>
+            </div>
+            <div className="space-y-2">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-emerald-400/80">{MONEY.cashRecovered.label}</p>
+                <p className="mt-0.5 text-lg font-semibold text-emerald-400"><CountUpCurrency value={cashRecovered} /></p>
+                {verifiedRecovered > 0 ? (
+                  <p className="text-[10px] text-neutral-500">{MONEY.verifiedRecovered.short}: {formatCurrency(verifiedRecovered)}</p>
+                ) : null}
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-emerald-400/80">{MONEY.realizedSavings.label}</p>
+                <p className="mt-0.5 text-lg font-semibold text-emerald-400"><CountUpCurrency value={realizedSavings} /></p>
+              </div>
+            </div>
           </div>
         </div>
-        <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-neutral-800 bg-neutral-800 sm:grid-cols-3">
-          <Link href="/app/revenue?view=high_confidence" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">High-confidence recovery</p><p className="mt-2 text-2xl font-semibold text-white"><CountUp value={highConfidenceRevenue} /></p><p className="mt-1 text-xs text-neutral-500">Open opportunities scoring 70+</p></Link>
-          <Link href="/app/operations?view=critical" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">Critical operational signals</p><p className="mt-2 text-2xl font-semibold text-white"><CountUp value={criticalOperations} /></p><p className="mt-1 text-xs text-neutral-500">Unresolved items requiring attention</p></Link>
-          <Link href="/app/approvals" className="bg-neutral-950 p-4 transition hover:bg-neutral-900"><p className="text-[10px] uppercase tracking-wider text-neutral-500">Executive decisions</p><p className="mt-2 text-2xl font-semibold text-white"><CountUp value={pendingApprovals} /></p><p className="mt-1 text-xs text-neutral-500">Approval-gated actions waiting</p></Link>
+        <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-neutral-800 bg-neutral-800 sm:grid-cols-4">
+          <Link href="/app/revenue?view=high_confidence" className="bg-neutral-950 p-3 sm:p-4 transition hover:bg-neutral-900">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">High-confidence</p>
+            <p className="mt-2 text-2xl font-semibold text-white"><CountUp value={highConfidenceRevenue} /></p>
+            <p className="mt-1 text-xs text-neutral-500">Open · score 70+</p>
+          </Link>
+          <Link href="/app/operations?view=critical" className="bg-neutral-950 p-3 sm:p-4 transition hover:bg-neutral-900">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Critical signals</p>
+            <p className="mt-2 text-2xl font-semibold text-white"><CountUp value={criticalOperations} /></p>
+            <p className="mt-1 text-xs text-neutral-500">Unresolved · critical</p>
+          </Link>
+          <Link href="/app/approvals" className="bg-neutral-950 p-3 sm:p-4 transition hover:bg-neutral-900">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Approvals</p>
+            <p className="mt-2 text-2xl font-semibold text-white"><CountUp value={pendingApprovals} /></p>
+            <p className="mt-1 text-xs text-neutral-500">Pending decisions</p>
+          </Link>
+          <Link href="/app/action-center?triage=sla_risk" className="bg-neutral-950 p-3 sm:p-4 transition hover:bg-neutral-900">
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">SLA risk</p>
+            <p className="mt-2 text-2xl font-semibold text-white"><CountUp value={slaOpenCount} /></p>
+            <p className="mt-1 text-xs text-neutral-500">Open · aging / breach</p>
+          </Link>
         </div>
+        <p className="mt-3 text-[10px] text-neutral-600">{MONEY_GLOSSARY_FOOTNOTE}</p>
       </section>
 
       <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-600">Value in motion</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
-            label="Recovery pipeline"
-            value={<CountUpCurrency value={revenue._sum.estimatedAmount ?? 0} />}
-            sublabel={`${revenue._count} opportunities · ${formatCurrency(revenue._sum.recoveredAmount ?? 0)} recovered`}
+            label={MONEY.pipelinePotential.label}
+            value={<CountUpCurrency value={pipelinePotential} />}
+            sublabel={`${revenue._count} opportunities · ${formatCurrency(cashRecovered)} cash recovered`}
             icon={TrendingUp}
             tone="accent"
             href="/app/revenue"
           />
           <MetricCard
-            label="Annual waste identified"
-            value={<CountUpCurrency value={operations._sum.estimatedWasteAnnual ?? 0} />}
-            sublabel={`${operations._count} inefficiencies · ${formatCurrency(operations._sum.recoveredAnnual ?? 0)} recovered`}
+            label={MONEY.projectedSavings.label}
+            value={<CountUpCurrency value={projectedSavings} />}
+            sublabel={`${operations._count} inefficiencies · ${formatCurrency(realizedSavings)} realized`}
             icon={Settings2}
             tone="accent"
             href="/app/operations"
@@ -157,10 +230,10 @@ export default async function AppHomePage() {
           />
           <MetricCard
             label="Open actions"
-            value={<CountUp value={openTasks + unreadNotifications} />}
-            sublabel={`${openTasks} tasks · ${unreadNotifications} unread`}
+            value={<CountUp value={openActionsCount} />}
+            sublabel={`${unreadNotifications} unread notifications`}
             icon={Bell}
-            href="/app/notifications"
+            href="/app/action-center"
           />
         </div>
       </div>
@@ -172,10 +245,10 @@ export default async function AppHomePage() {
           footnote={chartWeekly.sourceNote}
           data={chartWeekly.weeks}
           series={[
-            { key: "projectedRr", label: "RR identified", color: CHART.amber },
-            { key: "projectedOe", label: "OE identified", color: CHART.sky },
-            { key: "recovered", label: "RR recovered", color: CHART.emerald },
-            { key: "realized", label: "OE realized", color: "#34d399" },
+            { key: "projectedRr", label: "RR potential", color: CHART.amber },
+            { key: "projectedOe", label: "OE projected", color: CHART.sky },
+            { key: "recovered", label: "Cash recovered", color: CHART.emerald },
+            { key: "realized", label: "Realized savings", color: "#34d399" },
           ]}
           stacked
           height={280}
@@ -207,16 +280,16 @@ export default async function AppHomePage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <DynComposedChart
           className="lg:col-span-2"
-          title="Identified bars · recovered line"
-          description="Composed view of weekly motion — projected ≠ recovered"
+          title="Identified bars · outcomes line"
+          description="Composed view of weekly motion — estimates ≠ recorded outcomes"
           data={chartWeekly.weeks}
           bars={[
-            { key: "projectedRr", label: "RR identified", color: CHART.amber },
-            { key: "projectedOe", label: "OE identified", color: CHART.sky },
+            { key: "projectedRr", label: "RR potential", color: CHART.amber },
+            { key: "projectedOe", label: "OE projected", color: CHART.sky },
           ]}
           lines={[
-            { key: "recovered", label: "RR recovered", color: CHART.emerald },
-            { key: "realized", label: "OE realized", color: "#34d399" },
+            { key: "recovered", label: "Cash recovered", color: CHART.emerald },
+            { key: "realized", label: "Realized savings", color: "#34d399" },
           ]}
           money
           height={280}
@@ -224,8 +297,8 @@ export default async function AppHomePage() {
           stagger={3}
         />
         <PulseSpark
-          title="Workspace pulse"
-          description="Demo streaming feel · not a financial metric"
+          title="Queue activity"
+          description="Open-work signal · not a financial metric"
           baseSeries={chartAction.slaSpark}
         />
       </div>
@@ -259,23 +332,23 @@ export default async function AppHomePage() {
 
       <Card className="border-emerald-500/20 bg-emerald-500/[0.04]">
         <CardHeader>
-          <CardTitle>Learning loop</CardTitle>
-          <CardDescription>Tenant-specific patterns built only from recorded outcomes.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-400" /> What improved</CardTitle>
+          <CardDescription>Tenant patterns from recorded outcomes only — aligned with the recovery and savings ledger.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap gap-3 text-xs text-neutral-400">
             {learning.length ? (
               learning.map((profile) => (
                 <span key={profile.product} className="rounded-md border border-emerald-500/20 px-3 py-2">
-                  <span className="text-white">{profile.product === "REVENUE_RECOVERY" ? "Revenue" : "Operations"}</span> · {profile.sampleSize} outcomes · {profile.confidence} confidence
+                  <span className="text-white">{profile.product === "REVENUE_RECOVERY" ? "Revenue" : "Operations"}</span> · {profile.sampleSize} outcomes · {profile.confidence.toLowerCase()} confidence
                 </span>
               ))
             ) : (
-              <span>No verified outcomes yet — the brain learns as your team records results.</span>
+              <span>No verified outcomes yet — the workspace learns as your team records results.</span>
             )}
           </div>
           <Link href="/app/learning" className="text-xs text-emerald-400 hover:text-emerald-300">
-            View learned profile →
+            What improved / what&apos;s next →
           </Link>
         </CardContent>
       </Card>

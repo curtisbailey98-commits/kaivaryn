@@ -9,6 +9,9 @@ export type FunnelStage = {
   label: string;
   count: number;
   value?: number;
+  /** Potential still attributed to items at this stage (even when value shows cash). */
+  potentialAtStage?: number;
+  cashRecovered?: number;
   href?: string;
 };
 
@@ -53,7 +56,11 @@ export function AnimatedFunnelBars({
                 <div className="mb-1 flex items-center justify-between gap-2 text-xs">
                   <span className="text-neutral-300">{s.label}</span>
                   <span className="tabular-nums text-neutral-400">
-                    {s.count}{money && s.value != null ? ` · ${formatMoneyTick(s.value)}` : ""}
+                    {s.count}
+                    {money && s.value != null ? ` · ${formatMoneyTick(s.value)}` : ""}
+                    {s.key === "recovered" && s.potentialAtStage != null
+                      ? ` · ${formatMoneyTick(s.potentialAtStage)} potential`
+                      : ""}
                   </span>
                 </div>
                 <div className="h-2.5 overflow-hidden rounded-full bg-neutral-900">

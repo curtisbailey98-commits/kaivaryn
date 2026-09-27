@@ -5,11 +5,15 @@
 
 export const LEAKAGE_TYPES = [
   { id: "underbilling", label: "Underbilling", aliases: ["underbill", "under-billing", "missed_fee", "fee_gap"] },
-  { id: "underpayment", label: "Underpayment", aliases: ["underpay", "short_pay", "shortpay", "under-payment"] },
-  { id: "change_order", label: "Missed change order", aliases: ["change_order", "changeorder", "co_missed", "unbilled_co"] },
+  { id: "underpayment", label: "Underpayment / short-pay", aliases: ["underpay", "short_pay", "shortpay", "under-payment", "failed_payments"] },
+  { id: "change_order", label: "Unbilled change order", aliases: ["change_order", "changeorder", "co_missed", "unbilled_co"] },
   { id: "denial", label: "Denial / dispute", aliases: ["denial", "dispute", "appeal", "claim_denial"] },
-  { id: "contract", label: "Contract compliance", aliases: ["contract", "rate_variance", "pricing_variance", "compliance"] },
-  { id: "leakage_other", label: "Other leakage", aliases: ["leakage", "revenue_leak", "other"] },
+  { id: "contract", label: "Contract / rate variance", aliases: ["contract", "rate_variance", "pricing_variance", "compliance"] },
+  { id: "uncollected_ar", label: "Uncollected AR", aliases: ["uncollected", "aged_ar", "accounts_receivable", "ar_aging"] },
+  { id: "scope_creep", label: "Unbilled scope", aliases: ["scope_creep", "unbilled_scope", "scope"] },
+  { id: "retention", label: "Account retention risk", aliases: ["churn", "dormant", "retention", "churn_risk", "dormant_customers"] },
+  { id: "pipeline", label: "Commercial pipeline stall", aliases: ["pipeline", "stalled_leads", "pipeline_stalls"] },
+  { id: "leakage_other", label: "Other leakage", aliases: ["leakage", "revenue_leak", "other", "abandoned_checkout", "missed_appointments", "unanswered_inquiries"] },
 ] as const;
 
 export type LeakageTypeId = (typeof LEAKAGE_TYPES)[number]["id"];

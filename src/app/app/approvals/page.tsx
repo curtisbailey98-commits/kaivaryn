@@ -1,6 +1,5 @@
 import { requireOrgAccess, assertOrgId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
-import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
@@ -9,6 +8,8 @@ import { decideApproval, bulkDecideApprovals } from "../operations/actions";
 import { getApprovalsChartData } from "@/lib/chart-data";
 import { DynBarChart, DynComposedChart, KpiSpark } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
+import { humanizeLabel } from "@/lib/labels";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -38,8 +39,8 @@ export default async function ApprovalsPage({
     <div>
       <h1 className="text-2xl font-semibold">Approvals</h1>
       <p className="mt-2 text-sm text-neutral-400">
-        SI-style gated decisions with aging and bulk actions. Critical automation / integration gates require step-up confirmation.
-        Approving does <strong className="text-neutral-200">not</strong> execute external actions.
+        Decision gates with aging and bulk actions. Critical automation or integration gates require step-up confirmation.
+        Approving records a decision only — it does <strong className="text-neutral-200">not</strong> execute external actions.
       </p>
 
       {searchParams.ok ? (
@@ -57,7 +58,7 @@ export default async function ApprovalsPage({
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <DynBarChart
           title="Pending by aging"
-          description="SLA-style aging for open approval gates"
+          description="Aging for open approval gates"
           data={chartData.aging}
           series={[{ key: "count", label: "Pending", color: CHART.amber }]}
           height={220}
@@ -116,10 +117,10 @@ export default async function ApprovalsPage({
                 <label key={a.id} className="flex items-start gap-2 text-sm">
                   <input type="checkbox" name="ids" value={a.id} className="mt-1" />
                   <span className="min-w-0 flex-1">
-                    <span className="font-medium text-neutral-200">{a.title}</span>
+                    <span className="block truncate font-medium text-neutral-200" title={a.title}>{a.title}</span>
                     <span className="mt-0.5 flex flex-wrap gap-2 text-xs text-neutral-500">
                       <Badge tone={slaTone(sla)}>{slaLabel(sla)} · {age}d</Badge>
-                      <span>{a.type}</span>
+                      <span>{humanizeLabel(a.type)}</span>
                     </span>
                   </span>
                 </label>
@@ -151,13 +152,27 @@ export default async function ApprovalsPage({
               <li key={a.id} className="si-panel p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={a.status === "PENDING" ? "warning" : a.status === "APPROVED" ? "success" : "default"}>
-                    {a.status}
+                    {humanizeLabel(a.status)}
                   </Badge>
-                  <Badge>{a.type}</Badge>
+                  <Badge>{humanizeLabel(a.type)}</Badge>
                   {a.status === "PENDING" ? <Badge tone={slaTone(sla)}>{slaLabel(sla)} · {age}d</Badge> : null}
-                  <span className="text-sm font-medium">{a.title}</span>
+                  <span className="min-w-0 truncate text-sm font-medium" title={a.title}>{a.title}</span>
                 </div>
                 {a.description ? <p className="mt-2 text-sm text-neutral-400">{a.description}</p> : null}
+                {(() => {
+                  let impact: number | null = null;
+                  try {
+                    const payload = JSON.parse(a.payloadJson || "{}") as {
+                      amount?: number; recovered?: number; recoveredAmount?: number;
+                      realized?: number; realizedSavings?: number; impact?: number; projectedSavings?: number;
+                    };
+                    impact = payload.amount ?? payload.recoveredAmount ?? payload.recovered
+                      ?? payload.realizedSavings ?? payload.realized ?? payload.projectedSavings ?? payload.impact ?? null;
+                  } catch { /* ignore */ }
+                  return impact != null && impact > 0 ? (
+                    <p className="mt-1 text-sm text-amber-400">Impact {formatCurrency(impact)}</p>
+                  ) : null;
+                })()}
                 <p className="mt-1 text-xs text-neutral-600">
                   Requested by {a.requestedBy.name || a.requestedBy.email} · {formatDate(a.createdAt)}
                   {a.decisionNote ? ` · ${a.decisionNote}` : ""}

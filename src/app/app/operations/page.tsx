@@ -3,7 +3,6 @@ import { requireOrgAccess, assertOrgId } from "@/lib/tenant";
 import { requireEntitlement } from "@/lib/entitlements";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/states";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { analyzeOperationsSignals } from "@/lib/intelligence";
@@ -16,6 +15,9 @@ import { ageDays } from "@/lib/sla";
 import { getOperationsChartData } from "@/lib/chart-data";
 import { DynAreaChart, DynBarChart, AnimatedGaugeBar } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
+import { MONEY, MONEY_GLOSSARY_FOOTNOTE } from "@/lib/money-glossary";
+import { Badge, StatusBadge, PriorityBadge } from "@/components/ui/badge";
+import { clientTitle, humanizeLabel } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
 
@@ -82,13 +84,30 @@ export default async function OperationsPage({
           <Link href="/app/operations/analytics" className="rounded-md border border-neutral-700 px-3 py-2">Analytics</Link>
         </div>} />
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Annualized inefficiency" value={formatCurrency(agg._sum.estimatedWasteAnnual ?? 0)} sublabel="Modeled cost exposure" icon={Gauge} tone="accent" />
-        <MetricCard label="Addressable savings" value={formatCurrency(agg._sum.projectedSavings ?? 0)} sublabel={`${criticalCount} critical signals`} icon={Cog} />
-        <MetricCard label="Realized savings" value={formatCurrency(agg._sum.realizedSavings ?? agg._sum.recoveredAnnual ?? 0)} sublabel="Recorded outcomes only" icon={ShieldCheck} tone="success" />
-        <MetricCard label="Time opportunity" value={`${(hours._sum.projectedHoursWeekly ?? 0).toFixed(1)}h`} sublabel={`${autoCount} automation candidates · weekly`} icon={Clock3} />
-      </div>
-      <p className="mt-2 text-xs text-neutral-500">Projected and realized value remain separate. High-impact execution is approval-gated.</p>
+      {(() => {
+        const annualized = agg._sum.estimatedWasteAnnual ?? 0;
+        const addressable = agg._sum.projectedSavings ?? 0;
+        const noHaircut = annualized > 0 && Math.abs(annualized - addressable) < 1;
+        return (
+          <>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <MetricCard label="Annualized inefficiency" value={formatCurrency(annualized)} sublabel="Modeled cost exposure (gross)" icon={Gauge} tone="accent" />
+              <MetricCard
+                label={MONEY.projectedSavings.label}
+                value={formatCurrency(addressable)}
+                sublabel={noHaircut ? "Equals annualized · no addressability haircut applied" : `${criticalCount} critical signals`}
+                icon={Cog}
+              />
+              <MetricCard label={MONEY.realizedSavings.label} value={formatCurrency(agg._sum.realizedSavings ?? agg._sum.recoveredAnnual ?? 0)} sublabel="Recorded outcomes only" icon={ShieldCheck} tone="success" />
+              <MetricCard label="Time opportunity" value={`${(hours._sum.projectedHoursWeekly ?? 0).toFixed(1)} h/wk`} sublabel={`${autoCount} automation candidates`} icon={Clock3} />
+            </div>
+            <p className="mt-2 text-xs text-neutral-500">
+              {MONEY_GLOSSARY_FOOTNOTE}
+              {noHaircut ? " Addressable currently mirrors annualized waste with no haircut — labeled above, not implied as fully recoverable." : ""}
+            </p>
+          </>
+        );
+      })()}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         <Link href="/app/operations?view=critical" className="rounded-xl border border-red-500/20 bg-red-500/[0.04] p-4"><p className="text-[10px] uppercase tracking-wider text-red-300">Immediate attention</p><p className="mt-2 text-2xl font-semibold text-white">{criticalCount}</p><p className="mt-1 text-xs text-neutral-500">Critical unresolved bottlenecks</p></Link>
@@ -99,9 +118,9 @@ export default async function OperationsPage({
       <div className="si-glass mt-6 p-4 text-sm">
         <p className="si-label">Intelligence</p>
         {intel.status === "INSUFFICIENT_DATA" ? (
-          <><Badge tone="warning" className="mt-2">INSUFFICIENT_DATA</Badge><p className="mt-2 text-neutral-400">{intel.reason}</p></>
+          <><Badge tone="warning" className="mt-2">Insufficient data</Badge><p className="mt-2 text-neutral-400">{intel.reason}</p></>
         ) : (
-          <><Badge tone="info" className="mt-2">FINDING · {intel.confidence}</Badge><p className="mt-2">{intel.summary}</p></>
+          <><Badge tone="info" className="mt-2">Finding · {humanizeLabel(intel.confidence)}</Badge><p className="mt-2">{intel.summary}</p></>
         )}
       </div>
 
@@ -131,8 +150,8 @@ export default async function OperationsPage({
             <div className="mt-6 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4 sm:p-5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-300">Savings realization ledger</p>
               <div className="mt-4 grid gap-4 sm:grid-cols-4">
-                <div><p className="text-[10px] uppercase text-neutral-500">Projected</p><p className="mt-1 text-xl font-semibold text-white">{formatCurrency(projected)}</p></div>
-                <div><p className="text-[10px] uppercase text-neutral-500">Realized</p><p className="mt-1 text-xl font-semibold text-emerald-400">{formatCurrency(realized)}</p></div>
+                <div><p className="text-[10px] uppercase text-neutral-500">{MONEY.projectedSavings.short}</p><p className="mt-1 text-xl font-semibold text-white">{formatCurrency(projected)}</p></div>
+                <div><p className="text-[10px] uppercase text-neutral-500">{MONEY.realizedSavings.short}</p><p className="mt-1 text-xl font-semibold text-emerald-400">{formatCurrency(realized)}</p></div>
                 <div><p className="text-[10px] uppercase text-neutral-500">Open gap</p><p className="mt-1 text-xl font-semibold text-amber-400">{formatCurrency(gap)}</p></div>
                 <div><p className="text-[10px] uppercase text-neutral-500">Realization precision</p><p className="mt-1 text-xl font-semibold text-white">{precision}%</p><p className="text-[10px] text-neutral-600">realized ÷ projected</p></div>
               </div>
@@ -194,11 +213,11 @@ export default async function OperationsPage({
               {items.map((i) => (
                 <TR key={i.id}>
                   <TD>
-                    <Link href={`/app/operations/${i.id}`} className="text-amber-400 hover:underline">{i.title}</Link>
+                    <Link href={`/app/operations/${i.id}`} className="text-amber-400 hover:underline">{clientTitle(i.title)}</Link>
                     <div className="text-xs text-neutral-500">{[i.department, i.type].filter(Boolean).join(" · ") || "—"}{i.assignee ? ` · ${i.assignee.name || i.assignee.email}` : " · Unassigned"} · {ageDays(i.identifiedAt)}d</div>
                   </TD>
-                  <TD><Badge>{i.status}</Badge></TD>
-                  <TD><Badge tone={i.priority === "CRITICAL" ? "danger" : "default"}>{i.priority}</Badge></TD>
+                  <TD><StatusBadge status={i.status} /></TD>
+                  <TD><PriorityBadge priority={i.priority} /></TD>
                   <TD>{formatCurrency(i.estimatedWasteAnnual)}</TD>
                   <TD className="text-emerald-300">{formatCurrency(i.realizedSavings || i.recoveredAnnual)}</TD>
                   <TD>{automationReadinessScore({ automationCandidate: i.automationCandidate, score: i.score, evidenceCount: i._count?.evidence ?? 0, projectedSavings: i.projectedSavings || i.estimatedWasteAnnual, priority: i.priority })}</TD>

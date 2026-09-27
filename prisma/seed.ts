@@ -253,8 +253,8 @@ async function main() {
 
   await prisma.orgSettings.upsert({
     where: { organizationId: org.id },
-    update: {},
-    create: { organizationId: org.id },
+    update: { settingsJson: JSON.stringify({ consumerDetections: false, vertical: "finance" }) },
+    create: { organizationId: org.id, settingsJson: JSON.stringify({ consumerDetections: false, vertical: "finance" }) },
   });
 
   const integrations = [
@@ -372,12 +372,12 @@ async function main() {
       {
         organizationId: org.id,
         customerId: custC.id,
-        type: "CHECKOUT",
-        status: "ABANDONED",
-        amount: 9200,
-        occurredAt: days(1),
+        type: "INVOICE",
+        status: "FAILED",
+        amount: 42750,
+        occurredAt: days(6),
         source: "demo_seed",
-        sourceId: "txn-aband-1",
+        sourceId: "txn-ar-short-1",
       },
       {
         organizationId: org.id,
@@ -397,8 +397,8 @@ async function main() {
       {
         organizationId: org.id,
         customerId: custA.id,
-        title: "[DEMO] QBR — Northwind",
-        status: "MISSED",
+        title: "[DEMO] Quarterly business review — Northwind",
+        status: "COMPLETED",
         scheduledAt: days(3),
         source: "demo_seed",
         sourceId: "appt-1",

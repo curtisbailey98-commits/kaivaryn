@@ -112,7 +112,7 @@ export async function createInefficiency(formData: FormData) {
         organizationId: ctx.organizationId,
         type: "AUTOMATION_CANDIDATE",
         title: `Automation candidate: ${created.title}`,
-        description: "Recorded only. No external automation will run without explicit approval (SI pattern).",
+        description: "Recorded only. No external automation will run without explicit approval.",
         status: "PENDING",
         payloadJson: JSON.stringify({ inefficiencyId: created.id, executesExternally: false }),
         requestedById: ctx.user.id,

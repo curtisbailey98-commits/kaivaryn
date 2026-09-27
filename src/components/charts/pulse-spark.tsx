@@ -11,7 +11,7 @@ import { CHART } from "./theme";
  */
 export function PulseSpark({
   title = "Activity pulse",
-  description = "Demo streaming feel · not a financial metric",
+  description = "Open-work signal · not a financial metric",
   className,
   color = CHART.emerald,
   baseSeries,
@@ -89,7 +89,7 @@ export function PulseSpark({
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-2 text-[10px] text-neutral-600">Pulse refreshes for presence · not recovered dollars</p>
+      <p className="mt-2 text-[10px] text-neutral-600">Activity indicator only · not cash or savings</p>
     </section>
   );
 }

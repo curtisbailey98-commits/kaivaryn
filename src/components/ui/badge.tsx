@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { humanizeLabel } from "@/lib/labels";
 import { HTMLAttributes } from "react";
 
 const tones: Record<string, string> = {
@@ -18,7 +19,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+        "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-semibold tracking-wide",
         tones[tone] ?? tones.default,
         className
       )}
@@ -42,7 +43,7 @@ export function PriorityBadge({ priority, className }: { priority: string; class
   return (
     <Badge tone={cfg.tone} className={className}>
       <span className={cn("h-1.5 w-1.5 rounded-full", cfg.dot)} />
-      {priority}
+      {humanizeLabel(priority)}
     </Badge>
   );
 }
@@ -57,7 +58,7 @@ export function ConfidenceBadge({ confidence, className }: { confidence: string;
   const tone = CONFIDENCE_TONE[confidence.toLowerCase()] ?? "default";
   return (
     <Badge tone={tone} className={className}>
-      {confidence} confidence
+      {humanizeLabel(confidence)} confidence
     </Badge>
   );
 }
@@ -82,7 +83,7 @@ export function StatusBadge({ status, className }: { status: string; className?:
     : "default";
   return (
     <Badge tone={tone} className={className}>
-      {status.replace(/_/g, " ")}
+      {humanizeLabel(status)}
     </Badge>
   );
 }

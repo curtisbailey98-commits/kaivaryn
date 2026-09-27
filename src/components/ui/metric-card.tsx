@@ -36,7 +36,7 @@ export function MetricCard({
   const body = (
     <div
       className={cn(
-        "si-glass app-card-lift rounded-xl border p-4",
+        "si-glass app-card-lift rounded-xl border p-3 sm:p-4",
         toneStyles[tone],
         className
       )}
@@ -45,7 +45,7 @@ export function MetricCard({
         <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">{label}</p>
         {Icon ? <Icon className={cn("h-4 w-4", iconTone[tone])} strokeWidth={2} /> : null}
       </div>
-      <p className="relative z-[1] mt-2 text-2xl font-semibold tracking-tight text-white">{value}</p>
+      <p className="relative z-[1] mt-1.5 text-xl font-semibold tracking-tight text-white sm:mt-2 sm:text-2xl">{value}</p>
       {sublabel ? <p className="relative z-[1] mt-1 text-xs text-neutral-500">{sublabel}</p> : null}
     </div>
   );

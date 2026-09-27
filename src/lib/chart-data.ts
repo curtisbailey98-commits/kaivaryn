@@ -73,11 +73,16 @@ export async function getRevenueChartData(organizationId: string) {
   ];
   const funnel = funnelDefs.map((s) => {
     const rows = opps.filter((o) => s.statuses.includes(o.status));
+    const potential = rows.reduce((n, o) => n + (o.potentialAmount || o.estimatedAmount || 0), 0);
+    const cash = rows.reduce((n, o) => n + (o.recoveredAmount || 0), 0);
     return {
       key: s.key,
-      label: s.label,
+      label: s.key === "recovered" ? "Recovered (cash)" : s.label,
       count: rows.length,
-      value: rows.reduce((n, o) => n + (o.potentialAmount || o.estimatedAmount || 0), 0),
+      // For Recovered stage, primary metric is cash; potential-at-stage kept separately
+      value: s.key === "recovered" ? cash : potential,
+      potentialAtStage: potential,
+      cashRecovered: cash,
       href: `/app/revenue?view=${s.key === "review" ? "under_review" : s.key === "recovery" ? "in_recovery" : s.key}`,
     };
   });
@@ -90,7 +95,7 @@ export async function getRevenueChartData(organizationId: string) {
     };
   }).filter((t) => t.value > 0);
 
-  return { trend, funnel, taxonomy, sourceNote: "From Opportunity rows · projected ≠ recovered" };
+  return { trend, funnel, taxonomy, sourceNote: "From Opportunity rows · potential ≠ cash recovered. Recovered stage shows cash." };
 }
 
 export async function getOperationsChartData(organizationId: string) {
@@ -433,13 +438,14 @@ export async function getReadinessRadarData(organizationId: string) {
 
 /** Build waterfall stages from revenue funnel potential (identified → recovered path). */
 export function revenueFunnelToWaterfall(
-  funnel: { key: string; label: string; value: number; count: number }[]
+  funnel: { key: string; label: string; value: number; count: number; potentialAtStage?: number }[]
 ) {
   if (!funnel.length) return [];
   // Mutually exclusive status buckets → additive portfolio composition (not a fake drop-off path).
+  // Prefer potential-at-stage so Recovered cash is not mixed into portfolio potential.
   const stages = funnel.map((f) => ({
-    label: f.label,
-    value: Math.round(f.value || 0),
+    label: f.key === "recovered" ? "Recovered" : f.label,
+    value: Math.round(f.potentialAtStage ?? f.value ?? 0),
   }));
   return [...stages, { label: "Portfolio", value: 0, isTotal: true }];
 }
