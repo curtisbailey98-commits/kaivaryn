@@ -28,8 +28,6 @@
   --radius: 12px;
   --radius-sm: 8px;
   --radius-lg: 16px;
-  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-mono), ui-monospace, monospace;
   --letter-label: 0.14em;
   --glass-bg: rgba(12, 12, 14, 0.72);
   --glass-border: rgba(255, 255, 255, 0.08);
@@ -49,7 +47,7 @@ body {
   @apply antialiased;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-sans);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   isolation: isolate;
 }
 body::before {
