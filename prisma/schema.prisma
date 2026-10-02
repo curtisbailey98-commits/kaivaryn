@@ -142,6 +142,15 @@ model Organization {
   siMetaReturns          SiMetaReturn[]
   siMethods              SiMethodRegistry[]
   siErrors               SiErrorRecord[]
+  // Operating layer (renovated from 720 SI Command / Orders / Inbox / Jobs / Projects / Recipes / Operate)
+  opCommands             OpCommand[]
+  opStandingOrders       OpStandingOrder[]
+  opPlaybooks            OpPlaybook[]
+  opRuns                 OpRun[]
+  opInitiatives          OpInitiative[]
+  opInitiativeLinks      OpInitiativeLink[]
+  opBriefings            OpBriefing[]
+  opHealthChecks         OpHealthCheck[]
 }
 
 model Membership {
@@ -1640,4 +1649,165 @@ model SiErrorRecord {
 
   @@index([organizationId, product, createdAt])
   @@index([cycleId])
+}
+
+// ——— Kaivaryn Operating Layer (renovated from 720 SI) ———
+// Tenant-scoped. Additive only. Every row carries organizationId; every read filters by it.
+// Command = SI command hub router; StandingOrder = SI standing orders; Playbook = SI Recipes + Library;
+// Run = SI jobs/runbooks run history; Initiative = SI Projects; Briefing = SI recall/digest;
+// HealthCheck = SI Operate health ticks / rollups. Deterministic engines — no LLM.
+
+model OpCommand {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String?
+  text           String
+  route          String // ANALYZE | BUILD | STATUS | ANSWER | DIGEST | RECALL | STANDING | PLAYBOOK | REQUEST | SEARCH | INITIATIVE | HELP
+  routeReason    String
+  status         String   @default("OK") // OK | ERROR | DENIED
+  message        String
+  resultJson     String?
+  linksJson      String?
+  idempotencyKey String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, route])
+}
+
+model OpStandingOrder {
+  id             String    @id @default(cuid())
+  organizationId String
+  title          String
+  directive      String
+  kind           String // ANALYZE | STATUS | DIGEST | PLAYBOOK
+  cadence        String // HOURLY | DAILY | WEEKLY
+  enabled        Boolean   @default(true)
+  playbookId     String?
+  nextRunAt      DateTime?
+  lastRunAt      DateTime?
+  lastStatus     String? // SUCCEEDED | FAILED
+  lastResultJson String?
+  runCount       Int       @default(0)
+  failureCount   Int       @default(0)
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, enabled, nextRunAt])
+}
+
+model OpPlaybook {
+  id             String    @id @default(cuid())
+  organizationId String
+  slug           String
+  name           String
+  product        String // REVENUE_RECOVERY | OPERATIONS_EFFICIENCY | BOTH
+  category       String    @default("ANALYSIS") // ANALYSIS | GOVERNANCE | BRIEFING | HEALTH
+  summary        String
+  stepsJson      String // [{ kind: ANALYZE|DETECT|BRIEF|STATUS|TASK, ... }]
+  isSystem       Boolean   @default(false)
+  runCount       Int       @default(0)
+  lastRunAt      DateTime?
+  createdById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, product])
+}
+
+model OpRun {
+  id             String    @id @default(cuid())
+  organizationId String
+  title          String
+  source         String // COMMAND | STANDING_ORDER | PLAYBOOK | MANUAL
+  sourceId       String?
+  initiativeId   String?
+  status         String    @default("QUEUED") // QUEUED | RUNNING | SUCCEEDED | FAILED | WAITING_APPROVAL | CANCELLED
+  stepsJson      String    @default("[]")
+  currentStep    Int       @default(0)
+  evidenceJson   String    @default("[]")
+  error          String?
+  approvalId     String?
+  createdById    String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+}
+
+model OpInitiative {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String   @default("")
+  product        String   @default("BOTH")
+  status         String   @default("ACTIVE") // ACTIVE | PAUSED | COMPLETED
+  ownerId        String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  links        OpInitiativeLink[]
+
+  @@index([organizationId, status])
+}
+
+model OpInitiativeLink {
+  id             String   @id @default(cuid())
+  organizationId String
+  initiativeId   String
+  entityType     String // OPPORTUNITY | INEFFICIENCY | RUN | PLAYBOOK | CYCLE | BRIEFING
+  entityId       String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  initiative   OpInitiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+
+  @@unique([initiativeId, entityType, entityId])
+  @@index([organizationId])
+}
+
+model OpBriefing {
+  id             String    @id @default(cuid())
+  organizationId String
+  kind           String // DIGEST | RECALL | STATUS
+  title          String
+  bodyJson       String
+  source         String    @default("COMMAND") // COMMAND | STANDING_ORDER | PLAYBOOK | MANUAL
+  createdById    String?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+}
+
+model OpHealthCheck {
+  id             String   @id @default(cuid())
+  organizationId String
+  status         String // OK | DEGRADED | DOWN
+  componentsJson String
+  source         String   @default("MANUAL") // MANUAL | COMMAND | STANDING_ORDER | TICK
+  latencyMs      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
 }

@@ -6,6 +6,7 @@ import { runDetectionEngines } from "../src/lib/detection";
 import { ZOOM_SCHEDULER_URL } from "../src/lib/constants";
 import { generateWebBundle, webAgentRunnerSource } from "../src/lib/chief/webgen";
 import { publicBaseUrl } from "../src/lib/chief/deploy-web";
+import { ensureSystemPlaybooks, runPlaybook, createStandingOrder, createInitiative, linkToInitiative, findPlaybook, runHealthCheck } from "../src/lib/operate";
 
 const prisma = new PrismaClient();
 
@@ -13,6 +14,15 @@ const STRIPE = process.env.STRIPE_PAYMENT_LINK || "https://buy.stripe.com/14AaEZ
 const ZOOM = process.env.ZOOM_MEETING_URL || ZOOM_SCHEDULER_URL;
 
 async function wipeOrg(orgId: string) {
+  // Operating layer (renovated 720 SI) — demo/test orgs are rebuilt on every boot
+  await prisma.opInitiativeLink.deleteMany({ where: { organizationId: orgId } });
+  await prisma.opInitiative.deleteMany({ where: { organizationId: orgId } });
+  await prisma.opRun.deleteMany({ where: { organizationId: orgId } });
+  await prisma.opStandingOrder.deleteMany({ where: { organizationId: orgId } });
+  await prisma.opBriefing.deleteMany({ where: { organizationId: orgId } });
+  await prisma.opHealthCheck.deleteMany({ where: { organizationId: orgId } });
+  await prisma.opCommand.deleteMany({ where: { organizationId: orgId } });
+  await prisma.opPlaybook.deleteMany({ where: { organizationId: orgId, isSystem: false } });
   await prisma.siStageOutput.deleteMany({ where: { organizationId: orgId } });
   await prisma.siCycleInvariant.deleteMany({ where: { organizationId: orgId } });
   await prisma.siZeroState.deleteMany({ where: { organizationId: orgId } });
@@ -867,6 +877,28 @@ async function main() {
 
   // silence unused dept vars
   void sales;
+
+  // Operating layer demo (renovated 720 SI): system playbooks, standing orders, an initiative,
+  // and one REAL playbook run (executes nine-return cycles + digest + recall on the seeded data).
+  {
+    for (const id of [org.id, other.id]) await ensureSystemPlaybooks(id);
+    const opCtx = { organizationId: org.id, userId: demoOwner.id, role: "OWNER" };
+    await createStandingOrder(opCtx, { directive: "Every day executive digest", title: "[DEMO] Daily executive digest" });
+    const sweep = await findPlaybook(opCtx, "revenue-leakage-sweep");
+    await createStandingOrder(opCtx, { directive: "Every week run playbook revenue-leakage-sweep", title: "[DEMO] Weekly revenue leakage sweep", kind: "PLAYBOOK", playbookId: sweep?.id ?? null });
+    await createStandingOrder(opCtx, { directive: "Every hour health check", title: "[DEMO] Hourly health check" });
+    const ini = await createInitiative(opCtx, {
+      name: "[DEMO] Q4 billing leakage cleanup",
+      description: "Demo initiative grouping the highest-scoring revenue items. Amounts are seeded demo estimates, not client results.",
+      product: "REVENUE_RECOVERY",
+    });
+    const topOpps = await prisma.opportunity.findMany({ where: { organizationId: org.id }, orderBy: { score: "desc" }, take: 3, select: { id: true } });
+    for (const o of topOpps) await linkToInitiative(opCtx, ini.id, "OPPORTUNITY", o.id);
+    if (sweep) await linkToInitiative(opCtx, ini.id, "PLAYBOOK", sweep.id);
+    const { run } = await runPlaybook(opCtx, "executive-weekly-review", { initiativeId: ini.id });
+    await runHealthCheck(opCtx, "MANUAL");
+    console.log(`Operating layer: weekly review run ${run.status}`);
+  }
 
   // Stable CHIEF live demo agent — same-domain /a/internal-status
   {

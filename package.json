@@ -18,7 +18,10 @@
     "typecheck": "tsc --noEmit",
     "db:studio": "prisma studio",
     "test:chief": "tsx scripts/chief-validation.ts",
-    "test:si": "tsx scripts/si-cycle-validation.ts"
+    "test:si": "tsx scripts/si-cycle-validation.ts",
+    "test:operate": "tsx scripts/operating-layer-validation.ts",
+    "test:operate:api": "tsx scripts/operating-api-smoke.ts",
+    "test": "npm run -s test:operate && npm run -s test:si && npm run -s test:enterprise && npm run -s test:chief && npm run -s test:acquisition && npm run -s test:execution"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

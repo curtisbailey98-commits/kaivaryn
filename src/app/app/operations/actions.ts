@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { onApprovalDecided, opCtxFromSession } from "@/lib/operate";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requirePermission, assertOrgId } from "@/lib/tenant";
@@ -508,6 +509,11 @@ export async function decideApproval(id: string, formData: FormData) {
     }
   }
 
+  // Operating layer: resume or cancel a run paused at this gate (internal steps only)
+  if (req.type === "OPERATING_PLAN") {
+    await onApprovalDecided(opCtxFromSession(ctx), id, decision).catch(() => undefined);
+    revalidatePath("/app/automations");
+  }
   await notify({
     organizationId: ctx.organizationId,
     userId: req.requestedById,
@@ -579,6 +585,9 @@ export async function bulkDecideApprovals(formData: FormData) {
       entityId: id,
       metadata: { reason, bulk: true },
     });
+    if (req.type === "OPERATING_PLAN") {
+      await onApprovalDecided(opCtxFromSession(ctx), id, decision).catch(() => undefined);
+    }
     await notify({
       organizationId: ctx.organizationId,
       userId: req.requestedById,
