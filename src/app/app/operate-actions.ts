@@ -8,6 +8,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireOrgAccess } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
+import { safeReturnPath } from "@/lib/operate/paths";
 import {
   opCtxFromSession,
   executeCommand,
@@ -38,12 +39,6 @@ function errMsg(e: unknown) {
   return e instanceof Error ? e.message : String(e);
 }
 
-/** Only allow in-app relative return paths (prevents open redirects via the hidden "back" field). */
-function safeBack(raw: FormDataEntryValue | null, fallback: string) {
-  const v = String(raw || "");
-  return /^\/app(\/[A-Za-z0-9\-_/]*)?(\?[^\s]*)?$/.test(v) && !v.startsWith("//") ? v : fallback;
-}
-
 function withMsg(path: string, kind: "ok" | "error", msg: string) {
   const sep = path.includes("?") ? "&" : "?";
   return `${path}${sep}${kind}=1&msg=${encodeURIComponent(msg.slice(0, 240))}`;
@@ -51,7 +46,7 @@ function withMsg(path: string, kind: "ok" | "error", msg: string) {
 
 export async function runCommandAction(formData: FormData) {
   const text = String(formData.get("text") || "").trim();
-  const back = safeBack(formData.get("back"), "/app/command");
+  const back = safeReturnPath(formData.get("back"), "/app/command");
   if (!text) redirect(withMsg(back, "error", "Type an ask, e.g. “Analyze revenue leakage”"));
   let target = "/app/command";
   try {
@@ -167,7 +162,7 @@ export async function runDueAction() {
 export async function runPlaybookAction(formData: FormData) {
   const id = String(formData.get("playbookId") || "");
   const initiativeId = String(formData.get("initiativeId") || "") || null;
-  const back = safeBack(formData.get("back"), "/app/playbooks");
+  const back = safeReturnPath(formData.get("back"), "/app/playbooks");
   let target = back;
   try {
     const { playbook, run } = await runPlaybook(await ctx(), id, { initiativeId });
