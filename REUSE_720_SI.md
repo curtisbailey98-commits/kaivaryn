@@ -1,5 +1,7 @@
 # Kaivaryn ← 720 SI reuse map (Phase 0 audit)
 
+> **Superseded (Oct 2026):** the full dismantle-and-renovate map, including the operating layer (Command, Inbox, Automations, Playbooks, Initiatives, Operate health) and the public-site story, is in [`docs/SI_RENOVATION.md`](docs/SI_RENOVATION.md). This file is kept as the original Phase 0 audit.
+
 Audited: `/workspace/720-si` (app monorepo + deploy). Strategy: **Reuse → Refactor → Upgrade → Integrate**. Keep Kaivaryn Next.js App Router + Prisma/SQLite as product shell; absorb SI *patterns and portable modules* into `packages/` / `src/lib` — do **not** require Postgres+Redis+worker to ship Kaivaryn on free Render.
 
 ## What 720 SI is

@@ -30,6 +30,8 @@ services:
         sync: false
       - key: ACQUISITION_INGEST_TOKEN
         sync: false
+      - key: OPERATE_TICK_TOKEN
+        sync: false
       - key: CLAY_WEBHOOK_SECRET
         sync: false
       - key: GOOGLE_CLIENT_ID

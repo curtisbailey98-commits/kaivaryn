@@ -56,6 +56,38 @@ Legend: **KEEP**: concept carried over largely as-is (re-implemented in Prisma/T
 6. **Redis/BullMQ queue**: replaced by in-process recorded runs (a free-tier Render constraint).
 7. **Stub embeddings / LLM adapter**: removed so nothing is described as AI generation when it is not.
 
+## Public website (kaivaryn.com) renovation
+
+The 720 SI story is now told on the public site in business language. Every claim maps to shipped code; there are no logos, metrics, testimonials, or customer claims.
+
+| Page | What changed |
+|---|---|
+| `/platform` (**new**) | Five-layer architecture: Data & evidence → Detection engines → Nine-return intelligence (R1–R9 → ZERO_RETURN, Witness-signed continuity) → Operating layer (Command, Playbooks, Standing orders, Run history, Approval gates, Initiatives) → Executive surfaces. Governance rails (tenant isolation, RBAC, human-in-the-loop, deterministic engines, audit, honest states). Integration states shown honestly: CSV/manual available; CRM/billing/ERP/ticketing labeled not connected until connected; outbound actions not automated. |
+| `/` (home) | Kept "Find the money. Remove the friction." and the Zoom CTA. The hero panel now runs the product's **real** router (`src/lib/operate/router.ts`) on animated example asks. The old illustrative panel with "+14.8% surfaced this cycle" was removed. New sections: how the operating intelligence works (Ask → Route → Analyze → Gate → Brief → Measure + animated nine-return ring), a five-layer platform strip linking `/platform`, and a pricing teaser read from `PricingConfig` ($10k/mo for the first 10 clients, then $20k/mo; falls back to the same seeded values if the DB is briefly unavailable). |
+| `/how-it-works` | Six-stage loop rewritten as the operating loop, plus a live routing panel and a typical-engagement timeline. Example chart kept and labeled illustrative. |
+| `/intelligence` | Adds the nine-return cycle (stage-by-stage, stating that no generative model sits in the analysis path). |
+| `/pricing` | "Included" list now names the operating layer. Prices stay DB-driven. Stripe checkout (`https://buy.stripe.com/14AaEZgJsdDNeTFePLeUU01`) stays in the post-demo gated flow (`PricingConfig.stripePaymentLink`, `/engage`, `render.yaml`). |
+| Header / footer | "Platform" added. |
+
+Shared narrative lives in `src/lib/public-story.ts`; animated components in `src/components/public/` (respect `prefers-reduced-motion`).
+
+## Where each SI capability lives now (quick reference)
+
+| If you used this in 720 SI… | …go here in Kaivaryn |
+|---|---|
+| Command bar / hub | `/app/command` (also embedded in `/app/action-center`) |
+| Cycles / stages / zero state | `/app/intelligence` (Command: "analyze …") |
+| Inbox + notifications | `/app/inbox` (briefings included) |
+| Orders | `/app/automations` |
+| Recipes / Library | `/app/playbooks`; Command record at `/app/command` |
+| Jobs / runbooks | `/app/automations#runs` |
+| Projects | `/app/initiatives` |
+| Operate / health / tick | `/app/operate`; `POST /api/operate/tick` |
+| Mission control / OS desk | `/app` operating desk |
+| Learn / meta / evolve | `/app/learning`, `/app/intelligence` (methods, META track) |
+| Build / products / agents | Command "plan …" (governed plan) · `/executive/chief` (executives) |
+| Approvals / connectors / audit | `/app/approvals` · `/app/integrations` · `/admin/audit` |
+
 ## Data model (additive only)
 
 New Prisma models, all with required `organizationId` and indexes: `OpCommand`, `OpStandingOrder`, `OpPlaybook`, `OpRun`, `OpInitiative`, `OpInitiativeLink`, `OpBriefing`, `OpHealthCheck`. No existing column was dropped or renamed, so `prisma db push` at boot is safe. The seed is idempotent: it upserts system playbooks, demo standing orders, a demo initiative, and one real `executive-weekly-review` run for the demo org.
@@ -63,10 +95,12 @@ New Prisma models, all with required `organizationId` and indexes: `OpCommand`, 
 ## Tests
 
 - `npm run test:operate`: 70+ library-level checks covering routing, every command route, runs + approval gates, standing orders, playbooks, initiatives, briefings, health, **cross-tenant reads/writes denied**, and **RBAC** (viewer cannot run or approve).
-- `npm run test:operate:api`: HTTP smoke against a running server. It logs in as demo/admin, hits each operating API, and checks unauthenticated → 401 and cross-tenant ids → 404.
+- `npm run test:operate:guards`: server-action write paths are RBAC- and tenant-guarded; return paths are in-app only.
+- `npm run test:operate:api`: HTTP smoke against a running server (`BASE_URL`, default `http://localhost:3000`). Public pages incl. `/platform`, unauthenticated → 401, bad tick token rejected, the 12 SaaS pages, legacy redirects, each operating API, cross-tenant ids → 404, viewer denied.
 - Existing suites still run under `npm test`: `test:si`, `test:enterprise`, `test:chief`, `test:acquisition`, `test:execution`.
 
 ## Open items
 
+- `OPERATE_TICK_TOKEN` is declared in `render.yaml` (`sync: false`); set it (≥ 16 characters; use 32+ random) in Render before wiring a cron.
 - Standing orders run on the platform cron only if an external scheduler calls `POST /api/operate/tick` with `OPERATE_TICK_TOKEN`. Free Render has no built-in cron, so without one, orders run only when someone presses **Run due** in Automations (or runs an order by hand).
 - Live data integrations (CRM, billing, ERP) remain labeled "not connected" until a client connects them. CSV/manual import is the honest default.
