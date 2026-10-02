@@ -9,10 +9,13 @@ import {
   Reveal,
   Magnetic,
   SectionRule,
-  CountUp,
   CountUpCurrency,
   StatusDot,
 } from "@/components/motion";
+import { CommandRoutingDemo } from "@/components/public/command-routing-demo";
+import { NineReturnRing } from "@/components/public/nine-return-ring";
+import { OPERATING_LOOP, PLATFORM_LAYERS } from "@/lib/public-story";
+import { getPricingConfig, centsToDollars } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "Executive AI Consulting Firm",
@@ -26,7 +29,20 @@ const operatingModel = [
   ["04", "Measure the result", "Separate potential value from verified recovery or realized savings after execution."],
 ];
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+
+async function pricingTeaser() {
+  try {
+    const c = await getPricingConfig();
+    return { seats: c.introductorySeats, intro: centsToDollars(c.introductoryPriceCents), standard: centsToDollars(c.standardPriceCents) };
+  } catch {
+    // Pricing still renders if the database is briefly unavailable; values mirror the seeded PricingConfig.
+    return { seats: 10, intro: 10_000, standard: 20_000 };
+  }
+}
+
+export default async function HomePage() {
+  const price = await pricingTeaser();
   return (
     <>
       <section className="relative overflow-hidden border-b border-neutral-900">
@@ -53,7 +69,7 @@ export default function HomePage() {
               </Reveal>
               <Reveal variant="up" delay={180}>
                 <p className="mt-7 max-w-xl text-base leading-7 text-neutral-300 sm:text-lg">
-                  Kaivaryn combines executive AI advisory, operating infrastructure, and enterprise intelligence to turn hidden revenue and operational friction into governed, measurable action.
+                  Kaivaryn is an operating intelligence for revenue and operations. Ask a question, and it routes the work: evidence-backed analysis, an owned plan behind an approval gate, and a briefing on what changed — measured against what was actually recovered.
                 </p>
               </Reveal>
               <Reveal variant="up" delay={240}>
@@ -62,7 +78,7 @@ export default function HomePage() {
                     <Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link>
                   </Magnetic>
                   <a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="public-button-secondary">Schedule on Zoom</a>
-                  <Link href="/how-it-works" className="public-button-secondary">See the operating model</Link>
+                  <Link href="/platform" className="public-button-secondary">See the platform</Link>
                 </div>
               </Reveal>
               <Reveal variant="fade" delay={320}>
@@ -70,53 +86,14 @@ export default function HomePage() {
                   <StatusDot tone="ok" label="Tenant-isolated" className="text-neutral-400" />
                   <StatusDot tone="ok" label="Approval-gated" className="text-neutral-400" />
                   <StatusDot tone="ok" label="Evidence-aware" className="text-neutral-400" />
+                  <StatusDot tone="ok" label="Deterministic engines" className="text-neutral-400" />
                 </div>
               </Reveal>
             </div>
             <Reveal variant="scale" delay={160}>
               <div className="relative">
-                <div className="public-terminal relative overflow-hidden rounded-2xl p-4 sm:p-5">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-4 text-[10px] uppercase tracking-[0.2em] text-neutral-500">
-                    <span>Executive signal room</span>
-                    <StatusDot tone="ok" label="Illustrative" className="text-emerald-400" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 py-5">
-                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                      <p className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Recovery pipeline</p>
-                      <p className="mt-3 text-2xl font-semibold text-white">
-                        <CountUpCurrency value={2480000} />
-                      </p>
-                      <p className="mt-1 text-xs text-emerald-400">+14.8% surfaced this cycle</p>
-                    </div>
-                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                      <p className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">Open decisions</p>
-                      <p className="mt-3 text-2xl font-semibold text-white">
-                        <CountUp value={12} />
-                      </p>
-                      <p className="mt-1 text-xs text-amber-400">3 need executive review</p>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.16em] text-amber-400">Priority signal</p>
-                        <h2 className="mt-2 text-base font-semibold text-white">Unbilled change orders</h2>
-                        <p className="mt-1 text-xs leading-5 text-neutral-400">18 records · high confidence · owner unassigned</p>
-                      </div>
-                      <span className="rounded-full border border-amber-500/30 px-2 py-1 text-[10px] font-semibold text-amber-400">REVIEW</span>
-                    </div>
-                    <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-neutral-800">
-                      <div className="h-full w-[76%] rounded-full bg-gradient-to-r from-amber-500 to-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.45)]" />
-                    </div>
-                    <div className="mt-2 flex justify-between text-[10px] text-neutral-500"><span>Impact score 76</span><span>Evidence 4/4</span></div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[10px] uppercase tracking-[0.12em] text-neutral-500">
-                    <div className="rounded-lg bg-white/[0.03] px-2 py-3"><span className="block text-amber-400">01</span>Observed</div>
-                    <div className="rounded-lg bg-white/[0.03] px-2 py-3"><span className="block text-amber-400">02</span>Assigned</div>
-                    <div className="rounded-lg bg-white/[0.03] px-2 py-3"><span className="block text-amber-400">03</span>Measured</div>
-                  </div>
-                </div>
-                <p className="mt-3 text-right text-[10px] uppercase tracking-[0.16em] text-neutral-600">Illustrative workspace · no fabricated customer data</p>
+                <CommandRoutingDemo />
+                <p className="mt-3 text-right text-[10px] uppercase tracking-[0.16em] text-neutral-600">The product&apos;s real routing rules · no customer data</p>
               </div>
             </Reveal>
           </div>
@@ -173,6 +150,62 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="relative overflow-hidden border-y border-neutral-900 bg-neutral-950/60">
+        <AmbientField intensity="subtle" grain={false} className="opacity-70" />
+        <div className="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
+          <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div>
+              <Reveal>
+                <p className="public-kicker text-amber-400">How the operating intelligence works</p>
+                <h2 className="public-heading mt-4 max-w-xl">From a sentence to a governed, measured outcome.</h2>
+                <p className="mt-4 max-w-xl text-sm leading-6 text-neutral-400">Every step below is a recorded run inside your private workspace. Analysis is rule-based and repeatable; a person approves before anything consequential moves.</p>
+              </Reveal>
+              <ol className="mt-10 grid gap-3 sm:grid-cols-2">
+                {OPERATING_LOOP.map((s, i) => (
+                  <Reveal key={s.n} variant="up" delay={i * 60}>
+                    <li className="group h-full rounded-xl border border-white/[0.08] bg-neutral-950/70 p-4 transition hover:border-amber-500/30">
+                      <p className="flex items-center gap-2 font-mono text-[11px] text-amber-500">{s.n}<span className="h-px flex-1 bg-gradient-to-r from-amber-500/40 to-transparent transition-all group-hover:from-amber-400" /></p>
+                      <p className="mt-2 text-base font-semibold text-white">{s.name}</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-500">{s.body}</p>
+                    </li>
+                  </Reveal>
+                ))}
+              </ol>
+            </div>
+            <Reveal variant="scale" delay={120}>
+              <div className="public-card p-6 sm:p-8">
+                <NineReturnRing />
+                <p className="mt-4 text-center text-sm text-neutral-400">The analysis step runs nine returns — Reality to Witness — and closes at <span className="font-mono text-emerald-400">ZERO_RETURN</span>.</p>
+              </div>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
+        <Reveal>
+          <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+            <div>
+              <p className="public-kicker">The platform</p>
+              <h2 className="public-heading mt-4 max-w-2xl">Five layers. One accountable system.</h2>
+            </div>
+            <Link href="/platform" className="text-sm text-amber-400 hover:text-amber-300">Explore the architecture <span aria-hidden>↗</span></Link>
+          </div>
+        </Reveal>
+        <div className="mt-10 grid gap-3 md:grid-cols-5">
+          {[...PLATFORM_LAYERS].reverse().map((layer, i) => (
+            <Reveal key={layer.n} variant="up" delay={i * 60}>
+              <Link href="/platform" className="public-card group relative block h-full overflow-hidden p-5">
+                <div className="absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 bg-gradient-to-r from-amber-500 to-amber-300 transition duration-500 group-hover:scale-x-100" />
+                <p className="font-mono text-xs text-amber-500">{layer.n}</p>
+                <p className="mt-3 text-sm font-semibold text-white">{layer.name}</p>
+                <p className="mt-2 text-[11px] leading-5 text-neutral-500">{layer.items.slice(0, 3).join(" · ")}</p>
+              </Link>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
       <section className="relative border-y border-neutral-900 bg-neutral-950/60">
         <AmbientField intensity="subtle" grain={false} className="opacity-70" />
         <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 sm:py-24 lg:grid-cols-[0.75fr_1.25fr] lg:items-start">
@@ -211,6 +244,28 @@ export default function HomePage() {
         <Reveal variant="scale" delay={80}>
           <ExampleFrameworkChart />
         </Reveal>
+      </section>
+
+      <section className="border-y border-neutral-900 bg-neutral-950/60">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1fr_1fr_1fr] lg:items-center">
+          <Reveal>
+            <p className="public-kicker">Pricing</p>
+            <h2 className="mt-3 text-2xl font-semibold text-white">One platform. Capacity-limited, not feature-limited.</h2>
+            <Link href="/pricing" className="mt-5 inline-block text-sm text-amber-400 hover:text-amber-300">Full pricing <span aria-hidden>→</span></Link>
+          </Reveal>
+          <Reveal variant="up" delay={80}>
+            <div className="public-card border-amber-500/30 p-6">
+              <p className="public-kicker text-amber-400">Founder cohort · first {price.seats} clients</p>
+              <p className="mt-4 text-4xl font-semibold tracking-tight text-white"><CountUpCurrency value={price.intro} /><span className="text-sm font-normal text-neutral-500"> / month</span></p>
+            </div>
+          </Reveal>
+          <Reveal variant="up" delay={140}>
+            <div className="public-card p-6">
+              <p className="public-kicker">Standard platform · after the cohort</p>
+              <p className="mt-4 text-4xl font-semibold tracking-tight text-white"><CountUpCurrency value={price.standard} /><span className="text-sm font-normal text-neutral-500"> / month</span></p>
+            </div>
+          </Reveal>
+        </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">

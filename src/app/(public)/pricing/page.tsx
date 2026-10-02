@@ -7,7 +7,7 @@ import { AmbientField, BreathGrid, Reveal, Magnetic, SectionRule, CountUpCurrenc
 export const metadata: Metadata = { title: "Pricing" };
 export const dynamic = "force-dynamic";
 
-const included = ["Revenue Recovery and Operations Efficiency workspaces", "Tenant-isolated data and role-based access", "Evidence-aware intelligence and honest empty states", "Approval-gated actions and auditable decisions", "CSV imports, exports, and implementation guidance"];
+const included = ["Revenue Recovery and Operations Efficiency workspaces", "Nine-return intelligence cycles with signed continuity", "Command, playbooks, standing orders, and run history", "Inbox briefings, initiatives, and operate health", "Tenant-isolated data and role-based access", "Evidence-aware intelligence and honest empty states", "Approval-gated actions and auditable decisions", "CSV imports, exports, and implementation guidance"];
 
 export default async function PricingPage() {
   const config = await getPricingConfig();

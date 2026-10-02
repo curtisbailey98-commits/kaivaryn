@@ -5,6 +5,7 @@ import { Magnetic } from "@/components/motion/magnetic";
 const links = [
   { href: "/solutions/revenue-recovery", label: "Revenue Recovery" },
   { href: "/solutions/operations-efficiency", label: "Operations Efficiency" },
+  { href: "/platform", label: "Platform" },
   { href: "/how-it-works", label: "How it works" },
   { href: "/intelligence", label: "Intelligence" },
   { href: "/company", label: "Firm" },
