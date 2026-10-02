@@ -45,7 +45,7 @@ export async function submitImport(formData: FormData) {
   });
   await runImportJob(job.id, text);
   revalidatePath("/app/imports");
-  revalidatePath("/app/jobs");
+  revalidatePath("/app/automations");
   revalidatePath("/app/revenue");
   revalidatePath("/app/operations");
   redirect(`/app/imports?ok=1&msg=${encodeURIComponent("Import completed")}`);

@@ -10,11 +10,13 @@ export function AppNavLink({
   label,
   icon: Icon,
   onNavigate,
+  badge,
 }: {
   href: string;
   label: string;
   icon: LucideIcon;
   onNavigate?: () => void;
+  badge?: number;
 }) {
   const pathname = usePathname();
   const active = href === "/app" ? pathname === "/app" : pathname === href || pathname.startsWith(`${href}/`);
@@ -44,6 +46,9 @@ export function AppNavLink({
           <span className="absolute -bottom-0.5 left-0 h-px w-full bg-gradient-to-r from-amber-400/80 to-transparent" />
         ) : null}
       </span>
+      {badge ? (
+        <span className="ml-auto rounded-full bg-amber-500/90 px-1.5 py-px text-[10px] font-semibold tabular-nums text-neutral-950">{badge > 99 ? "99+" : badge}</span>
+      ) : null}
     </Link>
   );
 }

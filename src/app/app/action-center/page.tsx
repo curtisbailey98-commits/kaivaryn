@@ -14,6 +14,7 @@ import { CHART } from "@/components/charts/theme";
 import { getActionCenterChartData } from "@/lib/chart-data";
 import { ActivityStrip, StatusDot } from "@/components/motion";
 import { humanizeLabel, clientTitle } from "@/lib/labels";
+import { CommandBar } from "@/components/operate/command-bar";
 
 export const dynamic = "force-dynamic";
 
@@ -212,12 +213,12 @@ export default async function ActionCenterPage({
         </div>
         <div className="flex flex-wrap gap-2">
           {unread > 0 ? (
-            <Link href="/app/notifications" className="rounded-md border border-amber-500/40 px-3 py-2 text-sm text-amber-400">
-              {unread} notifications
+            <Link href="/app/inbox" className="rounded-md border border-amber-500/40 px-3 py-2 text-sm text-amber-400">
+              {unread} in Inbox
             </Link>
           ) : null}
-          <Link href="/app/query" className="rounded-md border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-amber-600">
-            Ask (NL)
+          <Link href="/app/command" className="rounded-md border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-amber-600">
+            Command
           </Link>
           <Link href="/app/reports" className="rounded-md border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-amber-600">
             Reports
@@ -371,19 +372,14 @@ export default async function ActionCenterPage({
 
       <Card className="mt-8">
         <CardHeader>
-          <CardTitle>Ask (NL)</CardTitle>
+          <CardTitle>Command</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action="/app/query" method="get" className="flex flex-col gap-2 sm:flex-row">
-            <input
-              name="q"
-              placeholder='e.g. "How much revenue have we recovered?"'
-              className="h-10 flex-1 rounded-md border border-neutral-700 bg-neutral-950 px-3 text-sm"
-            />
-            <button type="submit" className="h-10 rounded-md bg-amber-500 px-4 text-sm font-semibold text-neutral-950">
-              Ask
-            </button>
-          </form>
+          <CommandBar compact back="/app/action-center" examples={[
+            { label: "How much have we recovered?", text: "How much revenue have we recovered?" },
+            { label: "Plan a fix", text: "Plan a fix for the top critical item" },
+            { label: "Brief me", text: "Brief me on what changed" },
+          ]} />
         </CardContent>
       </Card>
 

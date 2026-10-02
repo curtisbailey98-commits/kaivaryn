@@ -8,12 +8,15 @@ import { AppNavLink } from "@/components/layout/nav-link";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 
 export type NavGroup = { label: string; items: Array<{ href: string; label: string; icon: LucideIcon }> };
+export type NavBadges = Record<string, number>;
 
 export function MobileNav({
   groups,
   adminHref,
   platformLinks,
+  badges,
 }: {
+  badges?: NavBadges;
   groups: NavGroup[];
   adminHref?: string | null;
   platformLinks?: Array<{ href: string; label: string }> | null;
@@ -57,6 +60,7 @@ export function MobileNav({
                         href={item.href}
                         label={item.label}
                         icon={item.icon}
+                        badge={badges?.[item.href]}
                         onNavigate={() => setOpen(false)}
                       />
                     ))}

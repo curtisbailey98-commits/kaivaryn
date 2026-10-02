@@ -9,21 +9,25 @@ import {
   Settings2,
   FileSearch,
   Upload,
-  Activity,
   Search,
-  Bell,
   Plug,
   ShieldCheck,
   Rocket,
   Factory,
   Brain,
-  MessageSquare,
   FileBarChart,
   SlidersHorizontal,
+  Terminal,
+  Inbox,
+  BookOpen,
+  Workflow,
+  Target,
+  GraduationCap,
+  HeartPulse,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
-import { MobileNav, type NavGroup } from "@/components/layout/mobile-nav";
+import { MobileNav, type NavGroup, type NavBadges } from "@/components/layout/mobile-nav";
 import { AppNavLink } from "@/components/layout/nav-link";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { PageEnter } from "@/components/motion";
@@ -31,11 +35,12 @@ import { StatusDot } from "@/components/motion/status-dot";
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Workspace",
+    label: "Command",
     items: [
       { href: "/app", label: "Home", icon: LayoutDashboard },
+      { href: "/app/command", label: "Command", icon: Terminal },
+      { href: "/app/inbox", label: "Inbox", icon: Inbox },
       { href: "/app/action-center", label: "Action Center", icon: Zap },
-      { href: "/app/query", label: "Ask (NL)", icon: MessageSquare },
     ],
   },
   {
@@ -43,28 +48,35 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/app/revenue", label: "Revenue Recovery", icon: TrendingUp },
       { href: "/app/operations", label: "Operations Efficiency", icon: Settings2 },
-      { href: "/app/intelligence", label: "Client Intelligence", icon: Brain },
+      { href: "/app/intelligence", label: "Intelligence", icon: Brain },
     ],
   },
   {
-    label: "Operations",
+    label: "Automate",
+    items: [
+      { href: "/app/playbooks", label: "Playbooks", icon: BookOpen },
+      { href: "/app/automations", label: "Automations", icon: Workflow },
+      { href: "/app/initiatives", label: "Initiatives", icon: Target },
+    ],
+  },
+  {
+    label: "Evidence",
     items: [
       { href: "/app/findings", label: "Findings", icon: FileSearch },
       { href: "/app/reports", label: "Reports", icon: FileBarChart },
       { href: "/app/imports", label: "Imports", icon: Upload },
-      { href: "/app/jobs", label: "Jobs", icon: Activity },
+      { href: "/app/learning", label: "Learning", icon: GraduationCap },
       { href: "/app/search", label: "Search", icon: Search },
     ],
   },
   {
-    label: "Settings",
+    label: "Govern",
     items: [
-      { href: "/app/notifications", label: "Notifications", icon: Bell },
       { href: "/app/approvals", label: "Approvals", icon: ShieldCheck },
-      { href: "/app/learning", label: "Learning", icon: Brain },
-      { href: "/app/settings", label: "Org settings", icon: SlidersHorizontal },
+      { href: "/app/operate", label: "Operate health", icon: HeartPulse },
       { href: "/app/integrations", label: "Integrations", icon: Plug },
-      { href: "/app/onboarding", label: "Onboarding", icon: Rocket },
+      { href: "/app/settings", label: "Org settings", icon: SlidersHorizontal },
+      { href: "/app/onboarding", label: "Setup", icon: Rocket },
     ],
   },
 ];
@@ -75,7 +87,9 @@ export function AppShell({
   orgName,
   isDemo,
   isSuperAdmin,
+  badges,
 }: {
+  badges?: NavBadges;
   children: ReactNode;
   userEmail?: string | null;
   orgName?: string | null;
@@ -100,7 +114,7 @@ export function AppShell({
                 <p className="px-2.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-600">{group.label}</p>
                 <div className="mt-1 space-y-0.5">
                   {group.items.map((item) => (
-                    <AppNavLink key={item.href} href={item.href} label={item.label} icon={item.icon} />
+                    <AppNavLink key={item.href} href={item.href} label={item.label} icon={item.icon} badge={badges?.[item.href]} />
                   ))}
                 </div>
               </div>
@@ -162,6 +176,7 @@ export function AppShell({
           </div>
           <MobileNav
             groups={NAV_GROUPS}
+            badges={badges}
             adminHref={isSuperAdmin ? "/admin" : null}
             platformLinks={
               isSuperAdmin

@@ -19,6 +19,7 @@ export async function runIntelligence(formData?: FormData) {
     entityId: run.id,
   });
   revalidatePath("/app/jobs");
+  revalidatePath("/app/automations");
   revalidatePath("/app/action-center");
   revalidatePath("/app/findings");
 }
@@ -32,6 +33,7 @@ export async function markNotificationRead(id: string, formData?: FormData) {
     data: { readAt: new Date() },
   });
   revalidatePath("/app/notifications");
+  revalidatePath("/app/inbox");
 }
 
 export async function markAllNotificationsRead(formData?: FormData) {
@@ -43,4 +45,5 @@ export async function markAllNotificationsRead(formData?: FormData) {
     data: { readAt: new Date() },
   });
   revalidatePath("/app/notifications");
+  revalidatePath("/app/inbox");
 }

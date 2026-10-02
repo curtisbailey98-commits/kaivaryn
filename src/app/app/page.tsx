@@ -17,6 +17,7 @@ import { getWeeklyBriefChartData, getActionCenterChartData } from "@/lib/chart-d
 import { DynAreaChart, DynBarChart, DynComposedChart, PulseSpark, KpiSpark } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
 import { ActivityStrip, CountUp, CountUpCurrency } from "@/components/motion";
+import { OperatingDesk } from "@/components/operate/operating-desk";
 
 export default async function AppHomePage() {
   const ctx = await requireOrgAccess();
@@ -71,6 +72,7 @@ export default async function AppHomePage() {
     }),
   ]);
   const slaOpenCount = chartAction.slaSpark.at(-1)?.value ?? 0;
+  const lastHealth = await prisma.opHealthCheck.findFirst({ where: { organizationId: ctx.organizationId }, orderBy: { createdAt: "desc" }, select: { status: true } });
 
   // Split KPIs — never mix RR cash with OE savings under one "Verified value"
   const pipelinePotential = revenue._sum.potentialAmount ?? revenue._sum.estimatedAmount ?? 0;
@@ -126,12 +128,14 @@ export default async function AppHomePage() {
         </Link>
       ) : null}
 
+      <OperatingDesk organizationId={ctx.organizationId} userId={ctx.user.id} />
+
       <ActivityStrip
         items={[
           { id: "a", label: pendingApprovals > 0 ? `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} awaiting executive review` : "Approval gate clear · no pending decisions", tone: pendingApprovals > 0 ? "warn" : "ok" },
           { id: "b", label: openActionsCount > 0 ? `${openActionsCount} open action${openActionsCount === 1 ? "" : "s"} in the Action Center` : "Action queue quiet · no open tasks", tone: openActionsCount > 0 ? "accent" : "ok" },
           { id: "c", label: unreadNotifications > 0 ? `${unreadNotifications} unread notification${unreadNotifications === 1 ? "" : "s"}` : "Notifications clear", tone: unreadNotifications > 0 ? "accent" : "ok" },
-          { id: "d", label: "Evidence store healthy · tenant isolation verified", tone: "ok" },
+          { id: "d", label: lastHealth ? `Last health check ${lastHealth.status.toLowerCase()}` : "No health check recorded yet", tone: lastHealth?.status === "OK" ? "ok" : "warn" },
         ]}
       />
 
@@ -140,7 +144,7 @@ export default async function AppHomePage() {
         items={[
           { label: "pending approvals", count: pendingApprovals, href: "/app/approvals", tone: "warning" },
           { label: "open actions", count: openActionsCount, href: "/app/action-center" },
-          { label: "unread notifications", count: unreadNotifications, href: "/app/notifications" },
+          { label: "unread notifications", count: unreadNotifications, href: "/app/inbox" },
         ]}
       />
 

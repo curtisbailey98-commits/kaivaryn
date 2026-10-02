@@ -12,7 +12,7 @@ import { runIntelligenceJob } from "@/lib/jobs";
 import { interpretExecutiveQuery } from "@/lib/nl-query";
 import { notifyOrgManagers } from "@/lib/notifications";
 import type { OpCtx } from "./context";
-import { OpError, safeJson } from "./context";
+import { OpError, requireOpPermission, safeJson } from "./context";
 import type { ProductScope } from "./router";
 import { runHealthCheck } from "./health";
 import { buildDigest, buildRecall } from "./briefing";
@@ -303,6 +303,7 @@ export async function getRun(ctx: OpCtx, id: string) {
 }
 
 export async function cancelRun(ctx: OpCtx, id: string) {
+  requireOpPermission(ctx, "write");
   const res = await prisma.opRun.updateMany({
     where: { id, organizationId: ctx.organizationId, status: { in: ["QUEUED", "WAITING_APPROVAL", "RUNNING"] } },
     data: { status: "CANCELLED", finishedAt: new Date() },
