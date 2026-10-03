@@ -6,6 +6,7 @@ import { runDetectionEngines } from "../src/lib/detection";
 import { ZOOM_SCHEDULER_URL } from "../src/lib/constants";
 import { generateWebBundle, webAgentRunnerSource } from "../src/lib/chief/webgen";
 import { publicBaseUrl } from "../src/lib/chief/deploy-web";
+import { ensureKaivarynVoiceAgents } from "../src/lib/voice/kaivaryn";
 import { ensureSystemPlaybooks, runPlaybook, createStandingOrder, createInitiative, linkToInitiative, findPlaybook, runHealthCheck } from "../src/lib/operate";
 
 const prisma = new PrismaClient();
@@ -141,6 +142,14 @@ async function main() {
     });
   }
 
+
+  // Voice layer: map Kaivaryn's own assistants (Viki phone, web, in-app) to the internal HQ tenant.
+  try {
+    const v = await ensureKaivarynVoiceAgents(prisma);
+    console.log(`  Voice agents registered for Kaivaryn HQ: ${v.registered}${v.conflicts.length ? ` (conflicts: ${v.conflicts.join(", ")})` : ""}`);
+  } catch (e) {
+    console.warn("  Voice agent registration skipped:", (e as Error).message);
+  }
 
   const demoHash = await hash("DemoClient!2026", 12);
   const demoUser = await prisma.user.upsert({

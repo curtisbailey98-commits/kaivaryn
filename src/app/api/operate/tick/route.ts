@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { withOpCtx } from "@/lib/operate/api";
 import { runDueStandingOrders, platformTick } from "@/lib/operate";
+import { syncVoiceCalls } from "@/lib/voice/sync";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -26,8 +27,18 @@ export async function POST(req: Request) {
   if (req.headers.get("authorization")) {
     if (!tokenOk(req.headers.get("authorization"))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     const t = await platformTick({ tickKey: req.headers.get("x-tick-key"), source: req.headers.get("x-tick-source") });
+    // Voice call polling rides the same scheduled tick. It is isolated: a provider error never fails the tick.
+    let voice: { stored: number; created: number; skipped: number; errors: number } | { error: string } | null = null;
+    if (!t.replay) {
+      try {
+        const v = await syncVoiceCalls();
+        voice = v.configured ? { stored: v.stored, created: v.created, skipped: v.skipped, errors: v.errors.length } : null;
+      } catch {
+        voice = { error: "voice_sync_failed" };
+      }
+    }
     return NextResponse.json(
-      { mode: "platform", tickId: t.tickId, replay: t.replay, status: t.status, organizations: t.organizations, ran: t.ran, startedAt: t.startedAt, finishedAt: t.finishedAt },
+      { mode: "platform", tickId: t.tickId, replay: t.replay, status: t.status, organizations: t.organizations, ran: t.ran, startedAt: t.startedAt, finishedAt: t.finishedAt, voice },
       { status: t.status === "FAILED" ? 500 : t.replay && t.status === "RUNNING" ? 202 : 200 },
     );
   }

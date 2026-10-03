@@ -151,6 +151,12 @@ model Organization {
   opInitiativeLinks      OpInitiativeLink[]
   opBriefings            OpBriefing[]
   opHealthChecks         OpHealthCheck[]
+  // Voice layer (Viki Core) — every voice row carries tenantId
+  voiceAgents            VoiceAgent[]
+  voiceCalls             VoiceCall[]
+  voiceEvents            VoiceEvent[]
+  voiceUsage             VoiceUsage[]
+  voiceToolSessions      VoiceToolSession[]
 }
 
 model Membership {
@@ -1838,4 +1844,157 @@ model OpHealthCheck {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, createdAt])
+}
+
+// ───────────────────────── Voice layer (Viki Core) ─────────────────────────
+// Additive. Every row is tenant-scoped (tenantId → Organization). A provider assistant id maps to exactly
+// one VoiceAgent row (unique), and therefore one tenant; unknown assistant ids are rejected before any write.
+
+model VoiceAgent {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  kind                 String    @default("CLIENT") // CLIENT | KAIVARYN_PHONE | KAIVARYN_WEB | KAIVARYN_WORKSPACE
+  routing              String    @default("FIXED") // FIXED (assistant → this tenant) | SIGNED_SESSION (tenant from a signed per-call token)
+  origin               String    @default("SELF_CONFIGURED") // SELF_CONFIGURED | KAIVARYN_BUILT | INTERNAL
+  name                 String
+  voice                String?
+  tone                 String?
+  greeting             String?
+  role                 String?
+  responsibilitiesJson String    @default("[]")
+  hoursJson            String?
+  afterHoursBehavior   String?
+  escalationRulesJson  String    @default("[]")
+  approvedKnowledge    String?
+  phoneConfigJson      String?
+  allowedToolsJson     String    @default("{}") // { toolKey: ActionLevel }
+  systemsJson          String    @default("[]") // business systems selected in onboarding (selected ≠ connected)
+  questionnaireJson    String?
+  systemPrompt         String?
+  status               String    @default("draft") // draft | generated | in_review | testing | approved | active | paused
+  provider             String    @default("VAPI")
+  providerAssistantId  String?   @unique
+  provisionedAt        DateTime?
+  provisionError       String?
+  lastSyncedAt         DateTime?
+  createdById          String?
+  approvedById         String?
+  approvedAt           DateTime?
+  activatedById        String?
+  activatedAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  tenant Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  calls  VoiceCall[]
+  events VoiceEvent[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, kind])
+  @@map("voice_agents")
+}
+
+model VoiceCall {
+  id                  String    @id @default(cuid())
+  tenantId            String
+  voiceAgentId        String?
+  provider            String    @default("VAPI")
+  providerCallId      String    @unique
+  providerAssistantId String?
+  assistantName       String?
+  channel             String? // phone_inbound | phone_outbound | web_public | web_workspace
+  userId              String? // signed-in user for workspace calls
+  callerName          String?
+  callerNumber        String?
+  callerEmail         String?
+  company             String?
+  status              String?
+  endedReason         String?
+  startedAt           DateTime?
+  endedAt             DateTime?
+  durationSeconds     Int?
+  transcript          String?
+  transcriptJson      String? // [{ role, text, at }] — sanitized, never raw provider payloads
+  summary             String?
+  intent              String?
+  qualification       String? // QUALIFIED | NEEDS_REVIEW | NOT_QUALIFIED | UNKNOWN
+  productFit          String? // REVENUE_RECOVERY | OPERATIONS_EFFICIENCY | BOTH | UNCLEAR
+  nextStep            String?
+  demoStatus          String? // NONE | DISCUSSED | LINK_SHARED | BOOKED (only when confirmed)
+  followUp            String?
+  outcome             String?
+  analysisSource      String? // provider | derived
+  handoffRequested    Boolean   @default(false)
+  linkedLeadId        String?
+  linkedAccountId     String? // AcquisitionAccount (Kaivaryn internal pipeline)
+  linkedDemoRequestId String?
+  linkedCustomerId    String?
+  costUsd             Float?
+  source              String    @default("poll") // poll | webhook
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  tenant Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent  VoiceAgent?  @relation(fields: [voiceAgentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, startedAt])
+  @@index([tenantId, voiceAgentId])
+  @@map("voice_calls")
+}
+
+model VoiceEvent {
+  id             String   @id @default(cuid())
+  tenantId       String
+  voiceAgentId   String?
+  voiceCallId    String?
+  providerCallId String?
+  type           String // e.g. call.synced, webhook.received, tool.executed, tool.denied, handoff.requested, agent.approved
+  actorId        String?
+  level          String? // action level for tool events
+  detailJson     String? // sanitized details only — no secrets, no raw payloads
+  createdAt      DateTime @default(now())
+
+  tenant Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent  VoiceAgent?  @relation(fields: [voiceAgentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, type])
+  @@map("voice_events")
+}
+
+model VoiceUsage {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  period                String // YYYY-MM (UTC)
+  calls                 Int      @default(0)
+  minutes               Float    @default(0)
+  providerCostUsd       Float?
+  includedMinutes       Float? // null = allowance not set (no hard-coded pricing)
+  remainingMinutes      Float?
+  percentUsed           Float?
+  overageState          String   @default("NO_ALLOWANCE") // NO_ALLOWANCE | OK | NOTICE_75 | WARNING_90 | AT_LIMIT | OVER
+  alertedThresholdsJson String   @default("[]")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  tenant Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, period])
+  @@map("voice_usage")
+}
+
+model VoiceToolSession {
+  id             String   @id @default(cuid())
+  tenantId       String
+  userId         String
+  role           String
+  nonce          String   @unique
+  providerCallId String? // bound on first tool use; a token can never serve a second call
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  tenant Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@map("voice_tool_sessions")
 }

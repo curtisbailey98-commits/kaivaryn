@@ -21,17 +21,20 @@
     "test:si": "tsx scripts/si-cycle-validation.ts",
     "test:operate": "tsx scripts/operating-layer-validation.ts",
     "test:operate:api": "tsx scripts/operating-api-smoke.ts",
-    "test": "npm run -s test:operate && npm run -s test:operate:guards && npm run -s test:automations && npm run -s test:integrations && npm run -s test:si && npm run -s test:enterprise && npm run -s test:chief && npm run -s test:acquisition && npm run -s test:execution && npm run -s test:stripe",
+    "test": "npm run -s test:operate && npm run -s test:operate:guards && npm run -s test:automations && npm run -s test:integrations && npm run -s test:si && npm run -s test:enterprise && npm run -s test:chief && npm run -s test:acquisition && npm run -s test:execution && npm run -s test:stripe && npm run -s test:voice",
     "test:operate:guards": "tsx scripts/operating-guards-validation.ts",
     "test:stripe": "tsx scripts/stripe-webhook-validation.ts",
     "test:automations": "tsx scripts/automation-prompt-validation.ts",
-    "test:integrations": "tsx scripts/inbound-integrations-validation.ts"
+    "test:integrations": "tsx scripts/inbound-integrations-validation.ts",
+    "test:voice": "tsx scripts/voice-validation.ts",
+    "test:voice:api": "tsx scripts/voice-api-smoke.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@vapi-ai/web": "^2.7.1",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",

@@ -16,6 +16,7 @@ import { can } from "@/lib/rbac";
 import { notify, notifyOrgManagers } from "@/lib/notifications";
 import { recordLearningEvent } from "@/lib/learning";
 import { evaluateRecoveryGate } from "@/lib/approval-thresholds";
+import { canVoice } from "@/lib/voice/permissions";
 
 const schema = z.object({
   title: z.string().min(1).max(300),
@@ -385,6 +386,10 @@ export async function decideApproval(id: string, formData: FormData) {
   if (!req || req.status !== "PENDING") return { error: "Not found or not pending" };
   const check = validateApprovalDecision({ type: req.type, decision, confirmStepUp });
   if (!check.ok) return { error: check.message };
+  // Voice agent configs are approved by an admin or owner (activation stays a separate explicit step).
+  if (req.type === "VOICE_AGENT_ACTIVATION" && !canVoice(ctx.effectiveRole, "voice.agent.approve")) {
+    return { error: "An admin or owner approves voice agent configurations." };
+  }
 
   let executionNote = "Decision recorded only — no external execution";
   if (decision === "APPROVED" && req.needsIntegration) {
@@ -432,6 +437,15 @@ export async function decideApproval(id: string, formData: FormData) {
     entityId: id,
     metadata: { note: executionNote },
   });
+  if (req.type === "VOICE_AGENT_ACTIVATION") {
+    const payload = req.payloadJson ? JSON.parse(req.payloadJson) : {};
+    if (payload.voiceAgentId) {
+      await prisma.voiceAgent.updateMany({
+        where: { id: String(payload.voiceAgentId), tenantId: ctx.organizationId, kind: "CLIENT", status: { in: ["in_review", "testing"] } },
+        data: decision === "APPROVED" ? { status: "approved", approvedById: ctx.user.id, approvedAt: new Date() } : { status: "in_review" },
+      });
+    }
+  }
   // Apply queued high-value financial records when approved (still no external exec)
   if (decision === "APPROVED" && (req.type === "HIGH_VALUE_RECOVERY" || req.type === "HIGH_VALUE_SAVINGS")) {
     try {
