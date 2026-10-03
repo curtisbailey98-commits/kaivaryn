@@ -167,8 +167,8 @@ async function dispatch(ctx: OpCtx, text: string, route: CommandRoute, reason: s
       const { briefing, body } = await buildRecall(ctx, "COMMAND");
       return ok(
         body.empty
-          ? "Nothing recorded yet. Run Analyze to create the first continuity state — recall never invents memory."
-          : `Recalled ${body.continuity.length} continuity state${body.continuity.length === 1 ? "" : "s"}, ${body.lessons.length} lessons, ${body.memory.length} memory items.${body.continuity[0]?.witness ? ` Latest Witness: ${body.continuity[0].witness}` : ""}`,
+          ? "Nothing recorded yet. Run Analyze to create the first saved summary — recall never invents memory."
+          : `Recalled ${body.continuity.length} analysis summar${body.continuity.length === 1 ? "y" : "ies"}, ${body.lessons.length} lessons, ${body.memory.length} memory items.${body.continuity[0]?.witness ? ` Latest Witness: ${body.continuity[0].witness}` : ""}`,
         [{ label: "Open recall", href: `/app/inbox?briefing=${briefing.id}` }, { label: "Intelligence", href: "/app/intelligence" }],
         { briefingId: briefing.id, recall: body },
       );

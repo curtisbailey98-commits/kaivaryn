@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requirePermission, assertOrgId } from "@/lib/tenant";
 import { buildReport, REPORT_LABELS, type ReportType } from "@/lib/reports";
 import { formatCurrency } from "@/lib/utils";
-import { humanizeLabel } from "@/lib/labels";
+import { clientTitle, humanizeLabel } from "@/lib/labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { queueWeeklyDigest } from "../operations/actions";
@@ -13,6 +13,20 @@ import { CHART } from "@/components/charts/theme";
 export const metadata = { title: "Reports" };
 
 export const dynamic = "force-dynamic";
+
+const MONEY_KEY = /amount|potential|recovered|verified|savings|projected|realized|pipeline|waste|impact/i;
+function formatReportCell(key: string, v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "number") {
+    if (/hours/i.test(key)) return `${v} h/wk`;
+    if (MONEY_KEY.test(key)) return formatCurrency(v);
+    return v.toLocaleString("en-US");
+  }
+  const str = String(v);
+  if (/^[A-Z][A-Z_]+$/.test(str)) return humanizeLabel(str);
+  if (/title|name/i.test(key)) return clientTitle(str);
+  return str;
+}
 
 const TYPES: ReportType[] = ["rr_summary", "ops_summary", "weekly_brief", "monthly_impact"];
 
@@ -34,7 +48,7 @@ export default async function ReportsPage({
       <p className="si-label text-amber-500">Executive reports</p>
       <h1 className="mt-1 text-2xl font-semibold">Reports</h1>
       <p className="mt-2 text-sm text-neutral-400">
-        Live DB aggregates for your organization. Download CSV or open printable HTML (browser Print → PDF).
+        Live figures for your organization. Download CSV or open a printable version (use your browser’s Print → Save as PDF).
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -70,7 +84,7 @@ export default async function ReportsPage({
           <Button type="submit" variant="secondary" size="sm">Queue weekly digest draft</Button>
         </form>
       </div>
-      <p className="mt-2 text-xs text-neutral-600">Weekly digest creates an EmailDraft + in-app notice. SMTP send is never faked.</p>
+      <p className="mt-2 text-xs text-neutral-600">Queues a draft weekly digest and an in-app notice. Nothing is emailed automatically.</p>
       {searchParams.ok ? <p className="mt-2 text-sm text-emerald-400">{searchParams.msg || "Queued"}</p> : null}
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
@@ -159,7 +173,7 @@ export default async function ReportsPage({
                     <tr>
                       {Object.keys(section.rows[0]).map((k) => (
                         <th key={k} className="px-2 py-1 font-medium">
-                          {k}
+                          {humanizeLabel(k)}
                         </th>
                       ))}
                     </tr>
@@ -167,9 +181,9 @@ export default async function ReportsPage({
                   <tbody>
                     {section.rows.map((row, i) => (
                       <tr key={i} className="border-t border-neutral-900">
-                        {Object.values(row).map((v, j) => (
+                        {Object.entries(row).map(([k, v], j) => (
                           <td key={j} className="px-2 py-1.5 text-neutral-300">
-                            {typeof v === "number" ? String(v) : String(v ?? "—")}
+                            {formatReportCell(k, v)}
                           </td>
                         ))}
                       </tr>

@@ -157,7 +157,7 @@ export async function buildRecall(ctx: OpCtx, source: BriefingSource = "COMMAND"
       "Recall only returns what completed cycles and recorded outcomes actually wrote. Nothing is inferred or invented.",
     ],
   };
-  if (body.empty) body.notes.push("No completed intelligence cycles yet — run Analyze to create the first continuity state.");
+  if (body.empty) body.notes.push("No completed intelligence cycles yet — run Analyze to create the first saved summary.");
 
   const row = await prisma.opBriefing.create({
     data: {

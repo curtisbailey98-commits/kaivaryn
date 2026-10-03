@@ -21,6 +21,8 @@ import { formatMoneyTick } from "@/components/charts/theme";
 import { MONEY, MONEY_GLOSSARY_FOOTNOTE, cashRecoveryRate } from "@/lib/money-glossary";
 import { clientTitle, humanizeLabel } from "@/lib/labels";
 
+export const metadata = { title: "Revenue Recovery" };
+
 export const dynamic = "force-dynamic";
 
 const VIEWS: Record<string, { label: string; where?: Prisma.OpportunityWhereInput }> = {
@@ -351,7 +353,7 @@ export default async function RevenuePage({
                     <Link href={`/app/revenue/${o.id}`} className="text-amber-400 hover:underline">
                       {clientTitle(o.title)}
                     </Link>
-                    <div className="text-xs text-neutral-500">{[o.source, o.department, classifyLeakageType(o.type).label].filter(Boolean).join(" · ")}{o.assignee ? ` · ${o.assignee.name || o.assignee.email}` : " · Unassigned"} · {ageDays(o.identifiedAt)}d</div>
+                    <div className="text-xs text-neutral-500">{[o.source ? humanizeLabel(o.source) : null, o.department, classifyLeakageType(o.type).label].filter(Boolean).join(" · ")}{o.assignee ? ` · ${o.assignee.name || o.assignee.email}` : " · Unassigned"} · {ageDays(o.identifiedAt)}d</div>
                   </TD>
                   <TD><StatusBadge status={o.status} /></TD>
                   <TD><PriorityBadge priority={o.priority} /></TD>

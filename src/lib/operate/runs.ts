@@ -163,7 +163,7 @@ async function executeStep(ctx: OpCtx, run: { id: string; title: string; created
         const ok = res.cycle?.status === "succeeded";
         allOk = allOk && ok;
         const label = product === "REVENUE_RECOVERY" ? "Revenue Recovery" : "Operations Efficiency";
-        parts.push(`${label}: ${ok ? `R1–R9 complete → ZERO_RETURN (${res.stages.length} stages)` : `cycle ${res.cycle?.status ?? "unknown"}${res.cycle?.failureCode ? ` · ${res.cycle.failureCode}` : ""}`}`);
+        parts.push(`${label}: ${ok ? `nine-step analysis complete (${res.stages.length} steps recorded)` : `cycle ${res.cycle?.status ?? "unknown"}${res.cycle?.failureCode ? ` · ${res.cycle.failureCode}` : ""}`}`);
         refs.push({ label: `${label} cycle`, href: "/app/intelligence" });
       }
       return { ...base, ok: allOk, summary: parts.join(" · "), refs };
@@ -190,7 +190,7 @@ async function executeStep(ctx: OpCtx, run: { id: string; title: string; created
     }
     case "RECALL": {
       const { briefing, body } = await buildRecall(ctx, "PLAYBOOK");
-      return { ...base, ok: true, summary: body.empty ? "Recall: nothing recorded yet (honest empty)" : `Recall: ${body.continuity.length} continuity states · ${body.lessons.length} lessons`, refs: [{ label: "Open recall", href: `/app/inbox?briefing=${briefing.id}` }] };
+      return { ...base, ok: true, summary: body.empty ? "Recall: nothing recorded yet (honest empty)" : `Recall: ${body.continuity.length} analysis summaries · ${body.lessons.length} lessons`, refs: [{ label: "Open recall", href: `/app/inbox?briefing=${briefing.id}` }] };
     }
     case "STATUS": {
       const h = await runHealthCheck(ctx, "TICK");

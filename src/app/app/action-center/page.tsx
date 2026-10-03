@@ -13,8 +13,10 @@ import { DynBarChart, Sparkline } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
 import { getActionCenterChartData } from "@/lib/chart-data";
 import { ActivityStrip, StatusDot } from "@/components/motion";
-import { humanizeLabel, clientTitle } from "@/lib/labels";
+import { humanizeLabel, clientTitle, auditActionLabel } from "@/lib/labels";
 import { CommandBar } from "@/components/operate/command-bar";
+
+export const metadata = { title: "Action Center" };
 
 export const dynamic = "force-dynamic";
 
@@ -389,8 +391,8 @@ export default async function ActionCenterPage({
         </CardHeader>
         <CardContent className="space-y-2 text-xs text-neutral-400">
           {recentAudit.map((a) => (
-            <div key={a.id} className="flex justify-between gap-2 border-b border-neutral-900 py-1 font-mono">
-              <span>{humanizeLabel(a.action)}</span>
+            <div key={a.id} className="flex justify-between gap-2 border-b border-neutral-900 py-1">
+              <span>{auditActionLabel(a.action)}</span>
               <span>{formatDate(a.createdAt)}</span>
             </div>
           ))}

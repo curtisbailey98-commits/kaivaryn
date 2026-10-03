@@ -30,8 +30,8 @@ export const PLATFORM_LAYERS = [
   {
     n: "03",
     name: "Nine-return intelligence",
-    body: "A bounded R1–R9 cycle per product — Reality through Witness — ending at ZERO_RETURN with a signed continuity state the next cycle starts from.",
-    items: ["R1–R9 cycle", "Continuity state", "Lessons & memory", "Champion / challenger methods"],
+    body: "A bounded nine-step analysis cycle per product — from what the data shows, through critique and calibration, to a signed record the next cycle starts from.",
+    items: ["Nine-step cycle", "Signed record of findings", "Lessons & memory", "Primary / challenger methods"],
   },
   {
     n: "02",
@@ -52,7 +52,7 @@ export const OPERATING_LOOP = [
   { n: "02", name: "Route", body: "Deterministic rules send it to analysis, an answer, a plan, a briefing, a schedule, or a playbook. The routing reason is recorded." },
   { n: "03", name: "Analyze", body: "Detection plus the nine-return cycle on Revenue Recovery, Operations Efficiency, or both." },
   { n: "04", name: "Gate", body: "Plans create an owned task and pause at an approval gate. Nothing outside Kaivaryn is executed on its own." },
-  { n: "05", name: "Brief", body: "Digests and recalls land in the Inbox — what changed, what is pending, and what the last Witness decided." },
+  { n: "05", name: "Brief", body: "Digests and recalls land in the Inbox — what changed, what is pending, and what the last analysis concluded." },
   { n: "06", name: "Measure", body: "Cash recovered and realized savings are recorded outcomes, kept separate from pipeline and projected savings." },
 ] as const;
 

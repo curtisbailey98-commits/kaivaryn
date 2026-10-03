@@ -9,6 +9,8 @@ import { CHART } from "@/components/charts/theme";
 import { getProductIntelligenceDashboard } from "@/lib/si/dashboard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+export const metadata = { title: "Revenue analytics" };
+
 export const dynamic = "force-dynamic";
 
 export default async function RevenueAnalyticsPage() {
@@ -22,7 +24,7 @@ export default async function RevenueAnalyticsPage() {
     return (
       <div>
         <Link href="/app/revenue" className="text-xs text-neutral-500">← Revenue</Link>
-        <EmptyState className="mt-6" title="No data for analytics" description="Add opportunities or use the DEMO org seed." />
+        <EmptyState className="mt-6" title="No data for analytics" description="Add opportunities or import data to see analytics." />
       </div>
     );
   }
@@ -35,10 +37,9 @@ export default async function RevenueAnalyticsPage() {
       <p className="mt-2 text-xs text-neutral-500">{chartData.sourceNote}</p>
       <Card className="mt-6 border-amber-500/20">
         <CardHeader>
-          <CardTitle className="text-base">720 SI · RR intelligence</CardTitle>
+          <CardTitle className="text-base">Improvement cycles</CardTitle>
           <CardDescription>
-            Succeeded cycles {si.kpis.cycles_succeeded} · toward META81 {si.meta.toward_meta81}/9 · canonical{" "}
-            {si.kpis.canonical_zero_state ? "YES" : "NO"} · learning {si.kpis.learning_confidence}
+            {si.kpis.cycles_succeeded} completed analysis cycle{si.kpis.cycles_succeeded === 1 ? "" : "s"} · learning confidence {String(si.kpis.learning_confidence).toLowerCase()}
           </CardDescription>
         </CardHeader>
         <CardContent>

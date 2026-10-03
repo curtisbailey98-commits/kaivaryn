@@ -15,12 +15,12 @@ const ASKS = [
 ];
 
 const ROUTES: Array<{ route: CommandRoute; label: string; dest: string }> = [
-  { route: "ANALYZE", label: "Analyze", dest: "Nine-return cycle R1–R9" },
-  { route: "ANSWER", label: "Answer", dest: "Deterministic query on your data" },
+  { route: "ANALYZE", label: "Analyze", dest: "Nine-return analysis cycle" },
+  { route: "ANSWER", label: "Answer", dest: "Rule-based answer from your data" },
   { route: "BUILD", label: "Plan", dest: "Owned task + approval gate" },
   { route: "DIGEST", label: "Brief", dest: "Digest saved to Inbox" },
   { route: "STANDING", label: "Schedule", dest: "Standing order" },
-  { route: "STATUS", label: "Status", dest: "Operate health check" },
+  { route: "STATUS", label: "Status", dest: "Workspace health check" },
 ];
 
 /** Uses the product's real routing rules (src/lib/operate/router.ts) — only the typing is animated. */

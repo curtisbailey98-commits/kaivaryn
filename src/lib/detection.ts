@@ -524,7 +524,7 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
         ruleId: "manual_repetition",
         inefficiencyId: i.id,
         evidenceSummary: `${i.hoursWastedWeekly ?? 0} hrs/week on ${i.title}`,
-        analysis: "Manual repetition detected from hours or type=manual_process.",
+        analysis: "Repeated manual work detected from logged hours and process type.",
         recommendation: "Evaluate automation candidate via approval queue.",
         confidence: "medium",
         impactEstimate: i.estimatedWasteAnnual,

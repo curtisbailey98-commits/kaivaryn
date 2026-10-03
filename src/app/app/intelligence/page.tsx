@@ -12,6 +12,8 @@ import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
 import { MONEY } from "@/lib/money-glossary";
 
+export const metadata = { title: "Intelligence" };
+
 export const dynamic = "force-dynamic";
 
 function ProductPanel({
@@ -92,7 +94,7 @@ function ProductPanel({
         <Card>
           <CardHeader>
             <CardTitle>Recent improvement cycles</CardTitle>
-            <CardDescription>Recorded runs against your tenant data</CardDescription>
+            <CardDescription>Recorded analysis runs against your workspace data</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -110,7 +112,7 @@ function ProductPanel({
                     <tr key={c.id} className="border-t border-neutral-900 text-neutral-300">
                       <td className="py-1.5 pr-3">{humanizeLabel(c.status)}</td>
                       <td className="py-1.5 pr-3">{c.returnIndex}/9</td>
-                      <td className="py-1.5 pr-3">{humanizeLabel(c.methodRole)}</td>
+                      <td className="py-1.5 pr-3">{c.methodRole === "champion" ? "Primary" : c.methodRole === "challenger" ? "Challenger" : humanizeLabel(c.methodRole)}</td>
                       <td className="py-1.5">
                         {c.completedAt
                           ? new Date(c.completedAt).toLocaleString("en-US", { timeZone: "America/New_York" })
@@ -127,11 +129,11 @@ function ProductPanel({
 
       <details className="rounded-xl border border-neutral-800 bg-neutral-950/60">
         <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-neutral-300 hover:text-white">
-          Advanced · engine controls
+          Advanced · analysis controls
         </summary>
         <div className="space-y-4 border-t border-neutral-900 px-4 py-4">
           <p className="text-xs text-neutral-500">
-            Internal recursive-intelligence controls. Safe for analysts; outcomes still require recorded evidence.
+            Re-run or compare analysis cycles. Safe for analysts; outcomes still require recorded evidence.
           </p>
           <div className="flex flex-wrap gap-2">
             <form action={startNineReturnCycle}>
@@ -223,7 +225,7 @@ export default async function IntelligencePage() {
         title="Client Intelligence"
         description="What improved in your workspace, what the ledger shows, and what to do next — without inventing results."
       />
-      {ctx.organization?.isDemo ? <Badge tone="demo">Demo tenant</Badge> : null}
+      {ctx.organization?.isDemo ? <Badge tone="demo">Demo workspace</Badge> : null}
 
       <ProductPanel
         title="Revenue Recovery"

@@ -110,11 +110,11 @@ async function main() {
   const stat = await executeCommand(A, "status");
   assert(stat.status === "OK" && /Health (OK|DEGRADED)/.test(stat.message), "STATUS executes with measured health");
   const an = await executeCommand(A, "Analyze revenue leakage in billing");
-  assert(an.status === "OK" && /R1–R9 complete/.test(an.message), `ANALYZE runs nine-return cycle (${an.message.slice(0, 80)})`);
+  assert(an.status === "OK" && /nine-step analysis complete/.test(an.message), `ANALYZE runs nine-return cycle (${an.message.slice(0, 80)})`);
   const dg = await executeCommand(A, "digest");
   assert(dg.status === "OK" && dg.route === "DIGEST", "DIGEST executes");
   const rc = await executeCommand(A, "recall");
-  assert(rc.status === "OK" && /continuity state/.test(rc.message), "RECALL returns continuity after cycles");
+  assert(rc.status === "OK" && /analysis summar(y|ies)/.test(rc.message), "RECALL returns continuity after cycles");
   const sr = await executeCommand(A, "find Northwind");
   assert(sr.status === "OK" && sr.route === "SEARCH", "SEARCH executes");
   const hp = await executeCommand(A, "help");

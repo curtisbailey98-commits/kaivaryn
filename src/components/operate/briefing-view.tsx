@@ -13,18 +13,18 @@ export function BriefingView({ kind, bodyJson }: { kind: string; bodyJson: strin
     if (!b) return <p className="text-sm text-neutral-500">Briefing body unavailable.</p>;
     return (
       <div className="space-y-5">
-        {b.empty ? <p className="rounded-lg border border-dashed border-neutral-800 p-4 text-sm text-neutral-400">Nothing recorded yet. Run an analysis to create the first continuity state.</p> : null}
+        {b.empty ? <p className="rounded-lg border border-dashed border-neutral-800 p-4 text-sm text-neutral-400">Nothing recorded yet. Run an analysis to create the first saved summary.</p> : null}
         {b.continuity.length ? (
           <section>
-            <p className="si-label">Continuity (Witness-signed ZERO_STATE)</p>
+            <p className="si-label">Latest signed analysis summaries</p>
             <div className="mt-2 grid gap-3 md:grid-cols-2">
               {b.continuity.map((c) => (
                 <div key={c.product + c.hash} className="rounded-lg border border-neutral-800 bg-neutral-950/60 p-4">
                   <p className="text-xs font-semibold text-amber-300">{humanProduct(c.product)} · v{c.version}</p>
                   <p className="mt-2 text-sm text-neutral-300">{c.summary || "—"}</p>
-                  {c.witness ? <p className="mt-2 text-xs text-neutral-400">Witness: {c.witness}</p> : null}
+                  {c.witness ? <p className="mt-2 text-xs text-neutral-400">Conclusion: {c.witness}</p> : null}
                   {c.hints.length ? <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-neutral-500">{c.hints.map((h) => <li key={h}>{h}</li>)}</ul> : null}
-                  <p className="mt-2 font-mono text-[10px] text-neutral-600">hash {c.hash}</p>
+                  <p className="mt-2 font-mono text-[10px] text-neutral-600">Record {c.hash.slice(0, 12)}</p>
                 </div>
               ))}
             </div>
@@ -102,7 +102,7 @@ export function BriefingView({ kind, bodyJson }: { kind: string; bodyJson: strin
           <div key={i.product} className="rounded-lg border border-neutral-800 p-3 text-sm">
             <p className="text-xs font-semibold text-amber-300">{i.product}</p>
             <p className="mt-1 text-neutral-400">{i.lastCycle ? `Last cycle ${i.status} · ${i.lastCycle.slice(0, 10)}` : "No cycle yet"}</p>
-            {i.witness ? <p className="mt-1 text-xs text-neutral-500">Witness: {i.witness}</p> : null}
+            {i.witness ? <p className="mt-1 text-xs text-neutral-500">Conclusion: {i.witness}</p> : null}
           </div>
         ))}
       </section>

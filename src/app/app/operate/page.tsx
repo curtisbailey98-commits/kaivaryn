@@ -12,6 +12,8 @@ import { StatusDot } from "@/components/motion";
 import { formatDate } from "@/lib/utils";
 import { runHealthCheckAction } from "../operate-actions";
 
+export const metadata = { title: "Operate health" };
+
 export const dynamic = "force-dynamic";
 
 export default async function OperatePage() {
@@ -26,7 +28,7 @@ export default async function OperatePage() {
       <PageHeader
         eyebrow="Operate"
         title="Is the operating intelligence healthy?"
-        description="Measured health for this workspace: database, intelligence engine freshness, detection, schedules, runs, and integrations. Components report only what was observed; missing integrations are labeled, never assumed."
+        description="Measured health for this workspace: database, analysis freshness, detection, schedules, runs, and integrations. Components report only what was observed; missing integrations are labeled, never assumed."
         actions={<form action={runHealthCheckAction}><Button type="submit">Run health check</Button></form>}
       />
 

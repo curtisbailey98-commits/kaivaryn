@@ -10,6 +10,8 @@ import { can } from "@/lib/rbac";
 import { runPlaybookAction, savePlaybookAction, deletePlaybookAction } from "../operate-actions";
 import { TrendingUp, Settings2, Layers, ShieldCheck, FileText, HeartPulse } from "lucide-react";
 
+export const metadata = { title: "Playbooks" };
+
 export const dynamic = "force-dynamic";
 
 const PRODUCT_META: Record<string, { label: string; icon: typeof TrendingUp; tone: string }> = {
@@ -31,7 +33,7 @@ export default async function PlaybooksPage() {
       <PageHeader
         eyebrow="Playbooks"
         title="Reusable plays for revenue and operations"
-        description="Each playbook is an ordered set of steps — detection, nine-return analysis, answers, owned tasks, approval gates, and briefings. Running one creates a recorded run. Governance plays pause for a human decision before they continue."
+        description="Each playbook is an ordered set of steps — detection, nine-step analysis, answers, owned tasks, approval gates, and briefings. Running one creates a recorded run. Governance plays pause for a human decision before they continue."
       />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -100,12 +100,12 @@ export const COMMAND_EXAMPLES: Array<{ label: string; text: string; route: Comma
 ];
 
 export const COMMAND_HELP: Array<{ route: CommandRoute; name: string; triggers: string; does: string }> = [
-  { route: "ANALYZE", name: "Analyze", triggers: "analyze · assess · diagnose · review · investigate (default)", does: "Runs the nine-return R1–R9 intelligence cycle on Revenue Recovery, Operations Efficiency, or both. Ends at ZERO_RETURN with a Witness-signed continuity state." },
-  { route: "ANSWER", name: "Answer", triggers: "how much · what · which · top · questions ending in ?", does: "Deterministic answer from your tenant data. Potential, cash recovered, projected and realized savings stay separate." },
+  { route: "ANALYZE", name: "Analyze", triggers: "analyze · assess · diagnose · review · investigate (default)", does: "Runs the nine-step analysis cycle (R1–R9) on Revenue Recovery, Operations Efficiency, or both, and records a verifiable summary of what it found." },
+  { route: "ANSWER", name: "Answer", triggers: "how much · what · which · top · questions ending in ?", does: "Rule-based answer from your workspace data. Potential, cash recovered, projected and realized savings stay separate." },
   { route: "BUILD", name: "Plan & build", triggers: "build · plan · fix · set up · launch · draft", does: "Creates a governed action plan: owned tasks plus an approval gate. Nothing external executes until a human approves, and integrations not connected are labeled as blockers." },
-  { route: "STATUS", name: "Status", triggers: "status · health · health check", does: "Operate health check: database latency, engine freshness, overdue schedules, failed runs, integrations." },
+  { route: "STATUS", name: "Status", triggers: "status · health · health check", does: "Workspace health check: database latency, analysis freshness, overdue schedules, failed runs, integrations." },
   { route: "DIGEST", name: "Briefing", triggers: "digest · brief me · summary · what changed", does: "Executive briefing snapshot saved to your Inbox." },
-  { route: "RECALL", name: "Recall", triggers: "recall · remember · what did Kaivaryn learn", does: "Canonical continuity state, lessons, and memory from completed cycles. Honest if empty." },
+  { route: "RECALL", name: "Recall", triggers: "recall · remember · what did Kaivaryn learn", does: "What Kaivaryn has learned from completed analysis cycles — lessons and saved context. Honest if empty." },
   { route: "STANDING", name: "Standing order", triggers: "every hour / day / week …", does: "Schedules a recurring analysis, briefing, health check, or playbook." },
   { route: "PLAYBOOK", name: "Playbook", triggers: "run playbook <slug> · save playbook <name> :: <directive>", does: "Runs a multi-step playbook with recorded run history, or saves a reusable one." },
   { route: "REQUEST", name: "Request", triggers: "request: <what you need>", does: "Records an owner action request (task + approval). Kaivaryn does not perform it on its own." },

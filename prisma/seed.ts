@@ -189,8 +189,8 @@ async function main() {
 
   const org = await prisma.organization.upsert({
     where: { slug: "acme-demo" },
-    update: { name: "Acme Demo (DEMO)", isDemo: true },
-    create: { name: "Acme Demo (DEMO)", slug: "acme-demo", isDemo: true },
+    update: { name: "Acme Demo", isDemo: true },
+    create: { name: "Acme Demo", slug: "acme-demo", isDemo: true },
   });
 
   // Isolation foil org (empty entitlements for cross-tenant tests)
@@ -299,7 +299,7 @@ async function main() {
   const custA = await prisma.customer.create({
     data: {
       organizationId: org.id,
-      name: "[DEMO] Northwind Hospital",
+      name: "Northwind Hospital",
       email: "ap@northwind.demo",
       status: "ACTIVE",
       lastActivityAt: days(5),
@@ -311,7 +311,7 @@ async function main() {
   const custB = await prisma.customer.create({
     data: {
       organizationId: org.id,
-      name: "[DEMO] Contoso Clinics",
+      name: "Contoso Clinics",
       email: "billing@contoso.demo",
       status: "DORMANT",
       lastActivityAt: days(120),
@@ -323,7 +323,7 @@ async function main() {
   const custC = await prisma.customer.create({
     data: {
       organizationId: org.id,
-      name: "[DEMO] Fabrikam Retail",
+      name: "Fabrikam Retail",
       email: "pay@fabrikam.demo",
       status: "ACTIVE",
       lastActivityAt: days(2),
@@ -345,7 +345,7 @@ async function main() {
       {
         organizationId: org.id,
         customerId: custA.id,
-        title: "[DEMO] Expansion — imaging suite",
+        title: "Expansion — imaging suite",
         status: "OPEN",
         stage: "proposal",
         amount: 145000,
@@ -356,7 +356,7 @@ async function main() {
       {
         organizationId: org.id,
         customerId: custC.id,
-        title: "[DEMO] Retail loyalty upsell",
+        title: "Retail loyalty upsell",
         status: "OPEN",
         stage: "discovery",
         amount: 28000,
@@ -407,7 +407,7 @@ async function main() {
       {
         organizationId: org.id,
         customerId: custA.id,
-        title: "[DEMO] Quarterly business review — Northwind",
+        title: "Quarterly business review — Northwind",
         status: "COMPLETED",
         scheduledAt: days(3),
         source: "demo_seed",
@@ -416,7 +416,7 @@ async function main() {
       {
         organizationId: org.id,
         customerId: custC.id,
-        title: "[DEMO] Onboarding call",
+        title: "Onboarding call",
         status: "SCHEDULED",
         scheduledAt: days(-2),
         source: "demo_seed",
@@ -432,7 +432,7 @@ async function main() {
         customerId: custB.id,
         channel: "EMAIL",
         direction: "INBOUND",
-        subject: "[DEMO] Contract question unanswered",
+        subject: "Contract question unanswered",
         answered: false,
         occurredAt: days(3),
         source: "demo_seed",
@@ -443,7 +443,7 @@ async function main() {
         customerId: custA.id,
         channel: "PHONE",
         direction: "OUTBOUND",
-        subject: "[DEMO] Collections follow-up",
+        subject: "Collections follow-up",
         answered: true,
         occurredAt: days(1),
         source: "demo_seed",
@@ -456,7 +456,7 @@ async function main() {
     data: {
       organizationId: org.id,
       departmentId: finance.id,
-      name: "[DEMO] Invoice reconciliation",
+      name: "Invoice reconciliation",
       description: "Weekly spreadsheet reconcile ERP ↔ billing",
       avgCycleDays: 9,
       stepsJson: JSON.stringify(["export", "match", "exception", "post"]),
@@ -468,7 +468,7 @@ async function main() {
     data: {
       organizationId: org.id,
       departmentId: ops.id,
-      name: "[DEMO] Exception triage",
+      name: "Exception triage",
       description: "Manual exception queue",
       avgCycleDays: 12,
       source: "demo_seed",
@@ -540,7 +540,7 @@ async function main() {
         fromStatus: null,
         toStatus: o.status,
         actorId: demoUser.id,
-        note: "DEMO seed",
+        note: "Demo workspace setup",
       },
     });
     await prisma.evidence.create({
@@ -548,7 +548,7 @@ async function main() {
         organizationId: org.id,
         opportunityId: created.id,
         kind: "FACT",
-        summary: `DEMO evidence for ${o.title}`,
+        summary: `Sample evidence for ${o.title}`,
         source: o.source,
       },
     });
@@ -558,8 +558,8 @@ async function main() {
   // Demo cadence: one RR and one OE item identified per week across the 8-week charts (52…10 days ago),
   // so the demo has no empty weeks. Recovery/resolution dates always follow identification.
   await mkOpp({
-    title: "[DEMO] Underbilled contract services — Q3",
-    description: "DEMO: Variance between contracted rates and invoiced amounts for managed services (linked to Northwind).",
+    title: "Underbilled contract services — Q3",
+    description: "Variance between contracted rates and invoiced amounts for managed services (linked to Northwind).",
     source: "billing_export",
     department: "Finance",
     type: "underbilling",
@@ -569,8 +569,8 @@ async function main() {
     identifiedAt: daysAgo(38),
   });
   await mkOpp({
-    title: "[DEMO] Uncollected late fees",
-    description: "DEMO: Eligible late fees not applied per policy.",
+    title: "Uncollected late fees",
+    description: "Eligible late fees not applied per policy.",
     source: "ar_aging",
     department: "Collections",
     type: "fee_leakage",
@@ -583,8 +583,8 @@ async function main() {
     recoveredAt: daysAgo(10),
   });
   await mkOpp({
-    title: "[DEMO] Missed change-order revenue",
-    description: "DEMO: Scope changes delivered without corresponding invoices.",
+    title: "Missed change-order revenue",
+    description: "Scope changes delivered without corresponding invoices.",
     source: "project_mgmt",
     department: "Delivery",
     type: "change_order",
@@ -594,8 +594,8 @@ async function main() {
     identifiedAt: daysAgo(17),
   });
   await mkOpp({
-    title: "[DEMO] Duplicate discount applied",
-    description: "DEMO: Stacked discounts beyond authorized matrix.",
+    title: "Duplicate discount applied",
+    description: "Stacked discounts beyond authorized matrix.",
     source: "crm",
     department: "Sales Ops",
     type: "discount_abuse",
@@ -608,8 +608,8 @@ async function main() {
     assigneeId: demoUser.id,
   });
   await mkOpp({
-    title: "[DEMO] Payer underpayment batch",
-    description: "DEMO: Allowed amount below contracted fee schedule.",
+    title: "Payer underpayment batch",
+    description: "Allowed amount below contracted fee schedule.",
     source: "claims",
     department: "Revenue Cycle",
     type: "underpayment",
@@ -622,8 +622,8 @@ async function main() {
     recoveredAt: daysAgo(7),
   });
   await mkOpp({
-    title: "[DEMO] Contract rate variance — renewals",
-    description: "DEMO: Renewals billed at legacy rates below current schedule.",
+    title: "Contract rate variance — renewals",
+    description: "Renewals billed at legacy rates below current schedule.",
     source: "contracts",
     department: "Finance",
     type: "contract",
@@ -633,8 +633,8 @@ async function main() {
     identifiedAt: daysAgo(10),
   });
   await mkOpp({
-    title: "[DEMO] Denial write-off cluster",
-    description: "DEMO: Cluster of denials closed without appeal.",
+    title: "Denial write-off cluster",
+    description: "Cluster of denials closed without appeal.",
     source: "claims",
     department: "Revenue Cycle",
     type: "denial",
@@ -708,7 +708,7 @@ async function main() {
         fromStatus: null,
         toStatus: o.status,
         actorId: demoUser.id,
-        note: "DEMO seed",
+        note: "Demo workspace setup",
       },
     });
     await prisma.evidence.create({
@@ -716,7 +716,7 @@ async function main() {
         organizationId: org.id,
         inefficiencyId: created.id,
         kind: "FACT",
-        summary: `DEMO evidence for ${o.title}`,
+        summary: `Sample evidence for ${o.title}`,
         source: o.source,
       },
     });
@@ -724,8 +724,8 @@ async function main() {
   };
 
   await mkIneff({
-    title: "[DEMO] Manual invoice reconciliation",
-    description: "DEMO: Analysts reconcile invoices in spreadsheets weekly — linked to Finance process.",
+    title: "Manual invoice reconciliation",
+    description: "Analysts reconcile invoices in spreadsheets weekly — linked to Finance process.",
     source: "time_study",
     department: "Finance",
     type: "manual_process",
@@ -738,8 +738,8 @@ async function main() {
     identifiedAt: daysAgo(31),
   });
   await mkIneff({
-    title: "[DEMO] Duplicate data entry across ERP and CRM",
-    description: "DEMO: Same customer updates entered twice.",
+    title: "Duplicate data entry across ERP and CRM",
+    description: "Same customer updates entered twice.",
     source: "interview",
     department: "Ops",
     type: "rework",
@@ -754,8 +754,8 @@ async function main() {
     resolvedAt: daysAgo(9),
   });
   await mkIneff({
-    title: "[DEMO] Ad-hoc report generation",
-    description: "DEMO: Leadership packs assembled manually each month.",
+    title: "Ad-hoc report generation",
+    description: "Leadership packs assembled manually each month.",
     source: "observation",
     department: "Strategy",
     type: "reporting",
@@ -766,8 +766,8 @@ async function main() {
     identifiedAt: daysAgo(17),
   });
   await mkIneff({
-    title: "[DEMO] Exception queue backlog",
-    description: "DEMO: Exceptions age beyond SLA without owner.",
+    title: "Exception queue backlog",
+    description: "Exceptions age beyond SLA without owner.",
     source: "ticket_system",
     department: "Support",
     type: "queue_delay",
@@ -780,8 +780,8 @@ async function main() {
     resolvedAt: daysAgo(20),
   });
   await mkIneff({
-    title: "[DEMO] Handoff lag — sales to delivery",
-    description: "DEMO: Average 9-day lag between close and kickoff.",
+    title: "Handoff lag — sales to delivery",
+    description: "Average 9-day lag between close and kickoff.",
     source: "process_map",
     department: "Delivery",
     type: "handoff_delay",
@@ -793,8 +793,8 @@ async function main() {
     identifiedAt: daysAgo(10),
   });
   await mkIneff({
-    title: "[DEMO] Spreadsheet inventory sync",
-    description: "DEMO: Nightly inventory counts reconciled in sheets.",
+    title: "Spreadsheet inventory sync",
+    description: "Nightly inventory counts reconciled in sheets.",
     source: "time_study",
     department: "Ops",
     type: "manual_process",
@@ -812,8 +812,8 @@ async function main() {
     data: {
       organizationId: org.id,
       type: "AUTOMATION_CANDIDATE",
-      title: "[DEMO] Propose RPA for invoice reconciliation",
-      description: "DEMO: Candidate only. No external automation will run without explicit approval.",
+      title: "Propose RPA for invoice reconciliation",
+      description: "Candidate only. No external automation will run without explicit approval.",
       status: "PENDING",
       payloadJson: JSON.stringify({
         inefficiencyTitle: "Manual invoice reconciliation",
@@ -827,7 +827,7 @@ async function main() {
     data: {
       organizationId: org.id,
       type: "EXTERNAL_ACTION",
-      title: "[DEMO] Push claim adjustment to billing_system",
+      title: "Push claim adjustment to billing system",
       description: "Needs integration billing_system — will not execute.",
       status: "PENDING",
       needsIntegration: "billing_system",
@@ -860,7 +860,7 @@ async function main() {
     data: {
       organizationId: org.id,
       userId: demoUser.id,
-      title: "[DEMO] Welcome to Action Center",
+      title: "Welcome to Action Center",
       body: "Review critical RR/OE items and pending approvals.",
       href: "/app/action-center",
     },
@@ -885,12 +885,12 @@ async function main() {
   {
     for (const id of [org.id, other.id]) await ensureSystemPlaybooks(id);
     const opCtx = { organizationId: org.id, userId: demoOwner.id, role: "OWNER" };
-    await createStandingOrder(opCtx, { directive: "Every day executive digest", title: "[DEMO] Daily executive digest" });
+    await createStandingOrder(opCtx, { directive: "Every day executive digest", title: "Daily executive digest" });
     const sweep = await findPlaybook(opCtx, "revenue-leakage-sweep");
-    await createStandingOrder(opCtx, { directive: "Every week run playbook revenue-leakage-sweep", title: "[DEMO] Weekly revenue leakage sweep", kind: "PLAYBOOK", playbookId: sweep?.id ?? null });
-    await createStandingOrder(opCtx, { directive: "Every hour health check", title: "[DEMO] Hourly health check" });
+    await createStandingOrder(opCtx, { directive: "Every week run playbook revenue-leakage-sweep", title: "Weekly revenue leakage sweep", kind: "PLAYBOOK", playbookId: sweep?.id ?? null });
+    await createStandingOrder(opCtx, { directive: "Every hour health check", title: "Hourly health check" });
     const ini = await createInitiative(opCtx, {
-      name: "[DEMO] Q4 billing leakage cleanup",
+      name: "Q4 billing leakage cleanup",
       description: "Demo initiative grouping the highest-scoring revenue items. Amounts are seeded demo estimates, not client results.",
       product: "REVENUE_RECOVERY",
     });
@@ -991,7 +991,7 @@ async function main() {
   console.log("  CEO:         curtis@kaivaryn.com / [see BOOTSTRAP_CEO_PASSWORD or seed fallback]");
   console.log("  CSEO:        don@kaivaryn.com / [see BOOTSTRAP_CSEO_PASSWORD or seed fallback]");
   console.log("  Demo user:   demo@kaivaryn.com / DemoClient!2026");
-  console.log("  Demo org:    Acme Demo (DEMO)");
+  console.log("  Demo org:    Acme Demo (isDemo)");
   console.log("  Other org:   Other Co (TEST) — isolation foil");
 }
 

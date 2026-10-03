@@ -639,7 +639,7 @@ export async function queueWeeklyDigest() {
     ``,
     `Note: Estimates ≠ recovered/realized. This draft is queued only.`,
     settings.notifyEmailEnabled
-      ? `Email toggle is ON — delivery still requires configured SMTP (not faked).`
+      ? `Email notifications are on — delivery requires an email provider to be configured.`
       : `Email toggle is OFF — in-app notification only.`,
   ].join("\n");
 
@@ -657,7 +657,7 @@ export async function queueWeeklyDigest() {
   await notifyOrgManagers({
     organizationId: ctx.organizationId,
     title: "Weekly digest queued",
-    body: "An EmailDraft was created. SMTP send is never faked — open Reports for the live brief.",
+    body: "A draft weekly digest was saved. Nothing was emailed — open Reports for the live brief.",
     href: "/app/reports?type=weekly_brief",
   });
 

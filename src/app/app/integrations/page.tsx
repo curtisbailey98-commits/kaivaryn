@@ -4,6 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { smtpConfigured, stripeLinkConfigured } from "@/lib/si-connectors";
 import { getPricingConfig } from "@/lib/pricing";
 
+export const metadata = { title: "Integrations" };
+
 export const dynamic = "force-dynamic";
 
 const tone: Record<string, "success" | "warning" | "danger" | "default" | "info"> = {
@@ -40,7 +42,7 @@ export default async function IntegrationsPage() {
     <div>
       <h1 className="text-2xl font-semibold">Integrations</h1>
       <p className="mt-2 text-sm text-neutral-400">
-        Honest statuses only — never fabricated “connected” without configuration (720 SI connectors pattern).
+        Honest statuses only — nothing is shown as “connected” until it is actually configured.
       </p>
 
       <h2 className="si-label mt-8">Organization connections</h2>

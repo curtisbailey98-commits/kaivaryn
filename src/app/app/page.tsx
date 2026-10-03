@@ -342,7 +342,7 @@ export default async function AppHomePage() {
       <Card className="border-emerald-500/20 bg-emerald-500/[0.04]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-400" /> What improved</CardTitle>
-          <CardDescription>Tenant patterns from recorded outcomes only — aligned with the recovery and savings ledger.</CardDescription>
+          <CardDescription>Patterns from your recorded outcomes only — aligned with the recovery and savings ledger.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap gap-3 text-xs text-neutral-400">

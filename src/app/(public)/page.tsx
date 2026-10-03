@@ -175,7 +175,7 @@ export default async function HomePage() {
             <Reveal variant="scale" delay={120}>
               <div className="public-card p-6 sm:p-8">
                 <NineReturnRing />
-                <p className="mt-4 text-center text-sm text-neutral-400">The analysis step runs nine returns — Reality to Witness — and closes at <span className="font-mono text-emerald-400">ZERO_RETURN</span>.</p>
+                <p className="mt-4 text-center text-sm text-neutral-400">The analysis step runs nine bounded stages — from what the data shows to a signed record — then stops. No open-ended loops.</p>
               </div>
             </Reveal>
           </div>

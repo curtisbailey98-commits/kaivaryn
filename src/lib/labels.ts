@@ -53,11 +53,33 @@ export function humanizeLabel(raw: string | null | undefined): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-/** Strip engine prefixes from titles shown to clients. */
+/** Strip engine/demo tags from titles shown to clients (anywhere in the string). */
 export function clientTitle(raw: string | null | undefined): string {
   if (!raw) return "Untitled";
   return raw
-    .replace(/^\[DETECT\]\s*/i, "")
-    .replace(/^\[DEMO\]\s*/i, "")
+    .replace(/\[(DETECT|DEMO)\]\s*/gi, "")
+    .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  "si.cycle.created": "Analysis cycle started",
+  "si.cycle.stage_exited": "Analysis step completed",
+  "si.cycle.witness_committed": "Analysis cycle recorded",
+  "si.meta81.computed": "Multi-cycle review computed",
+  "oprun.succeeded": "Run succeeded",
+  "oprun.failed": "Run failed",
+  "command.executed": "Command run",
+  "initiative.created": "Initiative created",
+  "playbook.saved": "Playbook saved",
+  "standing_order.created": "Standing order created",
+  "seed.completed": "Workspace prepared",
+  "chief.manufacture.staged": "Agent build staged",
+};
+
+/** Plain-English audit event names for client screens (raw codes stay in the audit log). */
+export function auditActionLabel(action: string | null | undefined): string {
+  if (!action) return "—";
+  if (AUDIT_ACTION_LABELS[action]) return AUDIT_ACTION_LABELS[action];
+  return humanizeLabel(action.replace(/^si\./, "analysis ").replace(/\./g, " "));
 }

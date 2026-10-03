@@ -22,6 +22,8 @@ import {
   cancelRunAction,
 } from "../operate-actions";
 
+export const metadata = { title: "Automations" };
+
 export const dynamic = "force-dynamic";
 
 const KIND_LABEL: Record<string, string> = { ANALYZE: "Analysis", STATUS: "Health check", DIGEST: "Digest", PLAYBOOK: "Playbook" };
@@ -191,7 +193,7 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
           ]}
           stacked
           height={200}
-          footnote="Measured from OpRun records in this organization."
+          footnote="Measured from recorded runs in this organization."
         />
       ) : null}
 
@@ -239,7 +241,7 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
         <Card>
           <CardHeader className="flex items-center justify-between gap-2">
             <div>
-              <CardTitle>Detection engine runs</CardTitle>
+              <CardTitle>Detection runs</CardTitle>
               <CardDescription>Rule-based detection across revenue and operations data.</CardDescription>
             </div>
             {canRun ? <form action={runIntelligence}><Button size="sm" variant="secondary" type="submit">Run detection</Button></form> : null}

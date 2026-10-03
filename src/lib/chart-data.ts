@@ -95,7 +95,7 @@ export async function getRevenueChartData(organizationId: string) {
     };
   }).filter((t) => t.value > 0);
 
-  return { trend, funnel, taxonomy, sourceNote: "From Opportunity rows · potential ≠ cash recovered. Recovered stage shows cash." };
+  return { trend, funnel, taxonomy, sourceNote: "From your opportunities · potential (estimate) ≠ cash recovered. Recovered stage shows cash." };
 }
 
 export async function getOperationsChartData(organizationId: string) {
@@ -160,7 +160,7 @@ export async function getOperationsChartData(organizationId: string) {
       )
     : 0;
 
-  return { trend, heat, readiness, sourceNote: "From Inefficiency rows · projected ≠ realized" };
+  return { trend, heat, readiness, sourceNote: "From your inefficiencies · projected (estimate) ≠ realized" };
 }
 
 export async function getActionCenterChartData(organizationId: string) {
@@ -226,7 +226,7 @@ export async function getWeeklyBriefChartData(organizationId: string) {
     projectedRr: r.projected,
     projectedOe: ops.trend[i]?.projected ?? 0,
   }));
-  return { weeks, ...cumulative, sourceNote: "Weekly identified vs recovered/realized from tenant timestamps" };
+  return { weeks, ...cumulative, sourceNote: "Weekly identified vs recovered/realized, by recorded dates" };
 }
 
 /**
@@ -356,7 +356,7 @@ export async function getApprovalsChartData(organizationId: string) {
     volume,
     byType,
     pendingCount: pending.length,
-    sourceNote: "From ApprovalRequest rows · decisions recorded only",
+    sourceNote: "From your approval queue · recorded decisions only",
   };
 }
 
@@ -404,7 +404,7 @@ export async function getSettingsUsageChartData(organizationId: string) {
       audits: audits.length,
       notifications: notifications.length,
     },
-    sourceNote: "Workspace activity from ImportJob / IntelligenceRun / AuditLog / Notification",
+    sourceNote: "Workspace activity: imports, analysis runs, audit events and notifications",
   };
 }
 

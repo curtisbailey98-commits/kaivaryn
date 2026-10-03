@@ -1,13 +1,16 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getPricingConfig, centsToDollars, resolveZoomSchedulerUrl } from "@/lib/pricing";
-import { ExamplePricingMotion } from "@/components/charts/example-public-charts";
 import { AmbientField, BreathGrid, Reveal, Magnetic, SectionRule, CountUpCurrency } from "@/components/motion";
 
-export const metadata: Metadata = { title: "Pricing" };
+export const metadata: Metadata = {
+  title: "Pricing",
+  description:
+    "Kaivaryn pricing: $10,000/month for our first 10 clients, then $20,000/month. Revenue Recovery and Operations Efficiency workspaces, activated after a demo.",
+};
 export const dynamic = "force-dynamic";
 
-const included = ["Revenue Recovery and Operations Efficiency workspaces", "Nine-return intelligence cycles with signed continuity", "Command, playbooks, standing orders, and run history", "Inbox briefings, initiatives, and operate health", "Tenant-isolated data and role-based access", "Evidence-aware intelligence and honest empty states", "Approval-gated actions and auditable decisions", "CSV imports, exports, and implementation guidance"];
+const included = ["Revenue Recovery and Operations Efficiency workspaces", "Nine-step analysis cycles with a signed record of findings", "Command, playbooks, standing orders, and run history", "Inbox briefings, initiatives, and operate health", "Tenant-isolated data and role-based access", "Evidence-aware intelligence and honest empty states", "Approval-gated actions and auditable decisions", "CSV imports, exports, and implementation guidance"];
 
 export default async function PricingPage() {
   const config = await getPricingConfig();
@@ -88,10 +91,7 @@ export default async function PricingPage() {
             <Link href="/activate" className="text-amber-400 hover:text-amber-300">Continue to immediate onboarding →</Link>
           </div>
         </Reveal>
-        <Reveal className="mt-12" variant="scale">
-          <ExamplePricingMotion />
-        </Reveal>
-        <p className="mt-4 text-xs text-neutral-600">Stripe checkout is exposed only after a completed demo. Server-side Stripe webhook verification activates entitlements and moves the client directly into onboarding.</p>
+        <p className="mt-6 text-xs text-neutral-600">Checkout is offered only after a completed demo. Payment is verified securely before your workspace is activated, and you move straight into onboarding.</p>
       </section>
     </>
   );

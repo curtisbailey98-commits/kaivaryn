@@ -50,7 +50,7 @@ export default async function SettingsPage() {
             ["Admin approval limit", settings.adminApprovalLimit],
             ["Require approval above", settings.requireApprovalAbove],
             ["Notify on assign", settings.notifyAssign ? "yes" : "no"],
-            ["Email notifications", settings.notifyEmailEnabled ? "on (needs SMTP)" : "off"],
+            ["Email notifications", settings.notifyEmailEnabled ? "on (needs an email provider)" : "off"],
           ].map(([k, v]) => (
             <div key={String(k)} className="rounded border border-neutral-900 p-3">
               <dt className="text-[10px] uppercase text-neutral-500">{k}</dt>
@@ -114,7 +114,7 @@ export default async function SettingsPage() {
       <h1 className="mt-1 text-2xl font-semibold">Settings</h1>
       <p className="mt-2 text-sm text-neutral-400">
         Detection thresholds, scoring weights, amount/role approval gates, and notification preferences.
-        Email send still requires SMTP — enabling the toggle alone never fakes delivery.
+        Email delivery requires an email provider to be configured — turning this on alone does not send anything.
       </p>
 
 
@@ -226,7 +226,7 @@ export default async function SettingsPage() {
           <p className="si-label">Approval thresholds (amount / role)</p>
           <p className="text-xs text-neutral-500">
             Manager may record recovery up to manager limit; Admin up to admin limit; above that needs Owner.
-            Amounts at/above &quot;require approval above&quot; always queue an ApprovalRequest instead of direct record.
+            Amounts at/above &quot;require approval above&quot; always go to the approval queue instead of being recorded directly.
           </p>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <label className="block">
@@ -258,7 +258,7 @@ export default async function SettingsPage() {
                 ["notifyRecovery", "Notify on recovery / savings", settings.notifyRecovery],
                 ["notifyHighValue", "Notify on high-value events", settings.notifyHighValue],
                 ["notifyWeeklyBrief", "Weekly brief reminder (in-app)", settings.notifyWeeklyBrief],
-                ["notifyEmailEnabled", "Email notifications (needs SMTP — never faked)", settings.notifyEmailEnabled],
+                ["notifyEmailEnabled", "Email notifications (needs an email provider)", settings.notifyEmailEnabled],
               ] as const
             ).map(([name, label, checked]) => (
               <label key={name} className="flex items-center gap-2">

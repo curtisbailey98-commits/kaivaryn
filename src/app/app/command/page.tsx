@@ -11,6 +11,8 @@ import { RouteBadge, RunStatusBadge } from "@/components/operate/route-badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { can } from "@/lib/rbac";
 
+export const metadata = { title: "Command" };
+
 export const dynamic = "force-dynamic";
 
 function AnswerTable({ answer }: { answer: NlAnswer }) {
@@ -66,7 +68,7 @@ export default async function CommandPage({ searchParams }: { searchParams: Reco
       <PageHeader
         eyebrow="Command"
         title="Direct the operating intelligence"
-        description="One bar for every ask. Kaivaryn routes it — analysis, answer, plan, briefing, schedule, or playbook — and leaves a record. Deterministic rules and engines; no generative model is called."
+        description="One bar for every ask. Kaivaryn routes it — analysis, answer, plan, briefing, schedule, or playbook — and leaves a record. Rule-based and auditable; no generative AI model is called."
       />
 
       <div className="relative overflow-hidden rounded-2xl border border-neutral-800 bg-gradient-to-b from-neutral-900/70 to-neutral-950 p-4 sm:p-6">
