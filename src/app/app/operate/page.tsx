@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireOrgAccess } from "@/lib/tenant";
-import { opCtxFromSession, listHealthChecks, healthRollup, listStandingOrders } from "@/lib/operate";
+import { opCtxFromSession, listHealthChecks, healthRollup, listStandingOrders, tickTokenConfigured, lastSchedulerTick, formatInZone, relativeTime, schedulerHealthComponent } from "@/lib/operate";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
@@ -19,7 +19,11 @@ export const dynamic = "force-dynamic";
 export default async function OperatePage() {
   const session = await requireOrgAccess();
   const ctx = opCtxFromSession(session);
-  const [checks, rollup, orders] = await Promise.all([listHealthChecks(ctx, 20), healthRollup(ctx, 14), listStandingOrders(ctx)]);
+  const [checks, rollup, orders, lastTick, liveScheduler] = await Promise.all([listHealthChecks(ctx, 20), healthRollup(ctx, 14), listStandingOrders(ctx), lastSchedulerTick(), schedulerHealthComponent(ctx.organizationId)]);
+  const schedulerOn = tickTokenConfigured();
+  const nextDue = orders.filter((o) => o.enabled && o.nextRunAt).sort((a, b) => a.nextRunAt!.getTime() - b.nextRunAt!.getTime())[0];
+  const autoRuns = orders.filter((o) => (o.lastResultJson ?? "").includes('"trigger":"TICK"')).sort((a, b) => (b.lastRunAt?.getTime() ?? 0) - (a.lastRunAt?.getTime() ?? 0));
+  const ET = "America/New_York";
   const latest = checks[0];
   const healthOrders = orders.filter((o) => o.kind === "STATUS" && o.enabled);
 
@@ -43,7 +47,7 @@ export default async function OperatePage() {
             <p className="text-xs text-neutral-500">Checked {formatDate(latest.createdAt)} · {latest.latencyMs} ms · via {latest.source.toLowerCase().replace(/_/g, " ")}</p>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {latest.components.map((c) => (
+            {[...latest.components.filter((c) => c.key !== "scheduler"), { ...liveScheduler, label: "Scheduler (live)" }].map((c) => (
               <div key={c.key} className="rounded-xl border border-neutral-800 bg-neutral-950/70 p-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-neutral-200">{c.label}</p>
@@ -83,8 +87,21 @@ export default async function OperatePage() {
             <CardDescription>How health checks and standing orders get triggered.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-neutral-400">
+            <div className="rounded-lg border border-neutral-800 bg-neutral-950/70 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-neutral-200">Scheduler</p>
+                <RunStatusBadge status={!schedulerOn ? "INFO" : !lastTick ? "INFO" : lastTick.status === "FAILED" || Date.now() - lastTick.startedAt.getTime() > 6 * 3_600_000 ? "DEGRADED" : "OK"} />
+              </div>
+              <dl className="mt-2 space-y-1 text-xs">
+                <div className="flex justify-between gap-3"><dt className="text-neutral-500">Status</dt><dd className="text-right text-neutral-200">{schedulerOn ? "Configured" : "Not configured"}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-neutral-500">Trigger</dt><dd className="text-right text-neutral-300">{schedulerOn ? "GitHub Actions → secure tick, requested every 15 min" : "Run due now only"}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-neutral-500">Last tick</dt><dd className="text-right text-neutral-300">{lastTick ? `${formatInZone(lastTick.startedAt, ET)} (${relativeTime(lastTick.startedAt)})${lastTick.status === "FAILED" ? " · failed" : ""}` : "None recorded yet"}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-neutral-500">Last automatic run</dt><dd className="text-right text-neutral-300">{autoRuns[0]?.lastRunAt ? `${formatInZone(autoRuns[0].lastRunAt, ET)} · ${autoRuns[0].title}` : "None yet in this workspace"}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-neutral-500">Next due</dt><dd className="text-right text-neutral-300">{nextDue?.nextRunAt ? `${formatInZone(nextDue.nextRunAt, ET)} · ${nextDue.title}` : "Nothing scheduled"}</dd></div>
+              </dl>
+            </div>
             <p>{healthOrders.length ? `${healthOrders.length} standing health check${healthOrders.length === 1 ? "" : "s"} active.` : "No standing health check."} <Link href="/app/automations" className="text-amber-400">Automations →</Link></p>
-            <p className="text-xs leading-5">There is no always-on background worker on the current hosting plan. Schedules run when someone presses <span className="text-neutral-200">Run due now</span>, or when an external scheduler calls <code className="text-amber-400">POST /api/operate/tick</code> with the <code className="text-amber-400">OPERATE_TICK_TOKEN</code> bearer token.</p>
+            <p className="text-xs leading-5">There is no always-on worker on the current hosting plan. An external scheduler calls <code className="text-amber-400">POST /api/operate/tick</code> with a secret token; each due automation is claimed once, so a retried or overlapping tick never runs it twice. GitHub can delay scheduled runs, so an automation may start later than its set time. <span className="text-neutral-200">Run due now</span> always works.</p>
             <p className="text-xs leading-5">Approvals and runs waiting on a person are listed in your <Link href="/app/inbox" className="text-amber-400">Inbox</Link>.</p>
           </CardContent>
         </Card>

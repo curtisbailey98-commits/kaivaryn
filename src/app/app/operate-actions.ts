@@ -28,7 +28,13 @@ import {
   setInitiativeStatus,
   runHealthCheck,
   cancelRun,
+  createAutomation,
+  createAutomationFromPrompt,
+  parseAmount,
   type LinkType,
+  type AutomationAction,
+  type AutomationCondition,
+  type MetricKey,
 } from "@/lib/operate";
 
 async function ctx() {
@@ -267,5 +273,73 @@ export async function cancelRunAction(id: string) {
     target = withMsg(target, "error", errMsg(e));
   }
   revalidatePath("/app/automations");
+  redirect(target);
+}
+
+function automationBack(prompt: string) {
+  return prompt ? `/app/automations?prompt=${encodeURIComponent(prompt.slice(0, 600))}` : "/app/automations";
+}
+
+/** Confirm a parsed prompt as-is (Command preview → "Confirm & schedule"). The prompt is re-parsed server-side. */
+export async function confirmPromptAutomationAction(formData: FormData) {
+  const prompt = String(formData.get("prompt") || "").trim();
+  let target: string;
+  try {
+    const order = await createAutomationFromPrompt(await ctx(), prompt);
+    target = `/app/automations?created=${order.id}#created`;
+  } catch (e) {
+    target = withMsg(automationBack(prompt), "error", errMsg(e));
+  }
+  revalidatePath("/app/automations");
+  revalidatePath("/app", "layout");
+  redirect(target);
+}
+
+/** Save an automation from the editable form (prefilled from the prompt preview, or filled by hand). */
+export async function saveAutomationAction(formData: FormData) {
+  const prompt = String(formData.get("prompt") || "").trim();
+  let target: string;
+  try {
+    const cadence = String(formData.get("cadence") || "");
+    const [hh, mm] = String(formData.get("time") || "08:00").split(":");
+    const domRaw = String(formData.get("dayOfMonth") || "1");
+    const schedule = {
+      cadence,
+      hour: Number(hh) || 0,
+      minute: Number(mm) || 0,
+      everyHours: Number(formData.get("everyHours") || 1),
+      daysOfWeek: formData.getAll("dow").map((d) => Number(d)),
+      dayOfMonth: domRaw === "last" ? -1 : Number(domRaw),
+    };
+    if (cadence === "WEEKLY" && !schedule.daysOfWeek.length) throw new Error("Pick at least one day for a weekly automation.");
+    const actions: AutomationAction[] = [];
+    for (const raw of formData.getAll("act").map(String)) {
+      const [kind, arg] = raw.split(":");
+      if (kind === "ANALYZE") actions.push({ kind: "ANALYZE", product: arg === "REVENUE_RECOVERY" || arg === "OPERATIONS_EFFICIENCY" ? arg : "BOTH" });
+      else if (kind === "PLAYBOOK" && arg) actions.push({ kind: "PLAYBOOK", playbookSlug: arg });
+      else if (kind === "DIGEST" || kind === "STATUS" || kind === "DETECT" || kind === "RECALL" || kind === "WATCH") actions.push({ kind });
+    }
+    const metric = String(formData.get("metric") || "");
+    let condition: AutomationCondition | null = null;
+    if (metric) {
+      const amount = parseAmount(String(formData.get("amount") || ""));
+      if (amount == null) throw new Error("Enter a threshold amount, e.g. 50k or 50,000.");
+      condition = { metric: metric as MetricKey, op: formData.get("op") === "lt" ? "lt" : "gt", amount };
+      if (!actions.length) actions.push({ kind: "WATCH" });
+    }
+    const order = await createAutomation(await ctx(), {
+      schedule,
+      timezone: String(formData.get("timezone") || "") || null,
+      actions,
+      condition,
+      title: String(formData.get("title") || "").trim() || null,
+      prompt: prompt || null,
+    });
+    target = `/app/automations?created=${order.id}#created`;
+  } catch (e) {
+    target = withMsg(automationBack(prompt), "error", errMsg(e));
+  }
+  revalidatePath("/app/automations");
+  revalidatePath("/app", "layout");
   redirect(target);
 }

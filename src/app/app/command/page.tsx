@@ -10,6 +10,61 @@ import { CommandBar } from "@/components/operate/command-bar";
 import { RouteBadge, RunStatusBadge } from "@/components/operate/route-badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { can } from "@/lib/rbac";
+import { formatInZone } from "@/lib/operate";
+import { confirmPromptAutomationAction } from "../operate-actions";
+
+type AutomationPreviewData = {
+  prompt: string;
+  ok: boolean;
+  title: string;
+  schedule: string | null;
+  timezone: string;
+  actions: string[];
+  condition: string | null;
+  deliveryNote: string | null;
+  nextRuns: string[];
+  assumptions: string[];
+  unparsed: string[];
+  problems: string[];
+};
+
+function AutomationConfirm({ p, canWrite, saved }: { p: AutomationPreviewData; canWrite: boolean; saved: boolean }) {
+  return (
+    <div className="mt-4 rounded-xl border border-amber-500/25 bg-neutral-950/70 p-4">
+      <dl className="grid gap-2 text-sm sm:grid-cols-2">
+        {[
+          ["Schedule", p.schedule ?? "Not understood"],
+          ["Time zone", p.timezone],
+          ["Action", p.actions.join(" → ") || "Not understood"],
+          ["Threshold", p.condition ?? "None"],
+          ["Delivery", p.deliveryNote ? `Inbox — ${p.deliveryNote}` : "Kaivaryn Inbox"],
+          ["Next run", p.nextRuns[0] ? formatInZone(new Date(p.nextRuns[0]), p.timezone) : "—"],
+        ].map(([k, v]) => (
+          <div key={k} className="min-w-0">
+            <dt className="text-[10px] uppercase tracking-wider text-neutral-500">{k}</dt>
+            <dd className={`mt-0.5 break-words ${v === "Not understood" ? "text-red-300" : "text-neutral-100"}`}>{v}</dd>
+          </div>
+        ))}
+      </dl>
+      {p.assumptions.length ? <p className="mt-3 text-xs leading-5 text-amber-300/90">Assumptions: {p.assumptions.join(" ")}</p> : null}
+      {p.unparsed.length ? <p className="mt-1 text-xs leading-5 text-red-300">Not understood (ignored): {p.unparsed.map((w) => `“${w}”`).join(", ")}</p> : null}
+      {p.problems.length ? <ul className="mt-2 list-disc pl-5 text-xs leading-5 text-red-300">{p.problems.map((x) => <li key={x}>{x}</li>)}</ul> : null}
+      <div className="mt-4 flex flex-wrap gap-2">
+        {saved ? (
+          <span className="text-xs text-emerald-300">Saved — see Automations.</span>
+        ) : p.ok && canWrite ? (
+          <form action={confirmPromptAutomationAction}>
+            <input type="hidden" name="prompt" value={p.prompt} />
+            <button type="submit" className="inline-flex h-10 items-center rounded-md bg-amber-500 px-4 text-sm font-semibold text-neutral-950 transition hover:bg-amber-400">Confirm &amp; schedule</button>
+          </form>
+        ) : null}
+        <Link href={`/app/automations?prompt=${encodeURIComponent(p.prompt)}#preview`} className="inline-flex h-10 items-center rounded-md border border-neutral-700 px-4 text-sm text-neutral-200 transition hover:border-amber-500/60 hover:text-amber-300">
+          {p.ok ? "Edit first" : "Finish in Automations"}
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 export const metadata = { title: "Command" };
 
@@ -90,6 +145,9 @@ export default async function CommandPage({ searchParams }: { searchParams: Reco
           <CardContent>
             <p className="text-[15px] leading-7 text-neutral-100">{focus.message}</p>
             {answer ? <AnswerTable answer={answer} /> : null}
+            {focus.route === "STANDING" && focusData?.automationPreview ? (
+              <AutomationConfirm p={focusData.automationPreview as AutomationPreviewData} canWrite={can(ctx.role, "write")} saved={false} />
+            ) : null}
             {run ? (
               <p className="mt-3 text-xs text-neutral-400">
                 Run <Link className="text-amber-400 hover:text-amber-300" href={`/app/automations?run=${run.id}`}>{run.title}</Link> · <RunStatusBadge status={run.status} />
@@ -105,7 +163,7 @@ export default async function CommandPage({ searchParams }: { searchParams: Reco
                 ))}
               </div>
             ) : null}
-            {focusLinks.length ? (
+            {focusLinks.length && !(focus.route === "STANDING" && focusData?.automationPreview) ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 {focusLinks.map((l) => (
                   <Link key={l.href + l.label} href={l.href} className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs text-neutral-200 transition hover:border-amber-500/60 hover:text-amber-300">

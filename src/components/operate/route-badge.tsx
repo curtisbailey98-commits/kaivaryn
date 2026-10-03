@@ -7,7 +7,7 @@ const ROUTE_STYLE: Record<string, { label: string; cls: string }> = {
   STATUS: { label: "Status", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" },
   DIGEST: { label: "Briefing", cls: "border-amber-400/40 bg-amber-400/10 text-amber-200" },
   RECALL: { label: "Recall", cls: "border-teal-500/40 bg-teal-500/10 text-teal-300" },
-  STANDING: { label: "Standing order", cls: "border-orange-500/40 bg-orange-500/10 text-orange-300" },
+  STANDING: { label: "Automation", cls: "border-orange-500/40 bg-orange-500/10 text-orange-300" },
   PLAYBOOK: { label: "Playbook", cls: "border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-300" },
   REQUEST: { label: "Request", cls: "border-rose-500/40 bg-rose-500/10 text-rose-300" },
   SEARCH: { label: "Find", cls: "border-neutral-600 bg-neutral-800/60 text-neutral-300" },
