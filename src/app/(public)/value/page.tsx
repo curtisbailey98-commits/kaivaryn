@@ -19,7 +19,7 @@ export default function ValuePage() {
         <BreathGrid opacity={0.28} />
         <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
           <Reveal>
-            <p className="public-kicker text-amber-400">Honest value framing</p>
+            <p className="public-kicker text-amber-400">Value estimator</p>
             <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-6xl">
               Estimate the opportunity. Do not confuse it with cash.
             </h1>
@@ -47,7 +47,7 @@ export default function ValuePage() {
             <ul className="mt-3 list-disc space-y-2 pl-5">
               <li>Outputs are <strong className="text-neutral-300">estimates</strong> derived only from the numbers you type.</li>
               <li>Conservative / base / upside ranges reflect assumption bands — not peer benchmarks we invent.</li>
-              <li>Verified recovery and realized savings only appear inside a tenant workspace after recorded outcomes.</li>
+              <li>Verified recovery and realized savings only appear inside your private workspace, after outcomes are recorded.</li>
               <li>We do not display fabricated “average customer ROI” or competitor logos.</li>
             </ul>
           </div>

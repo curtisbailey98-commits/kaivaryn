@@ -12,22 +12,40 @@ import {
   CountUpCurrency,
   StatusDot,
 } from "@/components/motion";
-import { CommandRoutingDemo } from "@/components/public/command-routing-demo";
-import { NineReturnRing } from "@/components/public/nine-return-ring";
-import { OPERATING_LOOP, PLATFORM_LAYERS } from "@/lib/public-story";
 import { getPricingConfig, centsToDollars } from "@/lib/pricing";
 
 export const metadata: Metadata = {
   title: "Executive AI Consulting Firm",
-  description: "Kaivaryn diagnoses leakage and operational friction, recommends interventions, and measures results through a private intelligence workspace.",
+  description:
+    "Kaivaryn finds the revenue your business is already losing and the operating cost it doesn't need to carry — then ranks it by financial impact, assigns the work, and measures what was actually recovered.",
 };
 
-const operatingModel = [
-  ["01", "See the signal", "Surface leakage, bottlenecks, and unresolved work from the data your teams already create."],
-  ["02", "Rank consequence", "Focus attention on economic impact, urgency, confidence, and ease of recovery—not volume."],
-  ["03", "Govern the action", "Assign ownership, preserve approvals, and keep every material decision traceable."],
-  ["04", "Measure the result", "Separate potential value from verified recovery or realized savings after execution."],
+const pillars = [
+  ["Find the money", "Underbilling, underpayment, missed revenue, and pricing or contract leakage — ranked by what it is worth."],
+  ["Remove the friction", "Manual work, rework, bottlenecks, and delays that quietly add labor and operating cost."],
+  ["Measure the result", "Estimated value and verified results are tracked separately, so every number holds up in the boardroom."],
+] as const;
+
+const revenueFinds = [
+  "Underbilling and missed charges",
+  "Underpayments against contract",
+  "Pricing, discount, and renewal leakage",
+  "Revenue lost to process gaps",
 ];
+
+const operationsFinds = [
+  "Manual, repetitive work",
+  "Recurring bottlenecks and delays",
+  "Rework and duplicate entry",
+  "Automation opportunities worth funding",
+];
+
+const actionSteps = [
+  ["01", "Find", "Kaivaryn analyzes the evidence your systems already hold and surfaces where money or time is being lost."],
+  ["02", "Rank", "Every issue is quantified and ranked by financial impact, so your team sees what deserves attention first."],
+  ["03", "Act", "Each finding gets an owner, a next step, and an approval path. Nothing consequential moves without a decision."],
+  ["04", "Verify", "Recovered revenue and realized savings are recorded against the finding that produced them — and verified."],
+] as const;
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +59,50 @@ async function pricingTeaser() {
   }
 }
 
+/** Static, illustrative preview of the executive view. Not client data. */
+function ExecutivePreview() {
+  const rows = [
+    { title: "Payer underpayments vs. contract", area: "Revenue", value: "$210,000", owner: "Revenue cycle lead", next: "Appeal batch approved" },
+    { title: "Duplicate entry across ERP and CRM", area: "Operations", value: "$120,000 / yr", owner: "Operations manager", next: "Automation in progress" },
+    { title: "Change orders delivered, not billed", area: "Revenue", value: "$95,500", owner: "Delivery finance", next: "Awaiting approval" },
+  ];
+  return (
+    <div className="public-card relative overflow-hidden p-5 sm:p-6">
+      <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full bg-amber-400/10 blur-3xl" aria-hidden />
+      <div className="relative flex items-center justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-400">What the executive sees</p>
+        <span className="text-[10px] uppercase tracking-[0.14em] text-neutral-600">Illustrative</span>
+      </div>
+      <div className="relative mt-5 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.06]">
+        <div className="bg-neutral-950 p-3 sm:p-4">
+          <p className="text-[10px] uppercase tracking-wider text-neutral-500">Estimated revenue opportunity</p>
+          <p className="mt-1.5 text-lg font-semibold text-white sm:text-xl">$305.5k</p>
+        </div>
+        <div className="bg-neutral-950 p-3 sm:p-4">
+          <p className="text-[10px] uppercase tracking-wider text-emerald-400/80">Verified recovery</p>
+          <p className="mt-1.5 text-lg font-semibold text-emerald-400 sm:text-xl">$45k</p>
+        </div>
+        <div className="bg-neutral-950 p-3 sm:p-4">
+          <p className="text-[10px] uppercase tracking-wider text-emerald-400/80">Realized savings</p>
+          <p className="mt-1.5 text-lg font-semibold text-emerald-400 sm:text-xl">$15k</p>
+        </div>
+      </div>
+      <p className="relative mt-5 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Highest-value issues</p>
+      <ul className="relative mt-2 divide-y divide-white/[0.06] rounded-xl border border-white/[0.08] bg-neutral-950/70">
+        {rows.map((r) => (
+          <li key={r.title} className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 px-3 py-3 sm:px-4">
+            <p className="text-sm font-medium text-white sm:truncate">{r.title}</p>
+            <p className="text-right text-sm font-semibold text-amber-300">{r.value}</p>
+            <p className="truncate text-[11px] text-neutral-500">{r.area} · {r.owner}</p>
+            <p className="text-right text-[11px] text-neutral-400">{r.next}</p>
+          </li>
+        ))}
+      </ul>
+      <p className="relative mt-3 text-[11px] text-neutral-600">Estimates and verified results are shown side by side — never added together.</p>
+    </div>
+  );
+}
+
 export default async function HomePage() {
   const price = await pricingTeaser();
   return (
@@ -49,13 +111,12 @@ export default async function HomePage() {
         <AmbientField intensity="hero" />
         <BreathGrid opacity={0.32} />
         <SpotlightHero className="relative">
-          <div className="relative mx-auto grid max-w-6xl gap-14 px-4 pb-20 pt-16 sm:px-6 sm:pb-28 sm:pt-24 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-16">
+          <div className="relative mx-auto grid max-w-6xl gap-12 px-4 pb-20 pt-14 sm:px-6 sm:pb-24 sm:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-14">
             <div>
               <Reveal variant="up">
-                <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-400">
-                  <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 shadow-[0_0_24px_rgba(245,158,11,0.08)]">Executive AI Consulting</span>
-                  <span className="text-neutral-500">Private intelligence for consequential decisions</span>
-                </div>
+                <p className="inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] sm:text-[11px] sm:tracking-[0.22em] text-amber-400 shadow-[0_0_24px_rgba(245,158,11,0.08)]">
+                  Executive AI consulting · Proprietary software
+                </p>
               </Reveal>
               <Reveal variant="up" delay={80}>
                 <h1 className="mt-7 max-w-3xl text-5xl font-semibold leading-[0.98] tracking-[-0.045em] text-white sm:text-6xl lg:text-7xl">
@@ -69,7 +130,7 @@ export default async function HomePage() {
               </Reveal>
               <Reveal variant="up" delay={180}>
                 <p className="mt-7 max-w-xl text-base leading-7 text-neutral-300 sm:text-lg">
-                  Kaivaryn is an operating intelligence for revenue and operations. Ask a question, and it routes the work: evidence-backed analysis, an owned plan behind an approval gate, and a briefing on what changed — measured against what was actually recovered.
+                  Kaivaryn finds the revenue your business is already losing and the operating cost it doesn&apos;t need to carry. We rank every issue by financial impact, put an owner on it, and measure what was actually recovered.
                 </p>
               </Reveal>
               <Reveal variant="up" delay={240}>
@@ -77,74 +138,79 @@ export default async function HomePage() {
                   <Magnetic strength={0.22}>
                     <Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link>
                   </Magnetic>
-                  <a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="public-button-secondary">Schedule on Zoom</a>
-                  <Link href="/platform" className="public-button-secondary">See the platform</Link>
+                  <Link href="/how-it-works" className="public-button-secondary">See how it works</Link>
                 </div>
               </Reveal>
               <Reveal variant="fade" delay={320}>
                 <div className="mt-10 flex flex-wrap gap-x-6 gap-y-2 text-xs text-neutral-500">
-                  <StatusDot tone="ok" label="Tenant-isolated" className="text-neutral-400" />
-                  <StatusDot tone="ok" label="Approval-gated" className="text-neutral-400" />
-                  <StatusDot tone="ok" label="Evidence-aware" className="text-neutral-400" />
-                  <StatusDot tone="ok" label="Deterministic engines" className="text-neutral-400" />
+                  <StatusDot tone="ok" label="Private, isolated workspace" className="text-neutral-400" />
+                  <StatusDot tone="ok" label="Approval-gated decisions" className="text-neutral-400" />
+                  <StatusDot tone="ok" label="Estimated vs. verified, kept separate" className="text-neutral-400" />
                 </div>
               </Reveal>
             </div>
             <Reveal variant="scale" delay={160}>
-              <div className="relative">
-                <CommandRoutingDemo />
-                <p className="mt-3 text-right text-[10px] uppercase tracking-[0.16em] text-neutral-600">The product&apos;s real routing rules · no customer data</p>
-              </div>
+              <ExecutivePreview />
             </Reveal>
           </div>
         </SpotlightHero>
       </section>
 
       <section className="relative border-b border-neutral-900 bg-neutral-950/70">
-        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:grid-cols-3 sm:px-6">
-          {[
-            ["For finance leaders", "Turn leakage into an owned recovery queue."],
-            ["For operations leaders", "Turn recurring friction into governed improvement."],
-            ["For executives", "See what matters, why it matters, and what happens next."],
-          ].map(([t, b], i) => (
+        <div className="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:grid-cols-3 sm:px-6">
+          {pillars.map(([t, b], i) => (
             <Reveal key={t} variant="up" delay={i * 80}>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">{t}</p>
-                <p className="mt-2 text-sm text-neutral-300">{b}</p>
+                <p className="text-sm font-semibold text-white">{t}.</p>
+                <p className="mt-2 text-sm leading-6 text-neutral-400">{b}</p>
               </div>
             </Reveal>
           ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
+      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
         <Reveal>
-          <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
-            <div>
-              <p className="public-kicker">Two products. One operating standard.</p>
-              <h2 className="public-heading mt-4 max-w-2xl">A sharper way to move from signal to outcome.</h2>
-            </div>
-            <Link href="/solutions/revenue-recovery" className="text-sm text-amber-400 hover:text-amber-300">Explore solutions <span aria-hidden>↗</span></Link>
+          <div className="max-w-2xl">
+            <p className="public-kicker">What Kaivaryn does</p>
+            <h2 className="public-heading mt-4">Two disciplines. One measure of success: money you can verify.</h2>
+            <p className="mt-4 text-sm leading-6 text-neutral-400">
+              We pair experienced operators with proprietary software. The software finds and quantifies the issues; your team decides and acts; the results are recorded and verified.
+            </p>
           </div>
         </Reveal>
         <SectionRule className="mt-8 mb-2" />
         <div className="mt-10 grid gap-5 lg:grid-cols-2">
           <Reveal variant="up" delay={40}>
-            <Link href="/solutions/revenue-recovery" className="public-card group relative block overflow-hidden p-7 sm:p-8">
+            <Link href="/solutions/revenue-recovery" className="public-card group relative block h-full overflow-hidden p-7 sm:p-8">
               <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-amber-400/10 blur-3xl transition group-hover:bg-amber-400/20" />
-              <p className="public-kicker text-amber-400">01 / Revenue Recovery</p>
-              <h3 className="mt-5 text-2xl font-semibold text-white">Recover what should already be yours.</h3>
-              <p className="mt-3 max-w-lg text-sm leading-6 text-neutral-400">Find underbilling, underpayment, missed change orders, and policy gaps. Prioritize the work. Track estimated value separately from verified recovery.</p>
-              <span className="mt-8 inline-block text-sm font-medium text-amber-400">View the revenue workflow <span aria-hidden>→</span></span>
+              <p className="public-kicker text-amber-400">Revenue Recovery</p>
+              <h3 className="mt-5 text-2xl font-semibold text-white">Recover money you have already earned.</h3>
+              <p className="mt-3 max-w-lg text-sm leading-6 text-neutral-400">
+                Revenue that should be yours but never arrives. Kaivaryn finds it, sizes it, and tracks it until the cash is recovered and verified.
+              </p>
+              <ul className="mt-5 grid gap-2 text-sm text-neutral-300 sm:grid-cols-2">
+                {revenueFinds.map((f) => (
+                  <li key={f} className="flex gap-2"><span className="text-amber-400">—</span>{f}</li>
+                ))}
+              </ul>
+              <span className="mt-7 inline-block text-sm font-medium text-amber-400">Revenue Recovery <span aria-hidden>→</span></span>
             </Link>
           </Reveal>
           <Reveal variant="up" delay={120}>
-            <Link href="/solutions/operations-efficiency" className="public-card group relative block overflow-hidden p-7 sm:p-8">
+            <Link href="/solutions/operations-efficiency" className="public-card group relative block h-full overflow-hidden p-7 sm:p-8">
               <div className="absolute right-0 top-0 h-32 w-32 rounded-full bg-emerald-400/10 blur-3xl transition group-hover:bg-emerald-400/20" />
-              <p className="public-kicker text-emerald-400">02 / Operations Efficiency</p>
-              <h3 className="mt-5 text-2xl font-semibold text-white">Remove the friction your team has learned to ignore.</h3>
-              <p className="mt-3 max-w-lg text-sm leading-6 text-neutral-400">Surface rework, queue delay, and repeatable manual effort. Approve automation candidates without pretending an external action happened.</p>
-              <span className="mt-8 inline-block text-sm font-medium text-emerald-400">View the operations workflow <span aria-hidden>→</span></span>
+              <p className="public-kicker text-emerald-400">Operations Efficiency</p>
+              <h3 className="mt-5 text-2xl font-semibold text-white">Stop paying for work that shouldn&apos;t exist.</h3>
+              <p className="mt-3 max-w-lg text-sm leading-6 text-neutral-400">
+                Labor and time lost to friction your team has learned to live with. Kaivaryn puts a cost on it and tracks savings until they are realized.
+              </p>
+              <ul className="mt-5 grid gap-2 text-sm text-neutral-300 sm:grid-cols-2">
+                {operationsFinds.map((f) => (
+                  <li key={f} className="flex gap-2"><span className="text-emerald-400">—</span>{f}</li>
+                ))}
+              </ul>
+              <span className="mt-7 inline-block text-sm font-medium text-emerald-400">Operations Efficiency <span aria-hidden>→</span></span>
             </Link>
           </Reveal>
         </div>
@@ -152,78 +218,23 @@ export default async function HomePage() {
 
       <section className="relative overflow-hidden border-y border-neutral-900 bg-neutral-950/60">
         <AmbientField intensity="subtle" grain={false} className="opacity-70" />
-        <div className="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28">
-          <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-            <div>
-              <Reveal>
-                <p className="public-kicker text-amber-400">How the operating intelligence works</p>
-                <h2 className="public-heading mt-4 max-w-xl">From a sentence to a governed, measured outcome.</h2>
-                <p className="mt-4 max-w-xl text-sm leading-6 text-neutral-400">Every step below is a recorded run inside your private workspace. Analysis is rule-based and repeatable; a person approves before anything consequential moves.</p>
-              </Reveal>
-              <ol className="mt-10 grid gap-3 sm:grid-cols-2">
-                {OPERATING_LOOP.map((s, i) => (
-                  <Reveal key={s.n} variant="up" delay={i * 60}>
-                    <li className="group h-full rounded-xl border border-white/[0.08] bg-neutral-950/70 p-4 transition hover:border-amber-500/30">
-                      <p className="flex items-center gap-2 font-mono text-[11px] text-amber-500">{s.n}<span className="h-px flex-1 bg-gradient-to-r from-amber-500/40 to-transparent transition-all group-hover:from-amber-400" /></p>
-                      <p className="mt-2 text-base font-semibold text-white">{s.name}</p>
-                      <p className="mt-1 text-xs leading-5 text-neutral-500">{s.body}</p>
-                    </li>
-                  </Reveal>
-                ))}
-              </ol>
-            </div>
-            <Reveal variant="scale" delay={120}>
-              <div className="public-card p-6 sm:p-8">
-                <NineReturnRing />
-                <p className="mt-4 text-center text-sm text-neutral-400">The analysis step runs nine bounded stages — from what the data shows to a signed record — then stops. No open-ended loops.</p>
-              </div>
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
-        <Reveal>
-          <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
-            <div>
-              <p className="public-kicker">The platform</p>
-              <h2 className="public-heading mt-4 max-w-2xl">Five layers. One accountable system.</h2>
-            </div>
-            <Link href="/platform" className="text-sm text-amber-400 hover:text-amber-300">Explore the architecture <span aria-hidden>↗</span></Link>
-          </div>
-        </Reveal>
-        <div className="mt-10 grid gap-3 md:grid-cols-5">
-          {[...PLATFORM_LAYERS].reverse().map((layer, i) => (
-            <Reveal key={layer.n} variant="up" delay={i * 60}>
-              <Link href="/platform" className="public-card group relative block h-full overflow-hidden p-5">
-                <div className="absolute inset-x-0 bottom-0 h-0.5 origin-left scale-x-0 bg-gradient-to-r from-amber-500 to-amber-300 transition duration-500 group-hover:scale-x-100" />
-                <p className="font-mono text-xs text-amber-500">{layer.n}</p>
-                <p className="mt-3 text-sm font-semibold text-white">{layer.name}</p>
-                <p className="mt-2 text-[11px] leading-5 text-neutral-500">{layer.items.slice(0, 3).join(" · ")}</p>
-              </Link>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      <section className="relative border-y border-neutral-900 bg-neutral-950/60">
-        <AmbientField intensity="subtle" grain={false} className="opacity-70" />
-        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 sm:py-24 lg:grid-cols-[0.75fr_1.25fr] lg:items-start">
+        <div className="relative mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
           <Reveal>
-            <div>
-              <p className="public-kicker">The Kaivaryn standard</p>
-              <h2 className="public-heading mt-4 max-w-lg">Fast enough for the business. Disciplined enough for the board.</h2>
-              <p className="mt-5 max-w-lg text-sm leading-6 text-neutral-400">Every recommendation is grounded in recorded signals, explicit confidence, and a visible next step. When the data is not enough, Kaivaryn says so.</p>
-              <Link href="/intelligence" className="mt-7 inline-block text-sm text-amber-400 hover:text-amber-300">How intelligence stays honest <span aria-hidden>→</span></Link>
+            <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+              <div>
+                <p className="public-kicker text-amber-400">How findings become action</p>
+                <h2 className="public-heading mt-4 max-w-2xl">From evidence to an owned decision.</h2>
+              </div>
+              <Link href="/how-it-works" className="text-sm text-amber-400 hover:text-amber-300">How an engagement runs <span aria-hidden>→</span></Link>
             </div>
           </Reveal>
-          <div className="grid gap-px overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-800 sm:grid-cols-2">
-            {operatingModel.map(([number, title, body], i) => (
-              <Reveal key={number} variant="fade" delay={i * 70}>
+          <div className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-800 sm:grid-cols-2 lg:grid-cols-4">
+            {actionSteps.map(([n, title, body], i) => (
+              <Reveal key={n} variant="fade" delay={i * 70}>
                 <div className="h-full bg-neutral-950 p-6 transition hover:bg-neutral-900/80 sm:p-7">
-                  <p className="font-mono text-xs text-amber-500">{number}</p>
-                  <h3 className="mt-4 text-base font-semibold text-white">{title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-neutral-500">{body}</p>
+                  <p className="font-mono text-xs text-amber-500">{n}</p>
+                  <h3 className="mt-4 text-lg font-semibold text-white">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-neutral-400">{body}</p>
                 </div>
               </Reveal>
             ))}
@@ -231,54 +242,79 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-        <Reveal>
-          <div className="mb-8 max-w-2xl">
-            <p className="public-kicker">Example framework</p>
-            <h2 className="public-heading mt-4">How modeled opportunity becomes verified result.</h2>
-            <p className="mt-3 text-sm leading-6 text-neutral-400">
-              An illustrative series showing Kaivaryn&apos;s operating rhythm. Not a customer&apos;s live data and not a performance claim.
-            </p>
-          </div>
-        </Reveal>
-        <Reveal variant="scale" delay={80}>
-          <ExampleFrameworkChart />
-        </Reveal>
+      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
+        <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+          <Reveal>
+            <div>
+              <p className="public-kicker">How results are measured</p>
+              <h2 className="public-heading mt-4">An estimate is not a result.</h2>
+              <p className="mt-4 text-sm leading-6 text-neutral-400">
+                Kaivaryn keeps two ledgers. One holds what we estimate is recoverable or savable. The other holds only what your team has recorded as recovered or realized — and what has been verified.
+              </p>
+              <ul className="mt-6 space-y-3 text-sm">
+                <li className="flex items-start gap-3"><span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-400" /><span className="text-neutral-300"><span className="font-semibold text-white">Estimated opportunity</span> and <span className="font-semibold text-white">projected savings</span> — what the evidence suggests.</span></li>
+                <li className="flex items-start gap-3"><span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-400" /><span className="text-neutral-300"><span className="font-semibold text-white">Verified recovery</span> and <span className="font-semibold text-white">realized savings</span> — what actually landed.</span></li>
+              </ul>
+              <p className="mt-5 text-xs text-neutral-500">The two are never added together.</p>
+            </div>
+          </Reveal>
+          <Reveal variant="scale" delay={80}>
+            <ExampleFrameworkChart />
+          </Reveal>
+        </div>
       </section>
 
       <section className="border-y border-neutral-900 bg-neutral-950/60">
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-[1fr_1fr_1fr] lg:items-center">
           <Reveal>
             <p className="public-kicker">Pricing</p>
-            <h2 className="mt-3 text-2xl font-semibold text-white">One platform. Capacity-limited, not feature-limited.</h2>
-            <Link href="/pricing" className="mt-5 inline-block text-sm text-amber-400 hover:text-amber-300">Full pricing <span aria-hidden>→</span></Link>
+            <h2 className="mt-3 text-2xl font-semibold text-white">One engagement. Both disciplines. Full software access.</h2>
+            <Link href="/pricing" className="mt-5 inline-block text-sm text-amber-400 hover:text-amber-300">Pricing details <span aria-hidden>→</span></Link>
           </Reveal>
           <Reveal variant="up" delay={80}>
             <div className="public-card border-amber-500/30 p-6">
-              <p className="public-kicker text-amber-400">Founder cohort · first {price.seats} clients</p>
+              <p className="public-kicker text-amber-400">First {price.seats} clients</p>
               <p className="mt-4 text-4xl font-semibold tracking-tight text-white"><CountUpCurrency value={price.intro} /><span className="text-sm font-normal text-neutral-500"> / month</span></p>
             </div>
           </Reveal>
           <Reveal variant="up" delay={140}>
             <div className="public-card p-6">
-              <p className="public-kicker">Standard platform · after the cohort</p>
+              <p className="public-kicker">Standard</p>
               <p className="mt-4 text-4xl font-semibold tracking-tight text-white"><CountUpCurrency value={price.standard} /><span className="text-sm font-normal text-neutral-500"> / month</span></p>
             </div>
           </Reveal>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-24">
+      <section className="mx-auto max-w-6xl px-4 pt-16 sm:px-6 sm:pt-20">
+        <Reveal>
+          <div className="grid gap-6 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <p className="public-kicker">Built to be trusted</p>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-neutral-400">
+                Each client works in a private, isolated workspace. Access is role-based, every material decision is approved and logged, and when the data isn&apos;t sufficient, Kaivaryn says so instead of guessing.
+              </p>
+            </div>
+            <Link href="/platform" className="text-sm text-amber-400 hover:text-amber-300">Platform and governance <span aria-hidden>→</span></Link>
+          </div>
+        </Reveal>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
         <Reveal>
           <div className="public-card relative flex flex-col items-start justify-between gap-8 overflow-hidden bg-amber-500/[0.06] p-7 sm:flex-row sm:items-center sm:p-10">
             <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-amber-400/15 blur-3xl" />
             <div>
-              <p className="public-kicker text-amber-400">Start with the business question</p>
-              <h2 className="mt-3 max-w-2xl text-2xl font-semibold text-white sm:text-3xl">Where is value being lost—and who owns the next move?</h2>
+              <p className="public-kicker text-amber-400">Start with one question</p>
+              <h2 className="mt-3 max-w-2xl text-2xl font-semibold text-white sm:text-3xl">Where is your business losing money — and who owns the fix?</h2>
+              <p className="mt-3 text-sm text-neutral-400">A live executive session on Zoom. Bring one hard question; leave with a clear next step.</p>
             </div>
-            <Magnetic>
-              <Link href="/demo" className="public-button-primary relative shrink-0">Book a working session <span aria-hidden>↗</span></Link>
-            </Magnetic>
+            <div className="flex shrink-0 flex-col gap-3 sm:items-end">
+              <Magnetic>
+                <Link href="/demo" className="public-button-primary relative">Book a working session <span aria-hidden>↗</span></Link>
+              </Magnetic>
+              <a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-neutral-400 hover:text-white">Or pick a time on Zoom ↗</a>
+            </div>
           </div>
         </Reveal>
       </section>

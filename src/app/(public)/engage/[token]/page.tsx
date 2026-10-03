@@ -37,7 +37,7 @@ export default async function EngagementCheckoutPage({ params }: { params: { tok
             {paid ? <Link href="/activate" className="public-button-primary">Continue to onboarding <span aria-hidden>↗</span></Link> : checkout ? <form action={startPostDemoCheckout.bind(null, params.token)}><button className="public-button-primary">Begin implementation with Stripe <span aria-hidden>↗</span></button></form> : <span className="rounded-md border border-neutral-800 px-4 py-2 text-sm text-neutral-500">Checkout is not currently available.</span>}
             <Link href="/contact" className="public-button-secondary">Questions before activation?</Link>
           </div>
-          {!paid ? <p className="mt-4 text-xs leading-5 text-neutral-600">Payment is verified server-side through Stripe before workspace entitlements are activated. A browser redirect alone never marks an engagement paid.</p> : null}
+          {!paid ? <p className="mt-4 text-xs leading-5 text-neutral-600">Payment is confirmed directly with Stripe before your workspace is activated.</p> : null}
         </div>
       </div>
     </div>

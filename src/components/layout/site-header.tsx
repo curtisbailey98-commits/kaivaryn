@@ -5,12 +5,10 @@ import { Magnetic } from "@/components/motion/magnetic";
 const links = [
   { href: "/solutions/revenue-recovery", label: "Revenue Recovery" },
   { href: "/solutions/operations-efficiency", label: "Operations Efficiency" },
-  { href: "/platform", label: "Platform" },
   { href: "/how-it-works", label: "How it works" },
-  { href: "/intelligence", label: "Intelligence" },
-  { href: "/company", label: "Firm" },
-  { href: "/value", label: "Value estimator" },
+  { href: "/platform", label: "Platform" },
   { href: "/pricing", label: "Pricing" },
+  { href: "/company", label: "Firm" },
 ];
 
 export function SiteHeader() {
@@ -26,7 +24,7 @@ export function SiteHeader() {
             <Link
               key={l.href}
               href={l.href}
-              className="relative text-[11px] font-medium text-neutral-400 transition hover:text-white after:absolute after:-bottom-1 after:left-0 after:h-px after:w-0 after:bg-amber-400/70 after:transition-all hover:after:w-full"
+              className="relative text-xs font-medium text-neutral-400 transition hover:text-white after:absolute after:-bottom-1 after:left-0 after:h-px after:w-0 after:bg-amber-400/70 after:transition-all hover:after:w-full"
             >
               {l.label}
             </Link>
@@ -36,7 +34,7 @@ export function SiteHeader() {
           <Link href="/login" className="hidden text-xs text-neutral-400 transition hover:text-white sm:inline">Client login</Link>
           <Magnetic strength={0.2}>
             <Link href="/demo" className="rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-neutral-950 shadow-[0_0_0_1px_rgba(245,158,11,0.35),0_8px_20px_rgba(245,158,11,0.18)] transition hover:bg-amber-400 hover:shadow-[0_0_0_1px_rgba(251,191,36,0.5),0_12px_28px_rgba(245,158,11,0.28)] active:scale-[.98]">
-              Book a Demo <span aria-hidden>↗</span>
+              <span className="sm:hidden">Book a session</span><span className="hidden sm:inline">Book a working session</span> <span aria-hidden>↗</span>
             </Link>
           </Magnetic>
         </div>

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ZOOM_SCHEDULER_URL } from "@/lib/constants";
 import { AmbientField, BreathGrid, Reveal, Magnetic, SectionRule, StatusDot } from "@/components/motion";
 import { CommandRoutingDemo } from "@/components/public/command-routing-demo";
 import { NineReturnRing } from "@/components/public/nine-return-ring";
@@ -9,11 +8,17 @@ import { GOVERNANCE_RAILS, NINE_RETURNS, PLATFORM_LAYERS } from "@/lib/public-st
 export const metadata: Metadata = {
   title: "Platform",
   description:
-    "The Kaivaryn operating intelligence platform: evidence-backed detection, a nine-step analysis cycle, commands, playbooks, standing orders and approval-gated runs — with estimates kept separate from recorded outcomes.",
+    "The Kaivaryn platform: evidence-backed detection, a nine-step analysis method, owned and approval-gated work, and estimates kept separate from recorded outcomes.",
 };
 
+const BUSINESS_OUTCOMES = [
+  ["Find and rank", "Revenue leakage and operating friction, quantified in dollars and ranked by impact."],
+  ["Own and approve", "Every finding has an owner, a next step, and an approval path before anything moves."],
+  ["Measure and verify", "Recovered revenue and realized savings are recorded and verified — never inferred from estimates."],
+] as const;
+
 const OPERATING_PARTS = [
-  ["Command", "One input for every ask. Deterministic rules route it to analysis, an answer, a governed plan, a briefing, a schedule, or a playbook — and record why."],
+  ["Command", "One input for every ask. Readable rules route it to analysis, an answer, a governed plan, a briefing, a schedule, or a playbook — and record why."],
   ["Playbooks", "Named, reusable step sequences: detect, analyze, brief, recall, create a task, request approval. Six system playbooks ship with every workspace."],
   ["Standing orders", "Hourly, daily, or weekly instructions that run a playbook or a command. Every execution is recorded, including failures."],
   ["Run history", "Each execution keeps its steps, status, timing, and evidence links — so you can see what ran, what it produced, and what it is waiting on."],
@@ -34,26 +39,33 @@ export default function PlatformPage() {
       <section className="relative overflow-hidden border-b border-neutral-900">
         <AmbientField intensity="hero" />
         <BreathGrid opacity={0.3} />
-        <div className="relative mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
           <Reveal>
             <p className="public-kicker text-amber-400">The platform</p>
             <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-[1.02] tracking-[-0.045em] text-white sm:text-6xl">
-              An operating intelligence,
+              The software behind
               <br />
-              <span className="text-neutral-500">not another dashboard.</span>
+              <span className="text-neutral-500">the engagement.</span>
             </h1>
             <div className="mt-5 h-px w-20 bg-gradient-to-r from-amber-400 to-transparent" />
-            <p className="mt-6 max-w-xl text-base leading-7 text-neutral-400 sm:text-lg">
-              Kaivaryn reads your revenue and operations evidence, runs a bounded nine-return analysis, and turns the result into owned, approval-gated work — then briefs you on what changed. Every layer is deterministic, tenant-isolated, and auditable.
+            <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-300 sm:text-lg">
+              Kaivaryn&apos;s proprietary platform finds and ranks revenue leakage and operating friction, turns each finding into owned, approved work, and records what was actually recovered or saved. This page covers how it is built and governed.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Magnetic><Link href="/demo" className="public-button-primary">See it on your data <span aria-hidden>↗</span></Link></Magnetic>
-              <a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="public-button-secondary">Schedule on Zoom</a>
+              <Magnetic><Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link></Magnetic>
+              <Link href="/how-it-works" className="public-button-secondary">How an engagement runs</Link>
             </div>
           </Reveal>
-          <Reveal variant="scale" delay={120}>
-            <CommandRoutingDemo />
-          </Reveal>
+          <div className="mt-12 grid gap-3 sm:grid-cols-3">
+            {BUSINESS_OUTCOMES.map(([t, b], i) => (
+              <Reveal key={t} variant="up" delay={i * 70}>
+                <div className="public-card h-full p-5">
+                  <p className="text-sm font-semibold text-white">{t}</p>
+                  <p className="mt-2 text-sm leading-6 text-neutral-400">{b}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -90,9 +102,9 @@ export default function PlatformPage() {
           <Reveal variant="scale"><NineReturnRing /></Reveal>
           <div>
             <Reveal>
-              <p className="public-kicker text-amber-400">Nine-return intelligence</p>
+              <p className="public-kicker text-amber-400">Nine-step analysis</p>
               <h2 className="public-heading mt-4">Every analysis checks itself nine ways before it reaches you.</h2>
-              <p className="mt-4 text-sm leading-6 text-neutral-400">Each cycle runs per product and stops at ZERO_RETURN. Only the Witness stage may sign the continuity state the next cycle starts from — so the system remembers what it concluded, and is held to it.</p>
+              <p className="mt-4 text-sm leading-6 text-neutral-400">Each analysis runs a fixed sequence per product, then stops — no open-ended loops. The final step records the conclusion that the next analysis starts from, so the system remembers what it concluded and is held to it.</p>
             </Reveal>
             <div className="mt-8 grid gap-2 sm:grid-cols-3">
               {NINE_RETURNS.map((s, i) => (
@@ -110,10 +122,14 @@ export default function PlatformPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-        <Reveal>
-          <p className="public-kicker">The operating layer</p>
-          <h2 className="public-heading mt-4 max-w-2xl">Intelligence that keeps working between meetings.</h2>
-        </Reveal>
+        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <Reveal>
+            <p className="public-kicker">The operating layer</p>
+            <h2 className="public-heading mt-4 max-w-2xl">Work that keeps moving between meetings.</h2>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-neutral-400">Executives can ask in plain language — “brief me”, “analyze billing leakage”, “plan a fix”. Command uses readable keyword rules, so the same request always lands in the same place, and the reason is recorded. The panel runs those exact rules.</p>
+          </Reveal>
+          <Reveal variant="scale" delay={100}><CommandRoutingDemo /></Reveal>
+        </div>
         <div className="mt-10 grid gap-px overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-800 md:grid-cols-2 lg:grid-cols-3">
           {OPERATING_PARTS.map(([name, body], i) => (
             <Reveal key={name} variant="up" delay={i * 50}>

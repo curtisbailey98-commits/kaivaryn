@@ -1,140 +1,85 @@
-import Link from "next/link";
-import { ExampleFrameworkChart } from "@/components/charts/example-framework-chart";
 import type { Metadata } from "next";
-import { ZOOM_SCHEDULER_URL } from "@/lib/constants";
-import { AmbientField, BreathGrid, Reveal, Magnetic, SectionRule } from "@/components/motion";
+import { SolutionPage, type SolutionContent } from "@/components/public/solution-page";
 
 export const metadata: Metadata = {
   title: "Revenue Recovery",
   description:
-    "Find and recover revenue leakage — underbilling, missed fees, contract variance, denials — with an owned recovery queue and cash recovered tracked separately from estimates.",
+    "Find and recover revenue your business is already losing — underbilling, underpayment, missed charges, and contract or pricing leakage — ranked by financial impact, with verified recovery tracked separately from estimates.",
 };
 
-const problem = [
-  ["Hidden leakage", "Underbilling, underpayment, missed change orders, denials, and contract gaps sit in systems your teams already run."],
-  ["Spreadsheets as memory", "Worklists fragment across analysts; aging and ownership disappear; estimates get booked as if they were cash."],
-  ["No governed close", "Without evidence, approvals, and verified stages, recovery cannot survive an audit or an executive review."],
-];
-
-const method = [
-  ["Surface", "Detect leakage signals from imports and structured sources — with INSUFFICIENT_DATA when evidence is missing."],
-  ["Taxonomy + score", "Classify leakage type, rank by impact × urgency × confidence, and keep potential separate from recovered."],
-  ["Own the queue", "Assign owners, attach notes and evidence, advance funnel stages, and gate high-value actions."],
-  ["Prove", "Record recovered and verified amounts only when humans confirm — never invent realized cash."],
-];
-
-const workflow = [
-  ["Identified", "Signal enters the pipeline with estimated potential."],
-  ["Under review", "Evidence and owner assigned; confidence checked."],
-  ["In recovery", "Approved work underway; in-progress amounts tracked."],
-  ["Recovered / Verified", "Cash or credit confirmed; verified ≤ recovered always."],
-];
-
-const outcomes = [
-  ["Open pipeline", "Estimated value still in motion — labeled estimate."],
-  ["Recovery rate", "Recovered ÷ estimated for the portfolio you actually work."],
-  ["Verified recovery", "Board-safe figure after human confirmation."],
-  ["Decision trail", "Approvals, status history, and audit for every material move."],
-];
+const content: SolutionContent = {
+  tone: "amber",
+  kicker: "Revenue Recovery",
+  title: "Recover revenue you have already earned.",
+  lede:
+    "Most businesses lose revenue they never see: work delivered but not billed, payments below contract, fees never applied. Kaivaryn finds it, ranks it by value, and tracks it until the cash is recovered and verified.",
+  problem: {
+    heading: "Money is already leaving the business. Nobody owns finding it.",
+    intro:
+      "Revenue leakage hides inside systems that look healthy. It is rarely one big error — it is hundreds of small ones that no single team is responsible for.",
+    items: [
+      ["It is invisible in the P&L", "Underbilling and underpayment never show up as a loss. The revenue simply never arrives, so no one goes looking for it."],
+      ["It lives across systems", "Contracts, billing, claims, and collections each hold part of the picture. No one sees where they disagree."],
+      ["Estimates get treated as cash", "When recovery is tracked in spreadsheets, projected value gets reported as recovered — and credibility goes with it."],
+    ],
+  },
+  finds: {
+    heading: "Where the revenue is going.",
+    items: [
+      ["Underbilling", "Services delivered at rates below contract, or not invoiced at all."],
+      ["Underpayment", "Customers or payers paying less than the agreed amount, with no follow-up."],
+      ["Missed revenue", "Change orders, late fees, and billable events that were never charged."],
+      ["Contract and pricing leakage", "Renewals at legacy rates, discounts beyond policy, and terms that were never enforced."],
+      ["Process leakage", "Denials written off without appeal and errors that repeat because no one fixes the cause."],
+      ["Ranked by impact", "Every finding is quantified and ranked by value, urgency, and confidence — not by volume."],
+    ],
+  },
+  financial: {
+    heading: "Recovered revenue drops straight to margin.",
+    body:
+      "Revenue you have already earned carries no new cost of sale. Recovering it — and closing the gap that caused it — improves margin and cash without adding a single customer.",
+    points: [
+      "One-time recovery of revenue already lost",
+      "Ongoing prevention once the cause is fixed",
+      "A defensible number for the CFO and the board",
+    ],
+  },
+  executiveView: {
+    heading: "What matters, what it is worth, and whether it worked.",
+    body:
+      "Kaivaryn analyzes the evidence, ranks the highest-value issues, and shows your team what deserves attention first. The executive view leads with money, not activity.",
+    metrics: [
+      { label: "Estimated opportunity", note: "What the evidence suggests is recoverable. Clearly labeled as an estimate." },
+      { label: "Highest-value opportunities", note: "The few issues worth the most, ranked first, with the evidence behind each one." },
+      { label: "Cash recovered", note: "What your team has recorded as recovered against each finding.", realized: true },
+      { label: "Verified recovery", note: "Recovered cash confirmed against evidence. The number that goes in the board pack.", realized: true },
+    ],
+    columns: ["Value", "Status", "Evidence", "Owner", "Next action", "Approval"],
+  },
+  nextAction: {
+    heading: "Each finding gets an owner, a next step, and an approval path.",
+    steps: [
+      ["Assign an owner", "Every opportunity has one accountable person, so nothing sits in a shared queue."],
+      ["Set the next step", "Tasks, notes, and draft outreach live on the finding, with the evidence attached."],
+      ["Approve what matters", "High-value recoveries and actions in outside systems wait for an explicit decision."],
+      ["Your team executes", "Kaivaryn never contacts customers or changes your systems on its own."],
+    ],
+  },
+  verification: {
+    heading: "Recovered is not the same as verified.",
+    body:
+      "An opportunity moves from identified to recovered only when your team records the cash. It becomes verified only when that cash is confirmed against evidence. Every step is logged.",
+    stages: [
+      ["Identified", "Estimated value, with the evidence behind it."],
+      ["Under review", "Owner assigned and evidence checked."],
+      ["In recovery", "Approved work underway."],
+      ["Recovered → verified", "Cash recorded, then confirmed."],
+    ],
+    rule: "Verified recovery can never exceed recovered cash, and estimates are never added to either.",
+  },
+  closing: "Find out what your business is already losing — and what it would take to get it back.",
+};
 
 export default function RevenueRecoveryPage() {
-  return (
-    <>
-      <section className="relative overflow-hidden border-b border-neutral-900">
-        <AmbientField intensity="hero" />
-        <BreathGrid opacity={0.28} />
-        <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-          <Reveal>
-            <p className="public-kicker text-amber-400">Solution / Revenue Recovery</p>
-            <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-6xl">
-              Recover value that is already hiding in your operation.
-            </h1>
-            <div className="mt-5 h-px w-20 bg-gradient-to-r from-amber-400 to-transparent" />
-            <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-400 sm:text-lg">
-              Kaivaryn turns leakage signals into a ranked, owned recovery queue — with estimates never confused for cash.
-              Built for finance and revenue leaders who need a consulting-grade operating system, not a vanity dashboard.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Magnetic><Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link></Magnetic>
-              <a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="public-button-secondary">Schedule on Zoom</a>
-              <Link href="/value" className="public-button-secondary">Estimate opportunity</Link>
-              <Link href="/pricing" className="public-button-secondary">View pricing</Link>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <p className="public-kicker text-amber-400">Problem</p>
-        <h2 className="mt-3 text-3xl font-semibold text-white">Where recovery work usually breaks.</h2>
-        <SectionRule className="mt-8 mb-2" />
-        <div className="mt-8 grid gap-5 lg:grid-cols-3">
-          {problem.map(([t, b], i) => (
-            <Reveal key={t} delay={i * 70}>
-              <div className="public-card h-full p-7">
-                <p className="font-mono text-xs text-amber-500">0{i + 1}</p>
-                <h3 className="mt-4 text-lg font-semibold text-white">{t}</h3>
-                <p className="mt-3 text-sm leading-6 text-neutral-500">{b}</p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </section>
-
-      <section className="border-y border-neutral-900 bg-neutral-950/50">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <p className="public-kicker text-amber-400">Method</p>
-          <h2 className="mt-3 text-3xl font-semibold text-white">Detect → score → assign → prove.</h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {method.map(([t, b]) => (
-              <div key={t} className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
-                <h3 className="text-base font-semibold text-white">{t}</h3>
-                <p className="mt-2 text-sm leading-6 text-neutral-500">{b}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <p className="public-kicker text-amber-400">Workflow</p>
-        <h2 className="mt-3 text-3xl font-semibold text-white">A recovery funnel executives can trust.</h2>
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {workflow.map(([t, b], i) => (
-            <div key={t} className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-5">
-              <p className="font-mono text-xs text-amber-500">Stage {i + 1}</p>
-              <h3 className="mt-2 text-lg font-semibold text-white">{t}</h3>
-              <p className="mt-2 text-sm text-neutral-500">{b}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="border-t border-neutral-900">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <p className="public-kicker text-amber-400">Outcomes framework</p>
-          <h2 className="mt-3 max-w-2xl text-3xl font-semibold text-white">What success looks like — without invented customer stats.</h2>
-          <div className="mt-8 grid gap-5 sm:grid-cols-2">
-            {outcomes.map(([t, b]) => (
-              <div key={t} className="public-card p-6">
-                <h3 className="text-lg font-semibold text-white">{t}</h3>
-                <p className="mt-2 text-sm leading-6 text-neutral-500">{b}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-8 text-sm text-neutral-500">
-            We do not publish fabricated recovery averages or “trusted by” logos. Your workspace shows only your tenant’s recorded numbers.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/demo" className="public-button-primary">Book executive demo <span aria-hidden>↗</span></Link>
-            <Link href="/value" className="public-button-secondary">Run the value estimator</Link>
-            <Link href="/how-it-works" className="public-button-secondary">See the operating loop</Link>
-          </div>
-        </div>
-      </section>
-          <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
-        <Reveal variant="scale"><ExampleFrameworkChart /></Reveal>
-      </section>
-</>
-  );
+  return <SolutionPage c={content} />;
 }

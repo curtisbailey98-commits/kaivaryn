@@ -1,134 +1,85 @@
-import Link from "next/link";
-import { ExampleFrameworkChart } from "@/components/charts/example-framework-chart";
 import type { Metadata } from "next";
-import { ZOOM_SCHEDULER_URL } from "@/lib/constants";
-import { AmbientField, BreathGrid, Reveal, Magnetic } from "@/components/motion";
+import { SolutionPage, type SolutionContent } from "@/components/public/solution-page";
 
 export const metadata: Metadata = {
   title: "Operations Efficiency",
   description:
-    "Translate operational friction into financial impact: rank manual work, rework and handoff delays, govern interventions, and measure realized savings.",
+    "Find the manual work, bottlenecks, rework, and delays that add labor and operating cost — put a dollar value on each, assign the fix, and track realized savings separately from projections.",
 };
 
-const problem = [
-  ["Learned friction", "Rework, queue delay, and manual repetition become “how we work” instead of a governed improvement backlog."],
-  ["Automation theater", "Tools promise bots while projected savings are treated as realized — without approvals or a ledger."],
-  ["No bottleneck truth", "Leaders lack department heat, readiness scores, and a clear gap between projected and realized hours/$."],
-];
-
-const method = [
-  ["Find", "Surface inefficiencies from process and operational signals with explicit confidence."],
-  ["Quantify", "Model annual waste, projected savings, and weekly hours — separately from realized."],
-  ["Score readiness", "Automation candidates get a readiness score and an approval gate — never silent external execution."],
-  ["Realize", "Record realized savings and hours only after outcomes are confirmed."],
-];
-
-const workflow = [
-  ["Identified", "Friction enters the initiative backlog."],
-  ["Analyzing", "Evidence, owner, and projection refined."],
-  ["Implementing", "Approved intervention underway."],
-  ["Realized / Verified", "Savings and hours landed — ledger updated."],
-];
-
-const outcomes = [
-  ["Realization ledger", "Projected vs realized $ and hours with an open gap."],
-  ["Automation readiness", "0–100 score from candidate flag, confidence, evidence, impact."],
-  ["Bottleneck heat", "Department-level concentration of waste — for prioritization, not vanity."],
-  ["Governed change", "Every material automation decision leaves an audit trail."],
-];
+const content: SolutionContent = {
+  tone: "emerald",
+  kicker: "Operations Efficiency",
+  title: "Stop paying for work that shouldn't exist.",
+  lede:
+    "Every operation carries friction it has learned to live with: re-keying data, chasing approvals, rebuilding the same report. Kaivaryn puts a cost on it, ranks what to fix first, and tracks savings until they are realized.",
+  problem: {
+    heading: "Friction becomes “how we work” — and it is expensive.",
+    intro:
+      "Wasted effort rarely looks like waste. It looks like busy, capable people doing work the business should no longer need.",
+    items: [
+      ["Nobody prices the friction", "Manual steps, handoffs, and rework are absorbed as overhead, so they never compete for attention or budget."],
+      ["Bottlenecks repeat", "The same queues back up every month. Fixes are informal and the cause stays in place."],
+      ["Savings get promised, not proven", "Automation business cases report projected savings as if they were real, with no record of what landed."],
+    ],
+  },
+  finds: {
+    heading: "Where the time and cost are going.",
+    items: [
+      ["Unnecessary manual work", "Repetitive steps — reconciliations, re-keying, report assembly — that consume skilled hours every week."],
+      ["Recurring bottlenecks", "Queues and approvals that age past their deadlines, department by department."],
+      ["Rework and duplication", "The same data entered twice, and work redone because the first pass was wrong."],
+      ["Delays and handoffs", "Lag between teams that slows delivery and cash."],
+      ["Automation candidates", "Work that is ready to automate, scored on evidence and impact — not on enthusiasm."],
+      ["Wasted labor, in dollars", "Hours and annual cost for each issue, so operations competes on the same terms as revenue."],
+    ],
+  },
+  financial: {
+    heading: "Recovered capacity is operating margin.",
+    body:
+      "Every hour spent on avoidable work is labor you pay for twice: once for the work, and again for what your team didn’t do instead. Removing it lowers operating cost and frees capacity for growth.",
+    points: [
+      "Annual cost of each bottleneck, in dollars and hours",
+      "Projected savings you can plan around",
+      "Realized savings you can defend",
+    ],
+  },
+  executiveView: {
+    heading: "Where the waste is, what it costs, and whether the fix worked.",
+    body:
+      "Kaivaryn ranks the highest-cost bottlenecks and shows your team what to fix first. Projected and realized savings are always shown separately.",
+    metrics: [
+      { label: "Projected savings", note: "What fixing the issues should save each year. Clearly labeled as a projection." },
+      { label: "Wasted hours and cost", note: "Weekly hours and annual cost tied up in each bottleneck." },
+      { label: "Automation candidates", note: "Work that is ready to automate, ranked by readiness and value." },
+      { label: "Realized savings", note: "Savings your team has recorded after the fix was made. Never inferred.", realized: true },
+    ],
+    columns: ["Annual cost", "Hours / week", "Status", "Owner", "Next action", "Approval"],
+  },
+  nextAction: {
+    heading: "Each bottleneck gets an owner, a fix, and an approval path.",
+    steps: [
+      ["Assign an owner", "One accountable person per issue, with the evidence and cost attached."],
+      ["Agree the fix", "Process change, automation, or policy — recorded on the item with its projected savings."],
+      ["Approve before change", "Automation and high-value savings claims wait for an explicit decision."],
+      ["Your team executes", "Kaivaryn does not change your systems or run automation on its own."],
+    ],
+  },
+  verification: {
+    heading: "Projected is not the same as realized.",
+    body:
+      "Savings count only when your team records them after the change is made. Projected and realized savings sit side by side, so the open gap is always visible.",
+    stages: [
+      ["Identified", "Cost and hours estimated from the evidence."],
+      ["Analyzing", "Owner assigned and the fix agreed."],
+      ["Implementing", "Approved change underway."],
+      ["Realized → verified", "Savings recorded, then confirmed."],
+    ],
+    rule: "Realized savings are recorded outcomes. They are never inferred from a projection.",
+  },
+  closing: "See what your operation is paying for that it doesn’t need — and what it would save to fix it.",
+};
 
 export default function OperationsEfficiencyPage() {
-  return (
-    <>
-      <section className="relative overflow-hidden border-b border-neutral-900">
-        <AmbientField intensity="hero" />
-        <BreathGrid opacity={0.28} />
-        <div className="relative mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-          <Reveal>
-          <p className="public-kicker text-emerald-400">Solution / Operations Efficiency</p>
-          <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-6xl">
-            Remove the friction your team has learned to work around.
-          </h1>
-          <div className="mt-5 h-px w-20 bg-gradient-to-r from-emerald-400 to-transparent" />
-          <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-400 sm:text-lg">
-            Kaivaryn turns repeatable waste into a visible improvement queue — without confusing automation potential for
-            automation success. Built for operators who need measured realization, not slideware ROI.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Magnetic><Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link></Magnetic>
-            <a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="public-button-secondary">Schedule on Zoom</a>
-            <Link href="/value" className="public-button-secondary">Estimate opportunity</Link>
-            <Link href="/pricing" className="public-button-secondary">View pricing</Link>
-          </div>
-          </Reveal>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <p className="public-kicker text-emerald-400">Problem</p>
-        <h2 className="mt-3 text-3xl font-semibold text-white">Why efficiency programs stall.</h2>
-        <div className="mt-8 grid gap-5 lg:grid-cols-3">
-          {problem.map(([t, b], i) => (
-            <div key={t} className="public-card p-7">
-              <p className="font-mono text-xs text-emerald-400">0{i + 1}</p>
-              <h3 className="mt-4 text-lg font-semibold text-white">{t}</h3>
-              <p className="mt-3 text-sm leading-6 text-neutral-500">{b}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="border-y border-neutral-900 bg-neutral-950/50">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <p className="public-kicker text-emerald-400">Method</p>
-          <h2 className="mt-3 text-3xl font-semibold text-white">Find → quantify → ready → realize.</h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {method.map(([t, b]) => (
-              <div key={t} className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
-                <h3 className="text-base font-semibold text-white">{t}</h3>
-                <p className="mt-2 text-sm leading-6 text-neutral-500">{b}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <p className="public-kicker text-emerald-400">Workflow</p>
-        <h2 className="mt-3 text-3xl font-semibold text-white">An initiative loop that separates projection from proof.</h2>
-        <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {workflow.map(([t, b], i) => (
-            <div key={t} className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-5">
-              <p className="font-mono text-xs text-emerald-400">Stage {i + 1}</p>
-              <h3 className="mt-2 text-lg font-semibold text-white">{t}</h3>
-              <p className="mt-2 text-sm text-neutral-500">{b}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="border-t border-neutral-900">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-          <p className="public-kicker text-emerald-400">Outcomes framework</p>
-          <h2 className="mt-3 max-w-2xl text-3xl font-semibold text-white">What you measure — without fake peer ROI.</h2>
-          <div className="mt-8 grid gap-5 sm:grid-cols-2">
-            {outcomes.map(([t, b]) => (
-              <div key={t} className="public-card p-6">
-                <h3 className="text-lg font-semibold text-white">{t}</h3>
-                <p className="mt-2 text-sm leading-6 text-neutral-500">{b}</p>
-              </div>
-            ))}
-          </div>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/demo" className="public-button-primary">Book executive demo <span aria-hidden>↗</span></Link>
-            <Link href="/value" className="public-button-secondary">Run the value estimator</Link>
-            <Link href="/how-it-works" className="public-button-secondary">See the operating loop</Link>
-          </div>
-        </div>
-      </section>
-          <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
-        <Reveal variant="scale"><ExampleFrameworkChart /></Reveal>
-      </section>
-</>
-  );
+  return <SolutionPage c={content} />;
 }

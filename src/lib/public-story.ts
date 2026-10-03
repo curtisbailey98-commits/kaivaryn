@@ -3,7 +3,7 @@
  * every line here maps to shipped code (see docs/SI_RENOVATION.md). No metrics, no customer claims.
  */
 export const NINE_RETURNS = [
-  { code: "R1", stage: "REALITY", name: "Reality", line: "Reads current revenue or operations records. Too little evidence returns INSUFFICIENT_DATA instead of a guess." },
+  { code: "R1", stage: "REALITY", name: "Reality", line: "Reads current revenue or operations records. Too little evidence returns “insufficient data” instead of a guess." },
   { code: "R2", stage: "MEMORY", name: "Memory", line: "Retrieves the prior continuity state, lessons, and recorded outcomes for this organization." },
   { code: "R3", stage: "PREDICTION", name: "Prediction", line: "States what happens if nothing changes, with an explicit confidence that is later checked." },
   { code: "R4", stage: "COUNTERFACTUAL", name: "Counterfactual", line: "Compares intervention paths so the recommendation is a choice, not an assertion." },
@@ -11,7 +11,7 @@ export const NINE_RETURNS = [
   { code: "R6", stage: "SELF", name: "Self-model", line: "Notes where the current method is weak or under-sampled." },
   { code: "R7", stage: "CALIBRATION", name: "Calibration", line: "Adjusts confidence against what actually happened in prior cycles." },
   { code: "R8", stage: "META", name: "Meta", line: "Looks for patterns across cycles; promotes a challenger method only on measured evidence." },
-  { code: "R9", stage: "WITNESS", name: "Witness", line: "The only stage allowed to sign the next continuity state. The cycle then closes at ZERO_RETURN." },
+  { code: "R9", stage: "WITNESS", name: "Witness", line: "The only stage allowed to record the conclusion the next cycle starts from. The cycle then closes." },
 ] as const;
 
 export const PLATFORM_LAYERS = [
@@ -29,7 +29,7 @@ export const PLATFORM_LAYERS = [
   },
   {
     n: "03",
-    name: "Nine-return intelligence",
+    name: "Nine-step analysis",
     body: "A bounded nine-step analysis cycle per product — from what the data shows, through critique and calibration, to a signed record the next cycle starts from.",
     items: ["Nine-step cycle", "Signed record of findings", "Lessons & memory", "Primary / challenger methods"],
   },
@@ -60,7 +60,7 @@ export const GOVERNANCE_RAILS = [
   ["Tenant isolation", "Every record and every query is scoped to one organization. Cross-tenant access is tested on every build."],
   ["Role-based access", "Viewers can ask and read. Analysts can run analysis and plans. Managers and above approve."],
   ["Human-in-the-loop", "Approval gates pause runs. Approving resumes internal steps only — external actions are performed by your team."],
-  ["Deterministic engines", "Routing, detection, and the nine-return cycle are rule-based. No generative model sits in the analysis path."],
+  ["Rule-based analysis", "Routing, detection, and the nine-step analysis are rule-based and repeatable. No generative model sits in the analysis path."],
   ["Audit trail", "Commands, runs, standing orders, approvals, and playbook changes write audit events."],
-  ["Honest states", "Missing data returns INSUFFICIENT_DATA. Missing integrations are labeled. Projected is never shown as realized."],
+  ["Honest states", "Missing data is reported as insufficient. Missing integrations are labeled. Projected is never shown as realized."],
 ] as const;

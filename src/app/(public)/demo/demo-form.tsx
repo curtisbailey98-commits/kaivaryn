@@ -25,9 +25,9 @@ export function DemoForm({ zoomUrl = ZOOM_SCHEDULER_URL }: { zoomUrl?: string })
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-500">
           Fastest path
         </p>
-        <h2 className="mt-2 text-lg font-semibold text-white">Schedule executive demo on Zoom</h2>
+        <h2 className="mt-2 text-lg font-semibold text-white">Book an executive working session</h2>
         <p className="mt-2 text-sm text-neutral-400">
-          Book directly on Kaivaryn&apos;s calendar. No prospect Zoom link required — we host.
+          Choose a time on Kaivaryn&apos;s calendar. We host the Zoom meeting.
         </p>
         <a
           href={zoomUrl}
@@ -35,7 +35,7 @@ export function DemoForm({ zoomUrl = ZOOM_SCHEDULER_URL }: { zoomUrl?: string })
           rel="noopener noreferrer"
           className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-md bg-amber-500 px-4 text-sm font-semibold text-neutral-950 hover:bg-amber-400 sm:w-auto"
         >
-          Schedule executive demo on Zoom
+          Pick a time on Zoom
         </a>
       </div>
 
@@ -104,7 +104,7 @@ export function DemoForm({ zoomUrl = ZOOM_SCHEDULER_URL }: { zoomUrl?: string })
         </fieldset>
         <label className="block text-xs text-neutral-400">
           Message
-          <Textarea name="message" className="mt-1" placeholder="Context for the conversation…" />
+          <Textarea name="message" className="mt-1" placeholder="Where do you suspect money or time is being lost?" />
         </label>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <SubmitButton />

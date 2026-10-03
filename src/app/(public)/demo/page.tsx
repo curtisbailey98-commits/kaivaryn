@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { DemoForm } from "./demo-form";
 import { getPricingConfig, resolveZoomSchedulerUrl } from "@/lib/pricing";
-import { AmbientField, BreathGrid, Reveal, Magnetic } from "@/components/motion";
+import { AmbientField, BreathGrid, Reveal } from "@/components/motion";
 
 export const metadata: Metadata = {
   title: "Book a Demo",
@@ -27,28 +27,18 @@ export default async function DemoPage() {
             </h1>
             <div className="mt-5 h-px w-16 bg-gradient-to-r from-amber-400 to-transparent" />
             <p className="mt-5 max-w-md text-base leading-7 text-neutral-400">
-              Schedule a live executive walkthrough on Zoom, or leave your details for a Kaivaryn
-              operator follow-up. We host the meeting — no prospect Zoom link required.
+              Pick a time for a live executive session on Zoom, or leave your details and a Kaivaryn
+              operator will follow up. We host the meeting.
             </p>
             <div className="mt-8 space-y-3 text-sm text-neutral-400">
-              <p><span className="mr-2 text-amber-400">01</span>Schedule on Zoom for the fastest path to a live executive session.</p>
-              <p><span className="mr-2 text-amber-400">02</span>Or share business context for a grounded operator callback.</p>
-              <p><span className="mr-2 text-amber-400">03</span>Walk the operating loop: leakage and friction → ranked queue → governed action → verified results.</p>
+              <p><span className="mr-2 text-amber-400">01</span>Pick a time on Zoom — the fastest path to a live session.</p>
+              <p><span className="mr-2 text-amber-400">02</span>Or share a little context and we will call you back.</p>
+              <p><span className="mr-2 text-amber-400">03</span>See where money and time are being lost, what it is worth, who owns the fix, and how the result is verified.</p>
             </div>
             <p className="mt-6 max-w-md text-xs leading-5 text-neutral-500">
-              Sessions are consulting-led. We do not present fabricated customer logos or invented recovery averages.
-              Bring one hard question; leave with a clearer path to test it in the Kaivaryn workspace.
+              Sessions are led by Kaivaryn operators, not a sales script. Bring one hard question; leave with a
+              clear view of how to test it in your own workspace.
             </p>
-            <Magnetic className="mt-8">
-              <a
-                href={zoomUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex h-11 items-center justify-center rounded-md border border-amber-500/50 px-5 text-sm font-semibold text-amber-400 shadow-[0_0_24px_rgba(245,158,11,0.08)] transition hover:bg-amber-500/10 hover:shadow-[0_0_32px_rgba(245,158,11,0.16)]"
-              >
-                Schedule executive demo on Zoom
-              </a>
-            </Magnetic>
           </div>
         </Reveal>
         <Reveal variant="scale" delay={100}>
