@@ -1,7 +1,13 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getSessionContext } from "@/lib/tenant";
 import { APP_NAME } from "@/lib/constants";
+
+export const metadata: Metadata = {
+  title: { default: "Admin console", template: "%s | Kaivaryn Admin" },
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const ctx = await getSessionContext();

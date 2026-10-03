@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
+export const metadata = { title: "New inefficiency" };
+
 export default async function NewInefficiencyPage() {
   const ctx = await requireOrgAccess();
   assertOrgId(ctx.organizationId);

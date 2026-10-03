@@ -6,7 +6,11 @@ import { buildCheckoutLink } from "@/lib/acquisition";
 import { formatCurrency } from "@/lib/utils";
 import { startPostDemoCheckout } from "./actions";
 
-export const metadata: Metadata = { title: "Begin implementation" };
+export const metadata: Metadata = {
+  title: "Begin implementation",
+  description:
+    "Begin your Kaivaryn implementation.",
+};
 export const dynamic = "force-dynamic";
 
 export default async function EngagementCheckoutPage({ params }: { params: { token: string } }) {

@@ -1,8 +1,14 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { AppShell } from "@/components/layout/app-shell";
 import { requireOrgAccess } from "@/lib/tenant";
 import { FlashToast } from "@/components/ui/flash-toast";
 import { getInboxCounts } from "@/lib/operate/inbox";
+
+export const metadata: Metadata = {
+  title: { default: "Workspace", template: "%s | Kaivaryn" },
+  robots: { index: false, follow: false },
+};
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrgAccess();

@@ -11,6 +11,8 @@ import { CHART } from "@/components/charts/theme";
 import { humanizeLabel } from "@/lib/labels";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
+export const metadata = { title: "Approvals" };
+
 export const dynamic = "force-dynamic";
 
 export default async function ApprovalsPage({

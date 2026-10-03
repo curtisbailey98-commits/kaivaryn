@@ -1,7 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Company" };
+export const metadata: Metadata = {
+  title: "Company",
+  description:
+    "Kaivaryn LLC is an executive AI consulting and enterprise automation firm focused on revenue recovery and operations efficiency.",
+};
 
 const principles = [["01", "Clarity over theater", "We build restrained interfaces that help leaders see what is material, what is missing, and what happens next."], ["02", "Accountability over autonomy", "Actions have owners, approvals, and audit trails. External systems are never claimed as updated when they were not."], ["03", "Progress over vanity", "We care about recovered value and realized efficiency—not activity that only looks like progress."], ["04", "Trust compounds", "Tenant isolation, honest empty states, and explicit evidence are product features, not footnotes."]];
 

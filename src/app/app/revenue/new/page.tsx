@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
+export const metadata = { title: "New opportunity" };
+
 export default async function NewOpportunityPage() {
   const ctx = await requireOrgAccess();
   assertOrgId(ctx.organizationId);

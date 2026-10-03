@@ -6,6 +6,8 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { humanizeLabel } from "@/lib/labels";
 
+export const metadata = { title: "Findings" };
+
 export const dynamic = "force-dynamic";
 
 export default async function FindingsPage() {

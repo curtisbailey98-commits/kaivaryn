@@ -6,7 +6,11 @@ import { AmbientField, BreathGrid, Reveal, Magnetic, SectionRule } from "@/compo
 import { OPERATING_LOOP } from "@/lib/public-story";
 import { CommandRoutingDemo } from "@/components/public/command-routing-demo";
 
-export const metadata: Metadata = { title: "How it works" };
+export const metadata: Metadata = {
+  title: "How it works",
+  description:
+    "How a Kaivaryn engagement runs: connect, analyze, identify, prioritize, execute with approvals, and measure what was actually recovered or saved.",
+};
 
 const steps = OPERATING_LOOP.map((s) => [s.n, s.name, s.body] as const);
 

@@ -10,6 +10,8 @@ import { formatDate } from "@/lib/utils";
 import { can } from "@/lib/rbac";
 import { createInitiativeAction } from "../operate-actions";
 
+export const metadata = { title: "Initiatives" };
+
 export const dynamic = "force-dynamic";
 
 export default async function InitiativesPage() {

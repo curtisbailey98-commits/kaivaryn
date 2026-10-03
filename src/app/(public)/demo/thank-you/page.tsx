@@ -3,7 +3,11 @@ import type { Metadata } from "next";
 import { getPricingConfig, resolveZoomSchedulerUrl } from "@/lib/pricing";
 import { ExampleThankYouChart } from "@/components/charts/example-public-charts";
 
-export const metadata: Metadata = { title: "Thank you" };
+export const metadata: Metadata = {
+  title: "Thank you",
+  description:
+    "Your Kaivaryn demo request was received. Pick a time for your executive working session.",
+};
 export const dynamic = "force-dynamic";
 
 export default async function ThankYouPage() {

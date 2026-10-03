@@ -4,7 +4,11 @@ import type { Metadata } from "next";
 import { ZOOM_SCHEDULER_URL } from "@/lib/constants";
 import { AmbientField, BreathGrid, Reveal, Magnetic, SectionRule } from "@/components/motion";
 
-export const metadata: Metadata = { title: "Revenue Recovery" };
+export const metadata: Metadata = {
+  title: "Revenue Recovery",
+  description:
+    "Find and recover revenue leakage — underbilling, missed fees, contract variance, denials — with an owned recovery queue and cash recovered tracked separately from estimates.",
+};
 
 const problem = [
   ["Hidden leakage", "Underbilling, underpayment, missed change orders, denials, and contract gaps sit in systems your teams already run."],

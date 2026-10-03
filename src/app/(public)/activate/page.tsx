@@ -3,7 +3,11 @@ import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-export const metadata: Metadata = { title: "Activate your workspace" };
+export const metadata: Metadata = {
+  title: "Activate your workspace",
+  description:
+    "Activate your Kaivaryn workspace after your executive demo.",
+};
 
 export default async function ActivatePage() {
   const session = await getServerSession(authOptions);

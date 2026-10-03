@@ -9,7 +9,7 @@ import { GOVERNANCE_RAILS, NINE_RETURNS, PLATFORM_LAYERS } from "@/lib/public-st
 export const metadata: Metadata = {
   title: "Platform",
   description:
-    "The Kaivaryn operating intelligence platform: evidence, detection engines, a nine-return intelligence cycle, an operating layer of commands, playbooks, standing orders and approval-gated runs, and executive surfaces.",
+    "The Kaivaryn operating intelligence platform: evidence-backed detection, a nine-step analysis cycle, commands, playbooks, standing orders and approval-gated runs — with estimates kept separate from recorded outcomes.",
 };
 
 const OPERATING_PARTS = [

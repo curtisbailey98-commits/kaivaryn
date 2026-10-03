@@ -20,6 +20,8 @@ import { ActivityStrip, CountUp, CountUpCurrency } from "@/components/motion";
 import { OperatingDesk } from "@/components/operate/operating-desk";
 import { getInboxCounts } from "@/lib/operate/inbox";
 
+export const metadata = { title: "Home" };
+
 export default async function AppHomePage() {
   const ctx = await requireOrgAccess();
   assertOrgId(ctx.organizationId);

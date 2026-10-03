@@ -9,6 +9,8 @@ import { getSettingsUsageChartData } from "@/lib/chart-data";
 import { DynAreaChart, KpiSpark } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
 
+export const metadata = { title: "Org settings" };
+
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {

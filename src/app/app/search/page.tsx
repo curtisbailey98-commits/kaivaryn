@@ -5,6 +5,8 @@ import { EmptyState } from "@/components/ui/states";
 import { Badge } from "@/components/ui/badge";
 import { clientTitle, humanizeLabel } from "@/lib/labels";
 
+export const metadata = { title: "Search" };
+
 export const dynamic = "force-dynamic";
 
 export default async function SearchPage({

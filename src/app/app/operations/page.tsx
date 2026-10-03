@@ -19,6 +19,8 @@ import { MONEY, MONEY_GLOSSARY_FOOTNOTE } from "@/lib/money-glossary";
 import { Badge, StatusBadge, PriorityBadge } from "@/components/ui/badge";
 import { clientTitle, humanizeLabel } from "@/lib/labels";
 
+export const metadata = { title: "Operations Efficiency" };
+
 export const dynamic = "force-dynamic";
 
 const VIEWS: Record<string, { label: string; where?: Prisma.InefficiencyWhereInput }> = {

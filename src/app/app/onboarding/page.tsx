@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { revalidatePath } from "next/cache";
 import Link from "next/link";
 
+export const metadata = { title: "Setup" };
+
 export const dynamic = "force-dynamic";
 
 const optionClass = "flex cursor-pointer items-start gap-3 rounded-xl border border-neutral-800 bg-neutral-950 p-4 text-sm transition has-[:checked]:border-amber-500/50 has-[:checked]:bg-amber-500/[0.06]";

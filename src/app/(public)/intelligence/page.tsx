@@ -3,7 +3,11 @@ import type { Metadata } from "next";
 import { NineReturnRing } from "@/components/public/nine-return-ring";
 import { NINE_RETURNS } from "@/lib/public-story";
 
-export const metadata: Metadata = { title: "Intelligence" };
+export const metadata: Metadata = {
+  title: "Intelligence",
+  description:
+    "How Kaivaryn turns your operating data into ranked, evidence-backed decisions — with estimates always kept separate from recorded outcomes.",
+};
 
 export default function IntelligencePage() {
   return (

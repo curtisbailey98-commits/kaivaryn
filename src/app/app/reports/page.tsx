@@ -10,6 +10,8 @@ import { getWeeklyBriefChartData } from "@/lib/chart-data";
 import { DynLineChart, DynBarChart } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
 
+export const metadata = { title: "Reports" };
+
 export const dynamic = "force-dynamic";
 
 const TYPES: ReportType[] = ["rr_summary", "ops_summary", "weekly_brief", "monthly_impact"];

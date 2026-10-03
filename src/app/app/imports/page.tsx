@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { submitImport } from "./actions";
 import { EmptyState } from "@/components/ui/states";
 
+export const metadata = { title: "Imports" };
+
 export const dynamic = "force-dynamic";
 
 export default async function ImportsPage() {

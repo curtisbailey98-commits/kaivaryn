@@ -10,6 +10,8 @@ import { formatCurrency } from "@/lib/utils";
 import { MONEY, MONEY_GLOSSARY_FOOTNOTE } from "@/lib/money-glossary";
 import { humanizeLabel } from "@/lib/labels";
 
+export const metadata = { title: "Learning" };
+
 export const dynamic = "force-dynamic";
 
 export default async function LearningPage() {

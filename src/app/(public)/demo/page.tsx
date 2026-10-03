@@ -3,7 +3,11 @@ import { DemoForm } from "./demo-form";
 import { getPricingConfig, resolveZoomSchedulerUrl } from "@/lib/pricing";
 import { AmbientField, BreathGrid, Reveal, Magnetic } from "@/components/motion";
 
-export const metadata: Metadata = { title: "Book a Demo" };
+export const metadata: Metadata = {
+  title: "Book a Demo",
+  description:
+    "Book an executive working session with Kaivaryn. Bring one hard revenue or operations question and see it worked through on a live platform.",
+};
 export const dynamic = "force-dynamic";
 
 export default async function DemoPage() {

@@ -4,7 +4,11 @@ import type { Metadata } from "next";
 import { ZOOM_SCHEDULER_URL } from "@/lib/constants";
 import { AmbientField, BreathGrid, Reveal, Magnetic } from "@/components/motion";
 
-export const metadata: Metadata = { title: "Operations Efficiency" };
+export const metadata: Metadata = {
+  title: "Operations Efficiency",
+  description:
+    "Translate operational friction into financial impact: rank manual work, rework and handoff delays, govern interventions, and measure realized savings.",
+};
 
 const problem = [
   ["Learned friction", "Rework, queue delay, and manual repetition become “how we work” instead of a governed improvement backlog."],

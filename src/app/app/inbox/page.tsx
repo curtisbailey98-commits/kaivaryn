@@ -11,6 +11,8 @@ import { markNotificationRead } from "../actions";
 import { formatDate } from "@/lib/utils";
 import { ShieldCheck, Bell, ListTodo, Workflow, AlarmClockOff, FileText } from "lucide-react";
 
+export const metadata = { title: "Inbox" };
+
 export const dynamic = "force-dynamic";
 
 const TYPE_META = {
