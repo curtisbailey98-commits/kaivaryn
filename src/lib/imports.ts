@@ -71,88 +71,7 @@ export async function runImportJob(jobId: string, csvText: string) {
           const header = mapping[canon] || canon;
           return row[header] ?? "";
         };
-        if (job.kind === "opportunities") {
-          const title = get("title");
-          if (!title) throw new Error("title required");
-          const amount = Number(get("estimatedAmount") || get("potentialAmount") || 0) || 0;
-          const money = normalizeRevenueAmounts({ potentialAmount: amount, estimatedAmount: amount });
-          const scored = scoreWorkItem({ amount: money.potential, ageDays: 0, settings });
-          await prisma.opportunity.create({
-            data: {
-              organizationId: job.organizationId,
-              title,
-              description: get("description") || null,
-              source: get("source") || "csv_import",
-              sourceId: get("sourceId") || `csv-row-${i + 2}`,
-              department: get("department") || null,
-              type: get("type") || null,
-              status: "IDENTIFIED",
-              priority: scored.priority,
-              score: scored.score,
-              scoreFactorsJson: JSON.stringify(scored.factors),
-              potentialAmount: money.potential,
-              estimatedAmount: money.potential,
-              importedAt: new Date(),
-            },
-          });
-        } else if (job.kind === "customers") {
-          const name = get("name");
-          if (!name) throw new Error("name required");
-          await prisma.customer.create({
-            data: {
-              organizationId: job.organizationId,
-              name,
-              email: get("email") || null,
-              status: get("status") || "ACTIVE",
-              lastActivityAt: get("lastActivityAt") ? new Date(get("lastActivityAt")) : null,
-              source: "csv_import",
-              sourceId: get("sourceId") || `csv-row-${i + 2}`,
-              importedAt: new Date(),
-            },
-          });
-        } else if (job.kind === "processes") {
-          const name = get("name");
-          if (!name) throw new Error("name required");
-          await prisma.process.create({
-            data: {
-              organizationId: job.organizationId,
-              name,
-              description: get("description") || null,
-              avgCycleDays: get("avgCycleDays") ? Number(get("avgCycleDays")) : null,
-              source: "csv_import",
-              sourceId: get("sourceId") || `csv-row-${i + 2}`,
-              importedAt: new Date(),
-            },
-          });
-        } else if (job.kind === "inefficiencies") {
-          const title = get("title");
-          if (!title) throw new Error("title required");
-          const waste = Number(get("estimatedWasteAnnual") || get("projectedSavings") || 0) || 0;
-          const money = normalizeOpsAmounts({ estimatedWasteAnnual: waste, projectedSavings: waste });
-          const scored = scoreWorkItem({ amount: money.projectedSavings, ageDays: 0, settings });
-          await prisma.inefficiency.create({
-            data: {
-              organizationId: job.organizationId,
-              title,
-              description: get("description") || null,
-              department: get("department") || null,
-              type: get("type") || null,
-              source: "csv_import",
-              sourceId: get("sourceId") || `csv-row-${i + 2}`,
-              status: "IDENTIFIED",
-              priority: scored.priority,
-              score: scored.score,
-              scoreFactorsJson: JSON.stringify(scored.factors),
-              estimatedWasteAnnual: money.projectedSavings,
-              projectedSavings: money.projectedSavings,
-              hoursWastedWeekly: get("hoursWastedWeekly") ? Number(get("hoursWastedWeekly")) : null,
-              automationCandidate: ["1", "true", "yes"].includes((get("automationCandidate") || "").toLowerCase()),
-              importedAt: new Date(),
-            },
-          });
-        } else {
-          throw new Error(`Unknown kind ${job.kind}`);
-        }
+        await writeImportRecord({ organizationId: job.organizationId, kind: job.kind, get, rowNumber: i + 2, settings });
         success++;
       } catch (e) {
         errors.push({ row: i + 2, error: e instanceof Error ? e.message : "error" });
@@ -179,5 +98,105 @@ export async function runImportJob(jobId: string, csvText: string) {
         errorJson: JSON.stringify([{ error: e instanceof Error ? e.message : "unknown" }]),
       },
     });
+  }
+}
+
+type ImportSettings = Awaited<ReturnType<typeof prisma.orgSettings.upsert>>;
+
+/**
+ * Write one canonical record for an import kind. Shared by CSV upload, guided templates,
+ * Google Sheets, and the inbound API so every path scores, normalizes money, and tenant-scopes
+ * the same way. Estimates only — recovered/realized amounts are never set by an import.
+ */
+export async function writeImportRecord(input: {
+  organizationId: string;
+  kind: string;
+  get: (canon: string) => string;
+  rowNumber: number;
+  settings: ImportSettings;
+  defaultSource?: string;
+  fallbackSourceId?: string;
+}) {
+  if (input.kind === "opportunities") {
+    const title = input.get("title");
+    if (!title) throw new Error("title required");
+    const amount = Number(input.get("estimatedAmount") || input.get("potentialAmount") || 0) || 0;
+    const money = normalizeRevenueAmounts({ potentialAmount: amount, estimatedAmount: amount });
+    const scored = scoreWorkItem({ amount: money.potential, ageDays: 0, settings: input.settings });
+    await prisma.opportunity.create({
+      data: {
+        organizationId: input.organizationId,
+        title,
+        description: input.get("description") || null,
+        source: input.get("source") || input.defaultSource || "csv_import",
+        sourceId: input.get("sourceId") || (input.fallbackSourceId ?? `csv-row-${input.rowNumber}`),
+        department: input.get("department") || null,
+        type: input.get("type") || null,
+        status: "IDENTIFIED",
+        priority: scored.priority,
+        score: scored.score,
+        scoreFactorsJson: JSON.stringify(scored.factors),
+        potentialAmount: money.potential,
+        estimatedAmount: money.potential,
+        importedAt: new Date(),
+      },
+    });
+  } else if (input.kind === "customers") {
+    const name = input.get("name");
+    if (!name) throw new Error("name required");
+    await prisma.customer.create({
+      data: {
+        organizationId: input.organizationId,
+        name,
+        email: input.get("email") || null,
+        status: input.get("status") || "ACTIVE",
+        lastActivityAt: input.get("lastActivityAt") ? new Date(input.get("lastActivityAt")) : null,
+        source: input.defaultSource || "csv_import",
+        sourceId: input.get("sourceId") || (input.fallbackSourceId ?? `csv-row-${input.rowNumber}`),
+        importedAt: new Date(),
+      },
+    });
+  } else if (input.kind === "processes") {
+    const name = input.get("name");
+    if (!name) throw new Error("name required");
+    await prisma.process.create({
+      data: {
+        organizationId: input.organizationId,
+        name,
+        description: input.get("description") || null,
+        avgCycleDays: input.get("avgCycleDays") ? Number(input.get("avgCycleDays")) : null,
+        source: input.defaultSource || "csv_import",
+        sourceId: input.get("sourceId") || (input.fallbackSourceId ?? `csv-row-${input.rowNumber}`),
+        importedAt: new Date(),
+      },
+    });
+  } else if (input.kind === "inefficiencies") {
+    const title = input.get("title");
+    if (!title) throw new Error("title required");
+    const waste = Number(input.get("estimatedWasteAnnual") || input.get("projectedSavings") || 0) || 0;
+    const money = normalizeOpsAmounts({ estimatedWasteAnnual: waste, projectedSavings: waste });
+    const scored = scoreWorkItem({ amount: money.projectedSavings, ageDays: 0, settings: input.settings });
+    await prisma.inefficiency.create({
+      data: {
+        organizationId: input.organizationId,
+        title,
+        description: input.get("description") || null,
+        department: input.get("department") || null,
+        type: input.get("type") || null,
+        source: input.defaultSource || "csv_import",
+        sourceId: input.get("sourceId") || (input.fallbackSourceId ?? `csv-row-${input.rowNumber}`),
+        status: "IDENTIFIED",
+        priority: scored.priority,
+        score: scored.score,
+        scoreFactorsJson: JSON.stringify(scored.factors),
+        estimatedWasteAnnual: money.projectedSavings,
+        projectedSavings: money.projectedSavings,
+        hoursWastedWeekly: input.get("hoursWastedWeekly") ? Number(input.get("hoursWastedWeekly")) : null,
+        automationCandidate: ["1", "true", "yes"].includes((input.get("automationCandidate") || "").toLowerCase()),
+        importedAt: new Date(),
+      },
+    });
+  } else {
+    throw new Error(`Unknown kind ${input.kind}`);
   }
 }
