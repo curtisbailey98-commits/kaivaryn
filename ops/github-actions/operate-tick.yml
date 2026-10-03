@@ -1,0 +1,59 @@
+name: Kaivaryn automations tick
+
+# Runs due automations (standing orders) in production. The app is on free hosting with no
+# always-on worker, so this scheduled job wakes it and calls the token-protected tick endpoint.
+# GitHub may start scheduled runs late; each due automation is claimed once on the server, and
+# retries reuse the same X-Tick-Key, so nothing runs twice.
+on:
+  schedule:
+    - cron: "4,19,34,49 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: kaivaryn-operate-tick
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_URL: https://kaivaryn.onrender.com
+    steps:
+      - name: Wake the app (free hosting sleeps when idle)
+        run: |
+          for i in $(seq 1 15); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$APP_URL/api/health" || true)
+            echo "wake attempt $i: HTTP $code"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::App did not become healthy after cold start"
+          exit 1
+
+      - name: Run due automations
+        env:
+          OPERATE_TICK_TOKEN: ${{ secrets.OPERATE_TICK_TOKEN }}
+        run: |
+          if [ -z "$OPERATE_TICK_TOKEN" ]; then echo "::error::OPERATE_TICK_TOKEN repository secret is required"; exit 1; fi
+          KEY="gh-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          for i in 1 2 3 4; do
+            code=$(curl -s -o resp.json -w "%{http_code}" --max-time 280 -X POST \
+              -H "Authorization: Bearer $OPERATE_TICK_TOKEN" \
+              -H "X-Tick-Key: $KEY" \
+              -H "X-Tick-Source: github-actions" \
+              "$APP_URL/api/operate/tick" || true)
+            echo "tick attempt $i: HTTP $code"
+            cat resp.json 2>/dev/null || true
+            echo
+            case "$code" in
+              200|202) exit 0 ;;
+              401) echo "::error::Tick token rejected - check the OPERATE_TICK_TOKEN secret matches the Render env var"; exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "::error::Tick failed after retries"
+          exit 1
