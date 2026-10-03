@@ -73,8 +73,10 @@ export async function handleStripeWebhook(payload: string, signature: string | n
   if (!(HANDLED_CHECKOUT_EVENTS as readonly string[]).includes(event.type)) return ignored("unhandled_event_type");
 
   const session = event.data?.object;
-  const business = session?.metadata?.business;
-  if (business && business.toLowerCase() !== "kaivaryn") return ignored("other_business");
+  // Other businesses on the shared account tag their sessions (Benchline sets
+  // metadata.source="benchline"); anything tagged for another business is ignored.
+  const tags = [session?.metadata?.business, session?.metadata?.source].filter((tag): tag is string => Boolean(tag));
+  if (tags.some((tag) => tag.toLowerCase() !== "kaivaryn")) return ignored("other_business");
 
   const reference = session?.client_reference_id;
   const kaivarynLink = Boolean(session?.payment_link && kaivarynPaymentLinkIds().has(session.payment_link));

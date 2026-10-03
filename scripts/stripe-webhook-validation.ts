@@ -30,7 +30,8 @@ async function main() {
   // Foreign / unrecognised traffic on the shared Stripe account is acknowledged and ignored.
   const cases: Array<[string, string, string]> = [
     ["Benchline checkout (other payment link, foreign reference)", checkoutEvent(`evt_bl_${suffix}`, { payment_link: "plink_benchline_other", client_reference_id: `bl_${suffix}` }), "unknown_reference"],
-    ["Benchline checkout tagged by metadata", checkoutEvent(`evt_blm_${suffix}`, { metadata: { business: "benchline" }, client_reference_id: `bl_${suffix}` }), "other_business"],
+    ["Benchline checkout tagged by metadata.business", checkoutEvent(`evt_blm_${suffix}`, { metadata: { business: "benchline" }, client_reference_id: `bl_${suffix}` }), "other_business"],
+    ["Benchline checkout tagged by metadata.source", checkoutEvent(`evt_bls_${suffix}`, { metadata: { source: "benchline" }, client_reference_id: `bl_${suffix}` }), "other_business"],
     ["Kaivaryn link with unknown reference", checkoutEvent(`evt_kunk_${suffix}`, { payment_link: KAIVARYN_PAYMENT_LINK_IDS_DEFAULT[0], client_reference_id: randomBytes(24).toString("hex") }), "unknown_reference"],
     ["Checkout without reference", checkoutEvent(`evt_noref_${suffix}`, {}), "no_reference"],
     ["Unhandled event type", JSON.stringify({ id: `evt_inv_${suffix}`, type: "invoice.paid", data: { object: {} } }), "unhandled_event_type"],
