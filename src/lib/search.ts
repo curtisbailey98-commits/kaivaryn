@@ -9,10 +9,10 @@ export async function tenantSearch(organizationId: string, q: string, take = 40)
       where: {
         organizationId,
         OR: [
-          { title: { contains: query } },
-          { description: { contains: query } },
-          { source: { contains: query } },
-          { department: { contains: query } },
+          { title: { contains: query, mode: "insensitive" } },
+          { description: { contains: query, mode: "insensitive" } },
+          { source: { contains: query, mode: "insensitive" } },
+          { department: { contains: query, mode: "insensitive" } },
         ],
       },
       take,
@@ -22,9 +22,9 @@ export async function tenantSearch(organizationId: string, q: string, take = 40)
       where: {
         organizationId,
         OR: [
-          { title: { contains: query } },
-          { description: { contains: query } },
-          { department: { contains: query } },
+          { title: { contains: query, mode: "insensitive" } },
+          { description: { contains: query, mode: "insensitive" } },
+          { department: { contains: query, mode: "insensitive" } },
         ],
       },
       take,
@@ -33,7 +33,7 @@ export async function tenantSearch(organizationId: string, q: string, take = 40)
     prisma.customer.findMany({
       where: {
         organizationId,
-        OR: [{ name: { contains: query } }, { email: { contains: query } }],
+        OR: [{ name: { contains: query, mode: "insensitive" } }, { email: { contains: query, mode: "insensitive" } }],
       },
       take,
     }),
@@ -41,10 +41,10 @@ export async function tenantSearch(organizationId: string, q: string, take = 40)
       where: {
         organizationId,
         OR: [
-          { evidenceSummary: { contains: query } },
-          { analysis: { contains: query } },
-          { recommendation: { contains: query } },
-          { ruleId: { contains: query } },
+          { evidenceSummary: { contains: query, mode: "insensitive" } },
+          { analysis: { contains: query, mode: "insensitive" } },
+          { recommendation: { contains: query, mode: "insensitive" } },
+          { ruleId: { contains: query, mode: "insensitive" } },
         ],
       },
       take,

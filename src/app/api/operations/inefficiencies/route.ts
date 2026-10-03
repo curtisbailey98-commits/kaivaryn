@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     ...(status && STATUSES.has(status) ? { status } : {}),
     ...(priority && PRIORITIES.has(priority) ? { priority } : {}),
     ...(automation === "true" || automation === "false" ? { automationCandidate: automation === "true" } : {}),
-    ...(search ? { OR: [{ title: { contains: search } }, { source: { contains: search } }, { department: { contains: search } }] } : {}),
+    ...(search ? { OR: [{ title: { contains: search, mode: "insensitive" as const } }, { source: { contains: search, mode: "insensitive" as const } }, { department: { contains: search, mode: "insensitive" as const } }] } : {}),
   };
   const [items, total] = await Promise.all([
     prisma.inefficiency.findMany({

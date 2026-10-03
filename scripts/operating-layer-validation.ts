@@ -4,6 +4,8 @@
  * Run: npm run test:operate   (needs a seeded database)
  */
 import { PrismaClient } from "@prisma/client";
+import { tenantSearch } from "../src/lib/search";
+import { getCumulativeValueSeries } from "../src/lib/chart-data";
 import {
   routeCommand,
   inferProduct,
@@ -21,6 +23,7 @@ import {
   linkToInitiative,
   getInitiativeDetail,
   getInbox,
+  getInboxCounts,
   buildDigest,
   buildRecall,
   runHealthCheck,
@@ -212,6 +215,35 @@ async function main() {
   const inboxB = await getInbox(B);
   const aIds = new Set(inboxA.items.map((i) => i.id));
   assert(inboxA.counts.approvals >= 0 && !inboxB.items.some((i) => aIds.has(i.id)), "inboxes do not leak across tenants");
+  // Inbox badge / home attention strip / inbox page share one count source
+  const countsA = await getInboxCounts(A.organizationId, A.userId);
+  const partsA = countsA.approvals + countsA.notifications + countsA.tasks + countsA.runs + countsA.standingFailures + countsA.briefings;
+  assert(countsA.total === partsA, "inbox total equals the sum of its parts (badge = strip breakdown)");
+  assert(JSON.stringify(inboxA.counts) === JSON.stringify(countsA), "inbox page counts match the shared badge counts");
+  if (inboxA.items.length < 60) assert(inboxA.items.length === countsA.total, "inbox list length matches badge total when not truncated");
+
+  // Search is case-insensitive and tenant-scoped
+  const anyOpp = await prisma.opportunity.findFirst({ where: { organizationId: A.organizationId }, select: { title: true } });
+  if (anyOpp) {
+    const word = (anyOpp.title.match(/[A-Za-z]{5,}/) || [anyOpp.title])[0];
+    const lower = await tenantSearch(A.organizationId, word.toLowerCase());
+    const upper = await tenantSearch(A.organizationId, word.toUpperCase());
+    assert(lower.opportunities.length > 0 && lower.opportunities.length === upper.opportunities.length, `search is case-insensitive ("${word.toLowerCase()}" vs "${word.toUpperCase()}")`);
+    const fromB = await tenantSearch(B.organizationId, word.toLowerCase());
+    assert(!fromB.opportunities.some((o) => o.organizationId === A.organizationId), "search never returns another tenant's rows");
+  }
+
+  // Value motion: running totals never dip, estimates and realized stay separate series
+  const cum = await getCumulativeValueSeries(A.organizationId);
+  const nonDecreasing = (xs: number[]) => xs.every((v, i) => i === 0 || v >= xs[i - 1]);
+  assert(cum.estimated.length === 8 && cum.realized.length === 8, "value motion covers 8 weeks");
+  assert(nonDecreasing(cum.estimated.map((w) => w.rrPotential)) && nonDecreasing(cum.estimated.map((w) => w.oeProjected)), "estimated running totals never dip");
+  assert(nonDecreasing(cum.realized.map((w) => w.cashRecovered)) && nonDecreasing(cum.realized.map((w) => w.realizedSavings)), "realized running totals never dip");
+  assert(cum.estimated.every((w) => !("cashRecovered" in w)) && cum.realized.every((w) => !("rrPotential" in w)), "estimate and realized series are never mixed in one row");
+  const lastCash = cum.realized.at(-1)!.cashRecovered;
+  const cashAgg = await prisma.opportunity.aggregate({ where: { organizationId: A.organizationId }, _sum: { recoveredAmount: true } });
+  assert(Math.abs(lastCash - Math.round(cashAgg._sum.recoveredAmount ?? 0)) <= 1, "latest realized cash equals the cash-recovered ledger total");
+
   const histB = await listCommandHistory(B, 200);
   assert(histB.every((c) => c.organizationId === other.id), "command history is tenant-scoped");
 

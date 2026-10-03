@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     organizationId: ctx.organizationId,
     ...(status && STATUSES.has(status) ? { status } : {}),
     ...(priority && PRIORITIES.has(priority) ? { priority } : {}),
-    ...(search ? { OR: [{ title: { contains: search } }, { source: { contains: search } }, { department: { contains: search } }] } : {}),
+    ...(search ? { OR: [{ title: { contains: search, mode: "insensitive" as const } }, { source: { contains: search, mode: "insensitive" as const } }, { department: { contains: search, mode: "insensitive" as const } }] } : {}),
   };
   const [items, total] = await Promise.all([
     prisma.opportunity.findMany({

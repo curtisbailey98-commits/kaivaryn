@@ -257,11 +257,11 @@ export async function interpretExecutiveQuery(
     if (dept && dept.length < 80) {
       const [opps, ineff] = await Promise.all([
         prisma.opportunity.findMany({
-          where: { organizationId, department: { contains: dept } },
+          where: { organizationId, department: { contains: dept, mode: "insensitive" } },
           take: 20,
         }),
         prisma.inefficiency.findMany({
-          where: { organizationId, department: { contains: dept } },
+          where: { organizationId, department: { contains: dept, mode: "insensitive" } },
           take: 20,
         }),
       ]);
@@ -434,7 +434,7 @@ export async function interpretExecutiveQuery(
     prisma.opportunity.findMany({
       where: {
         organizationId,
-        OR: [{ title: { contains: raw.trim() } }, { description: { contains: raw.trim() } }],
+        OR: [{ title: { contains: raw.trim(), mode: "insensitive" } }, { description: { contains: raw.trim(), mode: "insensitive" } }],
       },
       take: 8,
       orderBy: { score: "desc" },
@@ -442,7 +442,7 @@ export async function interpretExecutiveQuery(
     prisma.inefficiency.findMany({
       where: {
         organizationId,
-        OR: [{ title: { contains: raw.trim() } }, { description: { contains: raw.trim() } }],
+        OR: [{ title: { contains: raw.trim(), mode: "insensitive" } }, { description: { contains: raw.trim(), mode: "insensitive" } }],
       },
       take: 8,
       orderBy: { score: "desc" },
@@ -450,7 +450,7 @@ export async function interpretExecutiveQuery(
     prisma.finding.count({
       where: {
         organizationId,
-        OR: [{ evidenceSummary: { contains: raw.trim() } }, { recommendation: { contains: raw.trim() } }],
+        OR: [{ evidenceSummary: { contains: raw.trim(), mode: "insensitive" } }, { recommendation: { contains: raw.trim(), mode: "insensitive" } }],
       },
     }),
   ]);

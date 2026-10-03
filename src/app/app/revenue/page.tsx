@@ -55,9 +55,9 @@ export default async function RevenuePage({
   if (searchParams.priority && Object.values(OpportunityPriority).includes(searchParams.priority as OpportunityPriority)) {
     where.priority = searchParams.priority as OpportunityPriority;
   }
-  if (searchParams.source) where.source = { contains: searchParams.source };
-  if (searchParams.dept) where.department = { contains: searchParams.dept };
-  if (searchParams.type) where.type = { contains: searchParams.type };
+  if (searchParams.source) where.source = { contains: searchParams.source, mode: "insensitive" };
+  if (searchParams.dept) where.department = { contains: searchParams.dept, mode: "insensitive" };
+  if (searchParams.type) where.type = { contains: searchParams.type, mode: "insensitive" };
   if (searchParams.from || searchParams.to) {
     where.identifiedAt = {};
     if (searchParams.from) where.identifiedAt.gte = new Date(searchParams.from);
