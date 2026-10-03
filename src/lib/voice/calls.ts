@@ -113,6 +113,7 @@ export function normalizeCall(call: VapiCall, routing: string) {
 }
 
 function humanEnded(reason: string, dur: number | null): string {
+  if (/did-not-receive-customer-audio|no-customer-audio/i.test(reason)) return "No audio from caller (never joined or mic blocked)";
   if (/customer-ended|customer-did-not|hangup/i.test(reason)) return dur !== null && dur < 20 ? "Caller hung up early" : "Caller ended the call";
   if (/assistant-ended|assistant-said-end/i.test(reason)) return "Completed";
   if (/silence/i.test(reason)) return "Ended after silence";
