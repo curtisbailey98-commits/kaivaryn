@@ -8,8 +8,8 @@
 export const MONEY = {
   /** RR open opportunity value — modeled, not booked */
   pipelinePotential: {
-    label: "Pipeline / Potential",
-    short: "Potential",
+    label: "Estimated opportunity",
+    short: "Estimated",
     definition: "Modeled recoverable revenue still in the funnel. Not cash.",
   },
   /** RR amounts approved or actively being worked */
@@ -32,8 +32,8 @@ export const MONEY = {
   },
   /** RR subset of cash that passed verification */
   verifiedRecovered: {
-    label: "Verified recovered",
-    short: "Verified recovered",
+    label: "Verified recovery",
+    short: "Verified",
     definition: "Cash recovered that has been verified against evidence.",
   },
   /** OE modeled annual savings */
@@ -71,4 +71,4 @@ export function cashRecoveryRate(cashRecovered: number, pipelinePotential: numbe
 }
 
 export const MONEY_GLOSSARY_FOOTNOTE =
-  "Pipeline/Potential and Projected savings are estimates. Cash recovered and Realized savings are recorded outcomes. They are never mixed.";
+  "Estimated opportunity and projected savings are estimates. Cash recovered, verified recovery, and realized savings are recorded outcomes. They are never mixed.";

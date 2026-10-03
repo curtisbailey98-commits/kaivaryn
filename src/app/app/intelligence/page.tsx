@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireOrgAccess, assertOrgId } from "@/lib/tenant";
 import { getProductIntelligenceDashboard } from "@/lib/si/dashboard";
 import { PageHeader } from "@/components/ui/page-header";
-import { Badge } from "@/components/ui/badge";
+import { Badge, ExampleDataTag } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { startNineReturnCycle, requestMeta81 } from "./actions";
@@ -225,7 +225,7 @@ export default async function IntelligencePage() {
         title="Client Intelligence"
         description="What improved in your workspace, what the ledger shows, and what to do next — without inventing results."
       />
-      {ctx.organization?.isDemo ? <Badge tone="demo">Demo workspace</Badge> : null}
+      {ctx.organization?.isDemo ? <ExampleDataTag label="Example workspace" /> : null}
 
       <ProductPanel
         title="Revenue Recovery"

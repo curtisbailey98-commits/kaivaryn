@@ -26,7 +26,7 @@ import {
   HeartPulse,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
-import { Badge } from "@/components/ui/badge";
+import { ExampleDataTag } from "@/components/ui/badge";
 import { MobileNav, type NavGroup, type NavBadges } from "@/components/layout/mobile-nav";
 import { AppNavLink } from "@/components/layout/nav-link";
 import { SignOutButton } from "@/components/layout/sign-out-button";
@@ -35,44 +35,44 @@ import { StatusDot } from "@/components/motion/status-dot";
 
 const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Command",
+    label: "Overview",
     items: [
       { href: "/app", label: "Home", icon: LayoutDashboard },
-      { href: "/app/command", label: "Command", icon: Terminal },
       { href: "/app/inbox", label: "Inbox", icon: Inbox },
+      { href: "/app/approvals", label: "Approvals", icon: ShieldCheck },
       { href: "/app/action-center", label: "Action Center", icon: Zap },
     ],
   },
   {
-    label: "Products",
+    label: "Value",
     items: [
       { href: "/app/revenue", label: "Revenue Recovery", icon: TrendingUp },
       { href: "/app/operations", label: "Operations Efficiency", icon: Settings2 },
+      { href: "/app/findings", label: "Findings", icon: FileSearch },
+      { href: "/app/reports", label: "Reports", icon: FileBarChart },
+    ],
+  },
+  {
+    label: "Operate",
+    items: [
+      { href: "/app/command", label: "Command", icon: Terminal },
+      { href: "/app/initiatives", label: "Initiatives", icon: Target },
+      { href: "/app/playbooks", label: "Playbooks", icon: BookOpen },
+      { href: "/app/automations", label: "Automations", icon: Workflow },
       { href: "/app/intelligence", label: "Intelligence", icon: Brain },
     ],
   },
   {
-    label: "Automate",
+    label: "Data",
     items: [
-      { href: "/app/playbooks", label: "Playbooks", icon: BookOpen },
-      { href: "/app/automations", label: "Automations", icon: Workflow },
-      { href: "/app/initiatives", label: "Initiatives", icon: Target },
-    ],
-  },
-  {
-    label: "Evidence",
-    items: [
-      { href: "/app/findings", label: "Findings", icon: FileSearch },
-      { href: "/app/reports", label: "Reports", icon: FileBarChart },
       { href: "/app/imports", label: "Imports", icon: Upload },
       { href: "/app/learning", label: "Learning", icon: GraduationCap },
       { href: "/app/search", label: "Search", icon: Search },
     ],
   },
   {
-    label: "Govern",
+    label: "Settings",
     items: [
-      { href: "/app/approvals", label: "Approvals", icon: ShieldCheck },
       { href: "/app/operate", label: "Operate health", icon: HeartPulse },
       { href: "/app/integrations", label: "Integrations", icon: Plug },
       { href: "/app/settings", label: "Org settings", icon: SlidersHorizontal },
@@ -159,7 +159,7 @@ export function AppShell({
                 {orgName ? (
                   <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-neutral-500">
                     <span className="truncate">{orgName}</span>
-                    {isDemo ? <Badge tone="demo">DEMO</Badge> : null}
+                    {isDemo ? <ExampleDataTag label="Example" /> : null}
                   </p>
                 ) : null}
               </div>

@@ -94,8 +94,8 @@ export default async function ReportsPage({
           badge={{ label: "Estimated", tone: "estimate" }}
           data={weekly.estimated}
           series={[
-            { key: "rrPotential", label: "RR potential (est.)", color: CHART.amber },
-            { key: "oeProjected", label: "OE projected savings (est.)", color: CHART.sky },
+            { key: "rrPotential", label: "RR estimated opportunity", color: CHART.amber },
+            { key: "oeProjected", label: "OE projected savings", color: CHART.sky },
           ]}
           money
           dashed

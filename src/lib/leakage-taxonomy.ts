@@ -30,7 +30,8 @@ export function classifyLeakageType(raw?: string | null): { id: LeakageTypeId; l
   for (const t of LEAKAGE_TYPES) {
     if (s.includes(t.id)) return { id: t.id, label: t.label };
   }
-  return { id: "leakage_other", label: raw || "Other leakage" };
+  const readable = (raw || "").replace(/[_-]+/g, " ").trim();
+  return { id: "leakage_other", label: readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : "Other leakage" };
 }
 
 /** Automation readiness 0–100 from OE signals (deterministic). */

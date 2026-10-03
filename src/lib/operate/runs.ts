@@ -224,7 +224,7 @@ async function executeStep(ctx: OpCtx, run: { id: string; title: string; created
         },
       });
       await notifyOrgManagers({ organizationId: ctx.organizationId, title: `Approval needed: ${step.title}`, body: `Run “${run.title}” is waiting on a decision.`, href: "/app/approvals" }).catch(() => undefined);
-      return { ...base, ok: true, summary: `Paused for human approval: ${step.title}${step.needsIntegration ? ` · blocked on ${step.needsIntegration} (not connected)` : ""}`, refs: [{ label: "Approvals", href: "/app/approvals" }], pause: { approvalId: appr.id } };
+      return { ...base, ok: true, summary: `Paused for human approval: ${step.title}${step.needsIntegration ? ` · waiting on ${step.needsIntegration.replace(/_/g, " ")} connection` : ""}`, refs: [{ label: "Approvals", href: "/app/approvals" }], pause: { approvalId: appr.id } };
     }
   }
 }

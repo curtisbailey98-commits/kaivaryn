@@ -60,7 +60,7 @@ export async function getInbox(ctx: OpCtx, limit = 60) {
       type: "APPROVAL" as const,
       id: a.id,
       title: a.title,
-      detail: `${a.type.replace(/_/g, " ").toLowerCase()}${a.needsIntegration ? ` · blocked on ${a.needsIntegration} (not connected)` : ""}`,
+      detail: `${a.type.replace(/_/g, " ").toLowerCase()}${a.needsIntegration ? ` · waiting on ${a.needsIntegration.replace(/_/g, " ")} connection` : ""}`,
       href: "/app/approvals",
       createdAt: a.createdAt,
       urgent: true,

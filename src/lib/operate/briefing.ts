@@ -104,7 +104,7 @@ export async function buildDigest(ctx: OpCtx, source: BriefingSource = "COMMAND"
     ],
     operate: { lastHealth: lastHealth ? `${lastHealth.status} · ${lastHealth.createdAt.toISOString()}` : null, standingActive, failedRuns24h: failedRuns, waitingApproval: waiting },
     notes: [
-      "Estimates (Pipeline / Potential, Projected savings) are modeled. Cash recovered and Realized savings are recorded outcomes. They are never added together.",
+      "Estimates (estimated opportunity, projected savings) are modeled. Cash recovered and Realized savings are recorded outcomes. They are never added together.",
       previous ? "Changes are counted since your previous digest." : "First digest — changes are counted over the last 7 days.",
     ],
   };

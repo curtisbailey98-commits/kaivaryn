@@ -25,7 +25,7 @@ export default async function FindingsPage() {
         <div>
           <p className="si-label text-amber-500">Intelligence</p>
           <h1 className="mt-1 text-2xl font-semibold">Findings</h1>
-          <p className="mt-2 text-sm text-neutral-400">Evidence · Analysis · Recommendation · Decision. Export via CSV.</p>
+          <p className="mt-2 text-sm text-neutral-400">Each finding shows the evidence, what it means, what to do next, and the decision taken.</p>
         </div>
         <Link href="/api/export?type=findings" className="rounded-md border border-neutral-700 px-3 py-2 text-sm">
           Export CSV

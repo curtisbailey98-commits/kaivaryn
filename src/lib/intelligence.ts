@@ -27,7 +27,7 @@ export function analyzeRevenueSignals(input: {
   if (input.opportunityCount === 0) {
     return {
       status: "INSUFFICIENT_DATA",
-      reason: "No opportunity records available for this organization.",
+      reason: "No revenue opportunities recorded yet. Import records to begin.",
       requiredSignals: [
         "At least one Opportunity with source and estimated amount",
         "Optional: integration sync providing billing or claims data",
@@ -49,8 +49,8 @@ export function analyzeRevenueSignals(input: {
   ];
   const analysis =
     recoveryRate < 0.25
-      ? "Recovery conversion is below 25% of estimated pipeline."
-      : "Recovery activity is underway; estimates remain separate from recovered.";
+      ? "Less than 25% of the estimated opportunity has been recovered so far. Put owners on the highest-value open items first."
+      : "Recovery is underway. Estimates stay separate from recovered cash.";
   const recommendation =
     "Prioritize Critical/High score items; keep estimated ≠ recovered; assign owners.";
 
@@ -78,7 +78,7 @@ export function analyzeOperationsSignals(input: {
   if (input.inefficiencyCount === 0) {
     return {
       status: "INSUFFICIENT_DATA",
-      reason: "No inefficiency records available for this organization.",
+      reason: "No operations issues recorded yet. Import records to begin.",
       requiredSignals: [
         "At least one Inefficiency with department and estimated annual waste",
         "Optional: process telemetry or time-study inputs",
@@ -95,7 +95,7 @@ export function analyzeOperationsSignals(input: {
     `Estimated/projected annual waste: ${input.totalEstimatedWaste.toFixed(0)}`,
     `${input.automationCandidates} automation candidates pending human approval`,
   ];
-  const analysis = `${input.inefficiencyCount} inefficiencies identified; ${input.automationCandidates} automation candidates (approval-gated).`;
+  const analysis = `${input.inefficiencyCount} inefficiencies identified. ${input.automationCandidates} are automation candidates; each needs an approval before any change is made.`;
   return {
     status: "FINDING",
     summary: analysis,

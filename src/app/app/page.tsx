@@ -3,7 +3,7 @@ import { requireOrgAccess, assertOrgId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge, PriorityBadge } from "@/components/ui/badge";
+import { PriorityBadge, StatusBadge, ExampleDataTag } from "@/components/ui/badge";
 import { MetricCard } from "@/components/ui/metric-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { AttentionBanner, NextBestAction } from "@/components/ui/attention";
@@ -41,7 +41,7 @@ export default async function AppHomePage() {
     }),
     prisma.inefficiency.aggregate({
       where: { organizationId: ctx.organizationId },
-      _sum: { estimatedWasteAnnual: true, projectedSavings: true, recoveredAnnual: true, realizedSavings: true },
+      _sum: { estimatedWasteAnnual: true, projectedSavings: true, recoveredAnnual: true, realizedSavings: true, projectedHoursWeekly: true, realizedHoursWeekly: true },
       _count: true,
     }),
     prisma.approvalRequest.count({ where: { organizationId: ctx.organizationId, status: "PENDING" } }),
@@ -53,15 +53,17 @@ export default async function AppHomePage() {
     hasRevenue
       ? prisma.opportunity.findMany({
           where: { organizationId: ctx.organizationId, status: { notIn: rrClosed } },
-          orderBy: [{ priority: "asc" }, { score: "desc" }],
-          take: 3,
+          orderBy: [{ potentialAmount: "desc" }, { score: "desc" }],
+          take: 5,
+          include: { assignee: { select: { name: true, email: true } } },
         })
       : Promise.resolve([]),
     hasOps
       ? prisma.inefficiency.findMany({
           where: { organizationId: ctx.organizationId, status: { notIn: oeClosed } },
-          orderBy: [{ priority: "asc" }, { score: "desc" }],
-          take: 3,
+          orderBy: [{ estimatedWasteAnnual: "desc" }, { score: "desc" }],
+          take: 5,
+          include: { assignee: { select: { name: true, email: true } } },
         })
       : Promise.resolve([]),
     hasRevenue
@@ -84,14 +86,37 @@ export default async function AppHomePage() {
   const verifiedRecovered = revenue._sum.verifiedAmount ?? 0;
   const projectedSavings = operations._sum.projectedSavings ?? 0;
   const realizedSavings = operations._sum.realizedSavings ?? operations._sum.recoveredAnnual ?? 0;
-  const projectedValue = pipelinePotential + projectedSavings;
 
   const topItems = [
-    ...topOpportunities.map((o) => ({ id: o.id, title: clientTitle(o.title), priority: o.priority, amount: o.potentialAmount, href: `/app/revenue/${o.id}`, kind: "Revenue" as const })),
-    ...topInefficiencies.map((i) => ({ id: i.id, title: clientTitle(i.title), priority: i.priority, amount: i.estimatedWasteAnnual, href: `/app/operations/${i.id}`, kind: "Operations" as const })),
+    ...topOpportunities.map((o) => ({ id: o.id, title: clientTitle(o.title), priority: o.priority, status: o.status, amount: o.potentialAmount || o.estimatedAmount, amountSuffix: "", href: `/app/revenue/${o.id}`, kind: "Revenue" as const, owner: o.assignee?.name || o.assignee?.email || null })),
+    ...topInefficiencies.map((i) => ({ id: i.id, title: clientTitle(i.title), priority: i.priority, status: i.status, amount: i.estimatedWasteAnnual, amountSuffix: " / yr", href: `/app/operations/${i.id}`, kind: "Operations" as const, owner: i.assignee?.name || i.assignee?.email || null })),
   ]
-    .sort((a, b) => (a.priority === b.priority ? 0 : a.priority === "CRITICAL" ? -1 : b.priority === "CRITICAL" ? 1 : 0))
-    .slice(0, 5);
+    .sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0))
+    .slice(0, 6);
+
+  const openTasksForTop = topItems.length
+    ? await prisma.task.findMany({
+        where: { organizationId: ctx.organizationId, status: "OPEN", entityId: { in: topItems.map((t) => t.id) } },
+        orderBy: { createdAt: "desc" },
+        select: { entityId: true, title: true },
+      })
+    : [];
+  const taskFor = new Map<string, string>();
+  for (const t of openTasksForTop) if (t.entityId && !taskFor.has(t.entityId)) taskFor.set(t.entityId, t.title);
+  const nextStepFor = (item: (typeof topItems)[number]) => {
+    const task = taskFor.get(item.id);
+    if (task) return task;
+    if (!item.owner) return "Assign an owner";
+    if (["IDENTIFIED", "NEW"].includes(item.status)) return "Review the evidence";
+    if (["UNDER_REVIEW", "ANALYZING"].includes(item.status)) return "Approve or dismiss";
+    if (item.status === "APPROVED") return item.kind === "Revenue" ? "Start recovery" : "Start the fix";
+    return item.kind === "Revenue" ? "Record recovered cash" : "Record realized savings";
+  };
+
+  const topRevenue = topOpportunities[0];
+  const topOperations = topInefficiencies[0];
+  const projectedHours = operations._sum.projectedHoursWeekly ?? 0;
+  const realizedHours = operations._sum.realizedHoursWeekly ?? 0;
 
   const nextAction = pendingApprovals > 0
     ? { title: `Review ${pendingApprovals} pending approval${pendingApprovals === 1 ? "" : "s"}`, href: "/app/approvals", description: "Decisions are waiting on you before Kaivaryn can proceed." }
@@ -109,12 +134,12 @@ export default async function AppHomePage() {
   return (
     <div className="space-y-5 sm:space-y-6">
       <PageHeader
-        eyebrow="Command center"
-        title={ctx.user.name ? `Welcome back, ${ctx.user.name.split(" ")[0]}` : "Executive command center"}
+        eyebrow="Executive overview"
+        title={ctx.user.name ? `Welcome back, ${ctx.user.name.split(" ")[0]}` : "Executive overview"}
         description={ctx.organization?.name
-          ? `${ctx.organization.name} — what needs attention, what it is worth, and what Kaivaryn recommends next.`
-          : "What needs attention, what it is worth, and what Kaivaryn recommends next."}
-        actions={ctx.organization?.isDemo ? <Badge tone="demo">Demo org</Badge> : undefined}
+          ? `${ctx.organization.name} — what matters, what it is worth, what to do next, and whether it worked.`
+          : "What matters, what it is worth, what to do next, and whether it worked."}
+        actions={ctx.organization?.isDemo ? <ExampleDataTag label="Example workspace" /> : undefined}
       />
 
       {showOnboardingStrip ? (
@@ -128,20 +153,110 @@ export default async function AppHomePage() {
               Complete your workspace setup · {onboardingStepsDone.length}/{ONBOARDING_STEPS.length} steps done
             </p>
           </div>
-          <span className="shrink-0 text-xs font-semibold text-amber-400">Continue onboarding →</span>
+          <span className="shrink-0 text-xs font-semibold text-amber-400">Continue setup →</span>
         </Link>
       ) : null}
 
-      <OperatingDesk organizationId={ctx.organizationId} userId={ctx.user.id} />
+      {/* 1 — What is it worth? Estimates on the left of each product, recorded results on the right. Never summed. */}
+      <section aria-labelledby="value-title" className="si-glass relative overflow-hidden rounded-2xl border border-neutral-800/90 bg-gradient-to-br from-neutral-950 to-neutral-900/40 p-4 sm:p-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="value-title" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-400">The value case</h2>
+          <p className="text-[11px] text-neutral-500">Estimates and recorded results are shown side by side — never added together.</p>
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <Link href={hasRevenue ? "/app/revenue" : "/pricing"} className="group rounded-xl border border-neutral-800 bg-neutral-950/80 p-4 transition hover:border-amber-500/40 sm:p-5">
+            <p className="flex items-center gap-2 text-sm font-semibold text-white"><TrendingUp className="h-4 w-4 text-amber-400" /> Revenue Recovery <ArrowRight className="ml-auto h-3.5 w-3.5 text-neutral-600 transition group-hover:text-amber-400" /></p>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-neutral-500">{MONEY.pipelinePotential.label}</p>
+                <p className="mt-1 text-xl font-semibold text-white sm:text-2xl"><CountUpCurrency value={pipelinePotential} /></p>
+                <p className="mt-0.5 text-[10px] text-neutral-600">Estimate · {revenue._count} items</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-emerald-400/80">{MONEY.cashRecovered.label}</p>
+                <p className="mt-1 text-xl font-semibold text-emerald-400 sm:text-2xl"><CountUpCurrency value={cashRecovered} /></p>
+                <p className="mt-0.5 text-[10px] text-neutral-600">Recorded</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-emerald-400/80">{MONEY.verifiedRecovered.label}</p>
+                <p className="mt-1 text-xl font-semibold text-emerald-300 sm:text-2xl"><CountUpCurrency value={verifiedRecovered} /></p>
+                <p className="mt-0.5 text-[10px] text-neutral-600">Confirmed against evidence</p>
+              </div>
+            </div>
+          </Link>
+          <Link href={hasOps ? "/app/operations" : "/pricing"} className="group rounded-xl border border-neutral-800 bg-neutral-950/80 p-4 transition hover:border-amber-500/40 sm:p-5">
+            <p className="flex items-center gap-2 text-sm font-semibold text-white"><Settings2 className="h-4 w-4 text-amber-400" /> Operations Efficiency <ArrowRight className="ml-auto h-3.5 w-3.5 text-neutral-600 transition group-hover:text-amber-400" /></p>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-neutral-500">{MONEY.projectedSavings.label}</p>
+                <p className="mt-1 text-xl font-semibold text-white sm:text-2xl"><CountUpCurrency value={projectedSavings} /></p>
+                <p className="mt-0.5 text-[10px] text-neutral-600">Projection · per year</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-emerald-400/80">{MONEY.realizedSavings.label}</p>
+                <p className="mt-1 text-xl font-semibold text-emerald-400 sm:text-2xl"><CountUpCurrency value={realizedSavings} /></p>
+                <p className="mt-0.5 text-[10px] text-neutral-600">Recorded</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-neutral-500">Hours / week</p>
+                <p className="mt-1 text-xl font-semibold text-white sm:text-2xl">{Math.round(projectedHours)}<span className="text-sm font-normal text-neutral-500"> wasted</span></p>
+                <p className="mt-0.5 text-[10px] text-neutral-600">{Math.round(realizedHours)} h/wk recovered</p>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </section>
 
-      <ActivityStrip
-        items={[
-          { id: "a", label: pendingApprovals > 0 ? `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} awaiting executive review` : "Approval gate clear · no pending decisions", tone: pendingApprovals > 0 ? "warn" : "ok" },
-          { id: "b", label: openActionsCount > 0 ? `${openActionsCount} open team action${openActionsCount === 1 ? "" : "s"} in the Action Center` : "Action queue quiet · no open tasks", tone: openActionsCount > 0 ? "accent" : "ok" },
-          { id: "c", label: unreadNotifications > 0 ? `${unreadNotifications} unread notification${unreadNotifications === 1 ? "" : "s"}` : "Notifications clear", tone: unreadNotifications > 0 ? "accent" : "ok" },
-          { id: "d", label: lastHealth ? `Last health check ${lastHealth.status.toLowerCase()}` : "No health check recorded yet", tone: lastHealth?.status === "OK" ? "ok" : "warn" },
-        ]}
-      />
+      {/* 2 — The path from a finding to a verified result, using live records. */}
+      <section aria-labelledby="path-title">
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="path-title" className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">From finding to verified result</h2>
+          <p className="text-[11px] text-neutral-600">Follow one issue from evidence to outcome.</p>
+        </div>
+        <ol className="grid gap-px overflow-hidden rounded-xl border border-neutral-800 bg-neutral-800 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              n: "1",
+              label: "Highest-value revenue issue",
+              title: topRevenue ? clientTitle(topRevenue.title) : "No open revenue issues",
+              meta: topRevenue ? `${formatCurrency(topRevenue.potentialAmount || topRevenue.estimatedAmount)} estimated` : "Import records to begin",
+              href: topRevenue ? `/app/revenue/${topRevenue.id}` : "/app/revenue",
+            },
+            {
+              n: "2",
+              label: "Highest-cost bottleneck",
+              title: topOperations ? clientTitle(topOperations.title) : "No open bottlenecks",
+              meta: topOperations ? `${formatCurrency(topOperations.estimatedWasteAnnual)} / yr estimated` : "Import records to begin",
+              href: topOperations ? `/app/operations/${topOperations.id}` : "/app/operations",
+            },
+            {
+              n: "3",
+              label: "Decisions waiting",
+              title: pendingApprovals > 0 ? `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} pending` : "No decisions waiting",
+              meta: "Owner, next step, and approval",
+              href: "/app/approvals",
+            },
+            {
+              n: "4",
+              label: "Did it work?",
+              title: `${formatCurrency(verifiedRecovered)} verified · ${formatCurrency(realizedSavings)} realized`,
+              meta: "Recorded results, by week",
+              href: "/app/reports",
+            },
+          ].map((step) => (
+            <li key={step.n} className="bg-neutral-950">
+              <Link href={step.href} className="group flex h-full flex-col p-4 transition hover:bg-neutral-900/70">
+                <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-amber-500/40 font-mono text-[10px] text-amber-400">{step.n}</span>
+                  {step.label}
+                </p>
+                <p className="mt-2 line-clamp-2 text-sm font-medium text-white">{step.title}</p>
+                <p className="mt-auto flex items-center gap-1 pt-2 text-xs text-neutral-500 group-hover:text-amber-300">{step.meta} <ArrowRight className="h-3 w-3" /></p>
+              </Link>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       {/* Same counts as the sidebar Inbox badge and the Inbox page (getInboxCounts). */}
       <AttentionBanner
@@ -156,114 +271,57 @@ export default async function AppHomePage() {
         ]}
       />
 
-      <NextBestAction title={nextAction.title} description={nextAction.description} href={nextAction.href} actionLabel="Review" />
-
-      <section className="si-glass relative overflow-hidden rounded-2xl border border-neutral-800/90 bg-gradient-to-br from-neutral-950 to-neutral-900/40 p-4 sm:p-6" aria-labelledby="executive-brief-title">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-400">Executive brief</p>
-            <h2 id="executive-brief-title" className="mt-2 text-xl font-semibold tracking-tight text-white">The value case, distilled.</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">
-              Kaivaryn separates modeled opportunity from recorded outcomes — then ranks the decisions that move value into execution.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:min-w-80 sm:gap-4">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-neutral-500">Projected value</p>
-              <p className="mt-1 text-xl font-semibold text-white"><CountUpCurrency value={projectedValue} /></p>
-              <p className="mt-0.5 text-[10px] text-neutral-600">Potential + projected savings</p>
-            </div>
-            <div className="space-y-2">
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-emerald-400/80">{MONEY.cashRecovered.label}</p>
-                <p className="mt-0.5 text-lg font-semibold text-emerald-400"><CountUpCurrency value={cashRecovered} /></p>
-                {verifiedRecovered > 0 ? (
-                  <p className="text-[10px] text-neutral-500">{MONEY.verifiedRecovered.short}: {formatCurrency(verifiedRecovered)}</p>
-                ) : null}
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-emerald-400/80">{MONEY.realizedSavings.label}</p>
-                <p className="mt-0.5 text-lg font-semibold text-emerald-400"><CountUpCurrency value={realizedSavings} /></p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="mt-5 grid gap-px overflow-hidden rounded-xl border border-neutral-800 bg-neutral-800 sm:grid-cols-4">
-          <Link href="/app/revenue?view=high_confidence" className="bg-neutral-950 p-3 sm:p-4 transition hover:bg-neutral-900">
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500">High-confidence</p>
-            <p className="mt-2 text-2xl font-semibold text-white"><CountUp value={highConfidenceRevenue} /></p>
-            <p className="mt-1 text-xs text-neutral-500">Open · score 70+</p>
-          </Link>
-          <Link href="/app/operations?view=critical" className="bg-neutral-950 p-3 sm:p-4 transition hover:bg-neutral-900">
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Critical signals</p>
-            <p className="mt-2 text-2xl font-semibold text-white"><CountUp value={criticalOperations} /></p>
-            <p className="mt-1 text-xs text-neutral-500">Unresolved · critical</p>
-          </Link>
-          <Link href="/app/approvals" className="bg-neutral-950 p-3 sm:p-4 transition hover:bg-neutral-900">
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500">Approvals</p>
-            <p className="mt-2 text-2xl font-semibold text-white"><CountUp value={pendingApprovals} /></p>
-            <p className="mt-1 text-xs text-neutral-500">Pending decisions</p>
-          </Link>
-          <Link href="/app/action-center?triage=sla_risk" className="bg-neutral-950 p-3 sm:p-4 transition hover:bg-neutral-900">
-            <p className="text-[10px] uppercase tracking-wider text-neutral-500">SLA risk</p>
-            <p className="mt-2 text-2xl font-semibold text-white"><CountUp value={slaOpenCount} /></p>
-            <p className="mt-1 text-xs text-neutral-500">Open · aging / breach</p>
+      {/* 3 — What matters, who owns it, what happens next. */}
+      <section aria-labelledby="top-issues-title">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 id="top-issues-title" className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Highest-value open issues</h2>
+          <Link href="/app/findings" className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300">
+            All findings <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
-        <p className="mt-3 text-[10px] text-neutral-600">{MONEY_GLOSSARY_FOOTNOTE}</p>
+        {topItems.length === 0 ? (
+          <EmptyState title="No open issues yet" description="Import records or wait for the next analysis — new revenue and operations issues will appear here, ranked by value." />
+        ) : (
+          <Card className="overflow-hidden p-0">
+            <div className="hidden grid-cols-[minmax(0,1.6fr)_7rem_minmax(0,1fr)_minmax(0,1.3fr)_6.5rem] gap-4 border-b border-neutral-900 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-600 lg:grid">
+              <span>Issue</span><span className="text-right">Estimated value</span><span>Owner</span><span>Next step</span><span>Status</span>
+            </div>
+            <ul className="divide-y divide-neutral-900">
+              {topItems.map((item) => (
+                <li key={`${item.kind}-${item.id}`}>
+                  <Link href={item.href} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 px-4 py-3 transition hover:bg-neutral-900/60 lg:grid-cols-[minmax(0,1.6fr)_7rem_minmax(0,1fr)_minmax(0,1.3fr)_6.5rem] lg:items-center">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-white lg:truncate">{item.title}</p>
+                      <p className="mt-0.5 flex items-center gap-2 text-xs text-neutral-500">{item.kind} <PriorityBadge priority={item.priority} /></p>
+                    </div>
+                    <p className="text-right text-sm font-semibold text-amber-300">{formatCurrency(item.amount ?? 0)}<span className="text-[10px] font-normal text-neutral-500">{item.amountSuffix}</span></p>
+                    <p className="col-span-2 truncate text-xs text-neutral-400 lg:col-span-1 lg:text-sm"><span className="text-neutral-600 lg:hidden">Owner: </span>{item.owner ?? <span className="text-amber-400/80">Unassigned</span>}</p>
+                    <p className="col-span-2 text-xs text-neutral-300 lg:col-span-1 lg:truncate lg:text-sm"><span className="text-neutral-600 lg:hidden">Next: </span>{nextStepFor(item)}</p>
+                    <div className="col-span-2 lg:col-span-1"><StatusBadge status={item.status} /></div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
       </section>
 
-      <div>
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-neutral-600">Value in motion</p>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            label={MONEY.pipelinePotential.label}
-            value={<CountUpCurrency value={pipelinePotential} />}
-            sublabel={`${revenue._count} opportunities · ${formatCurrency(cashRecovered)} cash recovered`}
-            icon={TrendingUp}
-            tone="accent"
-            href="/app/revenue"
-          />
-          <MetricCard
-            label={MONEY.projectedSavings.label}
-            value={<CountUpCurrency value={projectedSavings} />}
-            sublabel={`${operations._count} inefficiencies · ${formatCurrency(realizedSavings)} realized`}
-            icon={Settings2}
-            tone="accent"
-            href="/app/operations"
-          />
-          <MetricCard
-            label="Pending approvals"
-            value={<CountUp value={pendingApprovals} />}
-            sublabel="Decisions awaiting review"
-            icon={ShieldCheck}
-            tone={pendingApprovals > 0 ? "danger" : "default"}
-            href="/app/approvals"
-          />
-          <MetricCard
-            label="Open team actions"
-            value={<CountUp value={openActionsCount} />}
-            sublabel="Action Center · all owners"
-            icon={Bell}
-            href="/app/action-center"
-          />
-        </div>
-      </div>
+      <NextBestAction title={nextAction.title} description={nextAction.description} href={nextAction.href} actionLabel="Review" />
 
       <section aria-labelledby="value-motion-title" className="space-y-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p id="value-motion-title" className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">Value motion · estimated vs realized</p>
+          <h2 id="value-motion-title" className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Estimated vs. realized, over time</h2>
           <p className="text-[10px] text-neutral-600">Shown separately on purpose — estimates are never added to recorded outcomes.</p>
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
           <DynLineChart
             title="Estimated value identified"
-            description="Running total of modeled opportunity — RR potential and OE projected savings. Not cash."
+            description="Running total of estimated opportunity — revenue opportunity and projected savings. Not cash."
             badge={{ label: "Estimated", tone: "estimate" }}
             data={chartWeekly.estimated}
             series={[
-              { key: "rrPotential", label: "RR potential (est.)", color: CHART.amber },
-              { key: "oeProjected", label: "OE projected savings (est.)", color: CHART.sky },
+              { key: "rrPotential", label: "Revenue opportunity (est.)", color: CHART.amber },
+              { key: "oeProjected", label: "Projected savings (est.)", color: CHART.sky },
             ]}
             money
             dashed
@@ -288,61 +346,20 @@ export default async function AppHomePage() {
             stagger={1}
           />
         </div>
+        <p className="text-[10px] text-neutral-600">{MONEY_GLOSSARY_FOOTNOTE}</p>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <DynBarChart
-          title="Open work by aging"
-          description="Current open items across aging buckets"
-          footnote={chartAction.sourceNote}
-          data={chartAction.aging}
-          series={[{ key: "count", label: "Open items", color: CHART.amber }]}
-          height={200}
-          stagger={2}
-        />
-        <KpiSpark
-          label="SLA risk"
-          value={chartAction.slaSpark.at(-1)?.value ?? 0}
-          delta={(chartAction.slaSpark.at(-1)?.value ?? 0) - (chartAction.slaSpark.at(-2)?.value ?? 0)}
-          deltaLabel="vs prior week"
-          data={chartAction.slaSpark}
-          color={CHART.rose}
-          footnote={chartAction.sourceNote}
-          stagger={3}
-        />
-      </div>
-
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">What Kaivaryn identified</p>
-          <Link href="/app/findings" className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300">
-            View all findings <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
-        {topItems.length === 0 ? (
-          <EmptyState title="No open findings yet" description="Import data or wait for the next detection run — new opportunities and inefficiencies will surface here first." />
-        ) : (
-          <Card className="divide-y divide-neutral-900 overflow-hidden p-0">
-            {topItems.map((item) => (
-              <Link key={`${item.kind}-${item.id}`} href={item.href} className="flex items-center justify-between gap-4 px-4 py-3 transition hover:bg-neutral-900/60">
-                <div className="min-w-0">
-                  <p className="truncate text-sm text-white">{item.title}</p>
-                  <p className="mt-0.5 text-xs text-neutral-500">{item.kind}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <span className="hidden text-sm text-neutral-300 sm:inline">{formatCurrency(item.amount ?? 0)}</span>
-                  <PriorityBadge priority={item.priority} />
-                </div>
-              </Link>
-            ))}
-          </Card>
-        )}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="High-confidence revenue" value={<CountUp value={highConfidenceRevenue} />} sublabel="Open · confidence 70+" icon={TrendingUp} href="/app/revenue?view=high_confidence" />
+        <MetricCard label="Critical bottlenecks" value={<CountUp value={criticalOperations} />} sublabel="Open · critical priority" icon={Settings2} href="/app/operations?view=critical" />
+        <MetricCard label="Pending approvals" value={<CountUp value={pendingApprovals} />} sublabel="Decisions awaiting review" icon={ShieldCheck} tone={pendingApprovals > 0 ? "danger" : "default"} href="/app/approvals" />
+        <MetricCard label="Open team actions" value={<CountUp value={openActionsCount} />} sublabel={`Action Center · ${slaOpenCount} at SLA risk`} icon={Bell} href="/app/action-center" />
       </div>
 
       <Card className="border-emerald-500/20 bg-emerald-500/[0.04]">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-400" /> What improved</CardTitle>
-          <CardDescription>Patterns from your recorded outcomes only — aligned with the recovery and savings ledger.</CardDescription>
+          <CardDescription>Patterns from your recorded outcomes only.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap gap-3 text-xs text-neutral-400">
@@ -353,51 +370,49 @@ export default async function AppHomePage() {
                 </span>
               ))
             ) : (
-              <span>No verified outcomes yet — the workspace learns as your team records results.</span>
+              <span>No patterns yet — they appear once enough outcomes are recorded to learn from.</span>
             )}
           </div>
           <Link href="/app/learning" className="text-xs text-emerald-400 hover:text-emerald-300">
-            What improved / what&apos;s next →
+            What improved and what&apos;s next →
           </Link>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className={!hasRevenue ? "opacity-60" : undefined}>
-          <CardHeader>
-            <CardTitle>Revenue Recovery</CardTitle>
-            <CardDescription>{hasRevenue ? "Entitlement active" : "No active entitlement — activate via engagement"}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {hasRevenue ? (
-              <Link href="/app/revenue" className="text-sm text-amber-400 hover:text-amber-300">
-                Open Revenue Recovery →
-              </Link>
-            ) : (
-              <Link href="/pricing" className="text-sm text-neutral-400 hover:text-white">
-                View pricing →
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-        <Card className={!hasOps ? "opacity-60" : undefined}>
-          <CardHeader>
-            <CardTitle>Operations Efficiency</CardTitle>
-            <CardDescription>{hasOps ? "Entitlement active" : "No active entitlement — activate via engagement"}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {hasOps ? (
-              <Link href="/app/operations" className="text-sm text-amber-400 hover:text-amber-300">
-                Open Operations Efficiency →
-              </Link>
-            ) : (
-              <Link href="/pricing" className="text-sm text-neutral-400 hover:text-white">
-                View pricing →
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* Operating detail — command bar, health, runs. Secondary to the value story above. */}
+      <section aria-label="Operating detail" className="space-y-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">Operating detail</p>
+        <OperatingDesk organizationId={ctx.organizationId} userId={ctx.user.id} />
+        <ActivityStrip
+          items={[
+            { id: "a", label: pendingApprovals > 0 ? `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} awaiting review` : "No pending decisions", tone: pendingApprovals > 0 ? "warn" : "ok" },
+            { id: "b", label: openActionsCount > 0 ? `${openActionsCount} open team action${openActionsCount === 1 ? "" : "s"} in the Action Center` : "No open team actions", tone: openActionsCount > 0 ? "accent" : "ok" },
+            { id: "c", label: unreadNotifications > 0 ? `${unreadNotifications} unread notification${unreadNotifications === 1 ? "" : "s"}` : "Notifications clear", tone: unreadNotifications > 0 ? "accent" : "ok" },
+            { id: "d", label: lastHealth ? `Last health check ${lastHealth.status.toLowerCase()}` : "No health check recorded yet", tone: lastHealth?.status === "OK" ? "ok" : "warn" },
+          ]}
+        />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <DynBarChart
+            title="Open work by age"
+            description="Open items across aging buckets"
+            footnote={chartAction.sourceNote}
+            data={chartAction.aging}
+            series={[{ key: "count", label: "Open items", color: CHART.amber }]}
+            height={200}
+            stagger={2}
+          />
+          <KpiSpark
+            label="SLA risk"
+            value={chartAction.slaSpark.at(-1)?.value ?? 0}
+            delta={(chartAction.slaSpark.at(-1)?.value ?? 0) - (chartAction.slaSpark.at(-2)?.value ?? 0)}
+            deltaLabel="vs prior week"
+            data={chartAction.slaSpark}
+            color={CHART.rose}
+            footnote={chartAction.sourceNote}
+            stagger={3}
+          />
+        </div>
+      </section>
     </div>
   );
 }

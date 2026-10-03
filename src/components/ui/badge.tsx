@@ -87,3 +87,13 @@ export function StatusBadge({ status, className }: { status: string; className?:
     </Badge>
   );
 }
+
+/** Quiet marker for example/illustrative workspaces — readable, not a loud DEMO tag. */
+export function ExampleDataTag({ className, label = "Example data" }: { className?: string; label?: string }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 text-[11px] text-neutral-500", className)} title="This workspace contains illustrative example data, not client results.">
+      <span className="h-1.5 w-1.5 rounded-full bg-neutral-600" />
+      {label}
+    </span>
+  );
+}

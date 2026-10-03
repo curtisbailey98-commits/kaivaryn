@@ -3,7 +3,7 @@ import { requireOrgAccess, assertOrgId } from "@/lib/tenant";
 import { requireEntitlement } from "@/lib/entitlements";
 import { getRevenueChartData } from "@/lib/chart-data";
 import { EmptyState } from "@/components/ui/states";
-import { Badge } from "@/components/ui/badge";
+import { ExampleDataTag } from "@/components/ui/badge";
 import { DynAreaChart, DynBarChart, DynDonutChart } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
 import { getProductIntelligenceDashboard } from "@/lib/si/dashboard";
@@ -33,7 +33,7 @@ export default async function RevenueAnalyticsPage() {
     <div>
       <Link href="/app/revenue" className="text-xs text-neutral-500 hover:text-white">← Revenue</Link>
       <h1 className="mt-3 text-xl font-semibold">Revenue analytics</h1>
-      {ctx.organization?.isDemo ? <Badge tone="demo" className="mt-2">DEMO</Badge> : null}
+      {ctx.organization?.isDemo ? <ExampleDataTag className="mt-2" /> : null}
       <p className="mt-2 text-xs text-neutral-500">{chartData.sourceNote}</p>
       <Card className="mt-6 border-amber-500/20">
         <CardHeader>

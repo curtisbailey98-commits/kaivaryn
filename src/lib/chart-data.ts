@@ -1,3 +1,4 @@
+import { humanizeLabel } from "./labels";
 /**
  * Tenant-scoped chart aggregates from live DB rows.
  * Projected ≠ recovered/realized. Never invents KPIs.
@@ -347,7 +348,7 @@ export async function getApprovalsChartData(organizationId: string) {
     typeMap.set(r.type || "Other", (typeMap.get(r.type || "Other") || 0) + 1);
   }
   const byType = Array.from(typeMap.entries())
-    .map(([label, count]) => ({ label, count }))
+    .map(([label, count]) => ({ label: humanizeLabel(label), count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
   return {

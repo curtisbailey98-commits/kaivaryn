@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireOrgAccess, assertOrgId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { Badge, ExampleDataTag } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { urgencyScore, impactForRanking } from "@/lib/financial-impact";
@@ -198,7 +198,7 @@ export default async function ActionCenterPage({
     <div className="space-y-4">
       <ActivityStrip
         items={[
-          { id: "1", label: "Queue ranked by impact, urgency, and SLA — decisions only; no fabricated external success", tone: "accent" },
+          { id: "1", label: "Ranked by financial impact, urgency, and age", tone: "accent" },
           { id: "2", label: "Workspace online · tenant isolation verified", tone: "ok" },
           { id: "3", label: "High-value actions remain approval-gated until review", tone: "warn" },
         ]}
@@ -208,10 +208,10 @@ export default async function ActionCenterPage({
           <p className="si-label flex items-center gap-2 text-amber-500"><StatusDot tone="accent" />Executive</p>
           <h1 className="mt-1 text-2xl font-semibold">Action Center</h1>
           <p className="mt-2 max-w-2xl text-sm text-neutral-400">
-            Unified queue ranked by financial impact, urgency, and SLA risk. Approvals record decisions only —
-            external actions never fake success.
+            Every open item, ranked by financial impact, urgency, and age. Approvals record the decision;
+            nothing is marked done until your team does the work.
           </p>
-          {ctx.organization?.isDemo ? <Badge tone="demo" className="mt-3">DEMO</Badge> : null}
+          {ctx.organization?.isDemo ? <ExampleDataTag className="mt-3" /> : null}
         </div>
         <div className="flex flex-wrap gap-2">
           {unread > 0 ? (
