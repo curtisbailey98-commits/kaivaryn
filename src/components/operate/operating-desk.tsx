@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getInboxCounts } from "@/lib/operate/inbox";
 import { CommandBar } from "@/components/operate/command-bar";
 import { StatusDot } from "@/components/motion";
 import { formatDate } from "@/lib/utils";
@@ -10,17 +11,16 @@ import { HeartPulse, Inbox, Brain, AlarmClock, FileText, Workflow } from "lucide
  * Every tile is a live, tenant-scoped read. Nothing here is illustrative.
  */
 export async function OperatingDesk({ organizationId, userId }: { organizationId: string; userId: string }) {
-  const [health, approvals, unread, briefingsUnread, lastCycle, standing, lastBriefing, waitingRuns] = await Promise.all([
+  const [health, inboxCounts, lastCycle, standing, lastBriefing, waitingRuns] = await Promise.all([
     prisma.opHealthCheck.findFirst({ where: { organizationId }, orderBy: { createdAt: "desc" }, select: { status: true, createdAt: true } }),
-    prisma.approvalRequest.count({ where: { organizationId, status: "PENDING" } }),
-    prisma.notification.count({ where: { organizationId, userId, readAt: null } }),
-    prisma.opBriefing.count({ where: { organizationId, readAt: null } }),
+    getInboxCounts(organizationId, userId),
     prisma.siCognitionCycle.findFirst({ where: { organizationId, status: "succeeded" }, orderBy: { completedAt: "desc" }, select: { product: true, completedAt: true } }),
     prisma.opStandingOrder.count({ where: { organizationId, enabled: true } }),
     prisma.opBriefing.findFirst({ where: { organizationId, kind: "DIGEST" }, orderBy: { createdAt: "desc" }, select: { id: true, createdAt: true } }),
     prisma.opRun.count({ where: { organizationId, status: "WAITING_APPROVAL" } }),
   ]);
-  const inbox = approvals + unread + briefingsUnread;
+  const inbox = inboxCounts.total;
+  const approvals = inboxCounts.approvals;
   const tiles = [
     {
       href: "/app/operate",
@@ -34,9 +34,9 @@ export async function OperatingDesk({ organizationId, userId }: { organizationId
     {
       href: "/app/intelligence",
       icon: Brain,
-      label: "Last cycle",
+      label: "Last analysis",
       value: lastCycle?.completedAt ? formatDate(lastCycle.completedAt) : "None yet",
-      sub: lastCycle ? (lastCycle.product === "REVENUE_RECOVERY" ? "Revenue · R1–R9" : "Operations · R1–R9") : "Ask Command to analyze",
+      sub: lastCycle ? (lastCycle.product === "REVENUE_RECOVERY" ? "Revenue Recovery analysis" : "Operations analysis") : "Ask Command to analyze",
       tone: "text-white",
     },
     { href: "/app/automations", icon: AlarmClock, label: "Standing orders", value: String(standing), sub: "active", tone: "text-white" },

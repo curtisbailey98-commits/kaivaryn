@@ -2,19 +2,16 @@ import { Suspense } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { requireOrgAccess } from "@/lib/tenant";
 import { FlashToast } from "@/components/ui/flash-toast";
-import { prisma } from "@/lib/prisma";
+import { getInboxCounts } from "@/lib/operate/inbox";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireOrgAccess();
-  // Inbox badge: pending approvals + unread notifications + unread briefings (tenant-scoped)
+  // Inbox badge = exactly what the Inbox lists (shared with the home attention strip).
   let inboxCount = 0;
   if (ctx.organizationId) {
-    const [a, n, b] = await Promise.all([
-      prisma.approvalRequest.count({ where: { organizationId: ctx.organizationId, status: "PENDING" } }),
-      prisma.notification.count({ where: { organizationId: ctx.organizationId, userId: ctx.user.id, readAt: null } }),
-      prisma.opBriefing.count({ where: { organizationId: ctx.organizationId, readAt: null } }),
-    ]).catch(() => [0, 0, 0]);
-    inboxCount = a + n + b;
+    inboxCount = await getInboxCounts(ctx.organizationId, ctx.user.id)
+      .then((c) => c.total)
+      .catch(() => 0);
   }
   return (
     <AppShell

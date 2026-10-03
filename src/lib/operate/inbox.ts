@@ -9,9 +9,38 @@ import { safeJson } from "./context";
 export type InboxItemType = "APPROVAL" | "NOTIFICATION" | "TASK" | "RUN" | "STANDING_FAILURE" | "BRIEFING";
 export type InboxItem = { type: InboxItemType; id: string; title: string; detail?: string; href: string; createdAt: Date; urgent?: boolean };
 
+/**
+ * Single source of truth for "what is waiting on me": the sidebar Inbox badge, the home
+ * "Needs your attention" strip, the operating-desk Inbox tile and the Inbox page tiles all
+ * read these counts, so the numbers always agree. Same filters as getInbox() below.
+ */
+export async function getInboxCounts(organizationId: string, userId?: string | null) {
+  const [approvals, notifications, tasks, runs, standingFailures, briefings] = await Promise.all([
+    prisma.approvalRequest.count({ where: { organizationId, status: "PENDING" } }),
+    userId ? prisma.notification.count({ where: { organizationId, userId, readAt: null } }) : Promise.resolve(0),
+    prisma.task.count({
+      where: { organizationId, status: "OPEN", ...(userId ? { OR: [{ assigneeId: userId }, { assigneeId: null }] } : {}) },
+    }),
+    prisma.opRun.count({ where: { organizationId, status: { in: ["FAILED", "WAITING_APPROVAL"] } } }),
+    prisma.opStandingOrder.count({ where: { organizationId, enabled: true, lastStatus: "FAILED" } }),
+    prisma.opBriefing.count({ where: { organizationId, readAt: null } }),
+  ]);
+  return {
+    approvals,
+    notifications,
+    tasks,
+    runs,
+    standingFailures,
+    briefings,
+    total: approvals + notifications + tasks + runs + standingFailures + briefings,
+  };
+}
+export type InboxCounts = Awaited<ReturnType<typeof getInboxCounts>>;
+
 export async function getInbox(ctx: OpCtx, limit = 60) {
   const orgId = ctx.organizationId;
-  const [approvals, notes, tasks, runs, failures, briefings] = await Promise.all([
+  const [counts, approvals, notes, tasks, runs, failures, briefings] = await Promise.all([
+    getInboxCounts(orgId, ctx.userId),
     prisma.approvalRequest.findMany({ where: { organizationId: orgId, status: "PENDING" }, orderBy: { createdAt: "desc" }, take: limit }),
     ctx.userId
       ? prisma.notification.findMany({ where: { organizationId: orgId, userId: ctx.userId, readAt: null }, orderBy: { createdAt: "desc" }, take: limit })
@@ -61,14 +90,7 @@ export async function getInbox(ctx: OpCtx, limit = 60) {
 
   return {
     items: items.slice(0, limit),
-    counts: {
-      approvals: approvals.length,
-      notifications: notes.length,
-      tasks: tasks.length,
-      runs: runs.length,
-      standingFailures: failures.length,
-      briefings: briefings.length,
-      total: items.length,
-    },
+    // Exact counts (not capped by the list limit) — identical to the sidebar badge.
+    counts,
   };
 }

@@ -5,8 +5,12 @@ import { cn } from "@/lib/utils";
 
 export function AttentionBanner({
   items,
+  summary,
 }: {
-  items: Array<{ label: string; count: number; href: string; tone?: "warning" | "danger" }>;
+  /** label = plural form; one = singular form (defaults to label). */
+  items: Array<{ label: string; one?: string; count: number; href: string; tone?: "warning" | "danger" }>;
+  /** Optional total pill, e.g. "5 in your Inbox", linked to the full queue. */
+  summary?: { label: string; href: string };
 }) {
   const active = items.filter((i) => i.count > 0);
 
@@ -24,6 +28,11 @@ export function AttentionBanner({
       <div className="flex items-center gap-2 pl-1 pr-2 text-sm font-medium text-amber-300">
         <AlertTriangle className="h-4 w-4 shrink-0" />
         Needs your attention
+        {summary ? (
+          <Link href={summary.href} className="ml-1 rounded-full border border-amber-500/30 px-2 py-0.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/10">
+            {summary.label}
+          </Link>
+        ) : null}
       </div>
       <div className="flex flex-1 flex-wrap gap-2">
         {active.map((item) => (
@@ -37,7 +46,7 @@ export function AttentionBanner({
                 : "border-amber-500/25 bg-neutral-950/40 text-amber-100 hover:bg-amber-500/[0.1]"
             )}
           >
-            {item.count} {item.label}
+            {item.count} {item.count === 1 ? item.one ?? item.label : item.label}
             <ArrowRight className="h-3 w-3 opacity-0 transition group-hover:opacity-100" />
           </Link>
         ))}
