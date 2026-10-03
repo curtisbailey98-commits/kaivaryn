@@ -47,12 +47,12 @@ export default async function OpsAnalyticsPage() {
         <DynAreaChart
           className="lg:col-span-2"
           title="Projected vs realized savings"
+          description="Weekly projected (estimate) and realized savings — overlaid, not stacked"
           data={chartData.trend}
           series={[
             { key: "projected", label: "Projected", color: CHART.amber },
             { key: "realized", label: "Realized", color: CHART.emerald },
           ]}
-          stacked
           footnote={chartData.sourceNote}
           stagger={0}
         />

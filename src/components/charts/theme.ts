@@ -6,6 +6,7 @@ export const CHART = {
   emerald: "#3ddc97",
   emeraldMuted: "rgba(61, 220, 151, 0.35)",
   sky: "#38bdf8",
+  silver: "#cbd5e1",
   rose: "#ff6b6b",
   violet: "#a78bfa",
   slate: "#737373",

@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { ComponentProps } from "react";
 import { ChartShell } from "./chart-shell";
 import { CHART, formatMoneyTick, tooltipStyle } from "./theme";
 
@@ -30,6 +31,7 @@ export function AnimatedBarChart({
   colorByIndex = false,
   stacked = false,
   stagger = 0,
+  badge,
 }: {
   title: string;
   description?: string;
@@ -44,11 +46,12 @@ export function AnimatedBarChart({
   colorByIndex?: boolean;
   stacked?: boolean;
   stagger?: number;
+  badge?: ComponentProps<typeof ChartShell>["badge"];
 }) {
   const empty = !data.length || series.every((s) => data.every((d) => !Number(d[s.key])));
   const vertical = layout === "vertical";
   return (
-    <ChartShell title={title} description={description} footnote={footnote} empty={empty} height={height} className={className} stagger={stagger}>
+    <ChartShell title={title} description={description} footnote={footnote} empty={empty} height={height} className={className} stagger={stagger} badge={badge}>
       <ResponsiveContainer width="100%" height="100%">
         <RBarChart
           data={data}

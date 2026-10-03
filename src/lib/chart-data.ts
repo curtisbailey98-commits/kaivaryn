@@ -214,9 +214,10 @@ export async function getActionCenterChartData(organizationId: string) {
 }
 
 export async function getWeeklyBriefChartData(organizationId: string) {
-  const [rr, ops] = await Promise.all([
+  const [rr, ops, cumulative] = await Promise.all([
     getRevenueChartData(organizationId),
     getOperationsChartData(organizationId),
+    getCumulativeValueSeries(organizationId),
   ]);
   const weeks = rr.trend.map((r, i) => ({
     label: r.label,
@@ -225,7 +226,86 @@ export async function getWeeklyBriefChartData(organizationId: string) {
     projectedRr: r.projected,
     projectedOe: ops.trend[i]?.projected ?? 0,
   }));
-  return { weeks, sourceNote: "Weekly identified vs recovered/realized from tenant timestamps" };
+  return { weeks, ...cumulative, sourceNote: "Weekly identified vs recovered/realized from tenant timestamps" };
+}
+
+/**
+ * Running totals by week, kept in two separate series families:
+ *  - estimated: modeled RR potential and OE projected savings (cumulative by identifiedAt)
+ *  - realized: recorded RR cash recovered and OE realized savings (cumulative by recovery/resolution date)
+ *
+ * Why cumulative: weekly *flows* from a handful of items are lumpy — a week where nothing new was
+ * identified plotted as $0 and read like value had vanished (the "Sep 7 dip"). A running total
+ * includes everything recorded before the window as its baseline, so a quiet week stays flat.
+ * Estimates and realized values are never summed together.
+ */
+export async function getCumulativeValueSeries(organizationId: string, nWeeks = 8) {
+  const [opps, items] = await Promise.all([
+    prisma.opportunity.findMany({
+      where: { organizationId },
+      select: {
+        status: true,
+        potentialAmount: true,
+        estimatedAmount: true,
+        recoveredAmount: true,
+        verifiedAmount: true,
+        identifiedAt: true,
+        recoveredAt: true,
+        verifiedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+    prisma.inefficiency.findMany({
+      where: { organizationId },
+      select: {
+        status: true,
+        projectedSavings: true,
+        estimatedWasteAnnual: true,
+        realizedSavings: true,
+        recoveredAnnual: true,
+        identifiedAt: true,
+        resolvedAt: true,
+        verifiedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    }),
+  ]);
+
+  const weeks = lastNWeeks(nWeeks);
+  const rrEst = opps
+    .filter((o) => o.status !== "DISMISSED")
+    .map((o) => ({ at: o.identifiedAt || o.createdAt, v: o.potentialAmount || o.estimatedAmount || 0 }));
+  const oeEst = items
+    .filter((i) => i.status !== "DISMISSED")
+    .map((i) => ({ at: i.identifiedAt || i.createdAt, v: i.projectedSavings || i.estimatedWasteAnnual || 0 }));
+  // Realized: amount recorded, dated by when it was recorded (fallback: last update).
+  const rrCash = opps
+    .map((o) => ({ at: o.recoveredAt || o.verifiedAt || o.updatedAt, v: o.recoveredAmount || o.verifiedAmount || 0 }))
+    .filter((x) => x.v > 0);
+  const oeReal = items
+    .map((i) => ({ at: i.resolvedAt || i.verifiedAt || i.updatedAt, v: i.realizedSavings || i.recoveredAnnual || 0 }))
+    .filter((x) => x.v > 0);
+
+  const upTo = (rows: { at: Date; v: number }[], end: Date) =>
+    Math.round(rows.reduce((n, r) => (r.at < end ? n + r.v : n), 0));
+
+  const estimated: { label: string; rrPotential: number; oeProjected: number }[] = [];
+  const realized: { label: string; cashRecovered: number; realizedSavings: number }[] = [];
+  const now = new Date();
+  for (const w of weeks) {
+    const end = new Date(w.start);
+    end.setDate(end.getDate() + 7);
+    const cutoff = end > now ? new Date(now.getTime() + 1) : end; // current week: as of now
+    estimated.push({ label: w.label, rrPotential: upTo(rrEst, cutoff), oeProjected: upTo(oeEst, cutoff) });
+    realized.push({ label: w.label, cashRecovered: upTo(rrCash, cutoff), realizedSavings: upTo(oeReal, cutoff) });
+  }
+  return {
+    estimated,
+    realized,
+    cumulativeNote: "Running totals at each week's end, including items recorded before the window. Estimates and recorded outcomes are never added together.",
+  };
 }
 
 /** Public illustrative series — labeled Example framework, not customer data. */

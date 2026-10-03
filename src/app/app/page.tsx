@@ -14,10 +14,11 @@ import { ONBOARDING_STEPS } from "@/lib/constants";
 import { clientTitle } from "@/lib/labels";
 import { TrendingUp, Settings2, ShieldCheck, Bell, ArrowRight, CheckCircle2 } from "lucide-react";
 import { getWeeklyBriefChartData, getActionCenterChartData } from "@/lib/chart-data";
-import { DynAreaChart, DynBarChart, DynComposedChart, PulseSpark, KpiSpark } from "@/components/charts/dynamic";
+import { DynBarChart, DynLineChart, KpiSpark } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
 import { ActivityStrip, CountUp, CountUpCurrency } from "@/components/motion";
 import { OperatingDesk } from "@/components/operate/operating-desk";
+import { getInboxCounts } from "@/lib/operate/inbox";
 
 export default async function AppHomePage() {
   const ctx = await requireOrgAccess();
@@ -30,7 +31,7 @@ export default async function AppHomePage() {
   const rrClosed = [...RR_CLOSED_STATUSES];
   const oeClosed = [...OE_CLOSED_STATUSES];
 
-  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks, learning, chartWeekly, chartAction, topOpportunities, topInefficiencies, highConfidenceRevenue, criticalOperations, onboarding] = await Promise.all([
+  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks, learning, chartWeekly, chartAction, topOpportunities, topInefficiencies, highConfidenceRevenue, criticalOperations, onboarding, inboxCounts] = await Promise.all([
     prisma.opportunity.aggregate({
       where: { organizationId: ctx.organizationId },
       _sum: { estimatedAmount: true, potentialAmount: true, recoveredAmount: true, verifiedAmount: true, approvedAmount: true, inProgressAmount: true },
@@ -70,6 +71,7 @@ export default async function AppHomePage() {
     prisma.onboardingProgress.findUnique({
       where: { organizationId_userId: { organizationId: ctx.organizationId, userId: ctx.user.id } },
     }),
+    getInboxCounts(ctx.organizationId, ctx.user.id),
   ]);
   const slaOpenCount = chartAction.slaSpark.at(-1)?.value ?? 0;
   const lastHealth = await prisma.opHealthCheck.findFirst({ where: { organizationId: ctx.organizationId }, orderBy: { createdAt: "desc" }, select: { status: true } });
@@ -133,18 +135,22 @@ export default async function AppHomePage() {
       <ActivityStrip
         items={[
           { id: "a", label: pendingApprovals > 0 ? `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} awaiting executive review` : "Approval gate clear · no pending decisions", tone: pendingApprovals > 0 ? "warn" : "ok" },
-          { id: "b", label: openActionsCount > 0 ? `${openActionsCount} open action${openActionsCount === 1 ? "" : "s"} in the Action Center` : "Action queue quiet · no open tasks", tone: openActionsCount > 0 ? "accent" : "ok" },
+          { id: "b", label: openActionsCount > 0 ? `${openActionsCount} open team action${openActionsCount === 1 ? "" : "s"} in the Action Center` : "Action queue quiet · no open tasks", tone: openActionsCount > 0 ? "accent" : "ok" },
           { id: "c", label: unreadNotifications > 0 ? `${unreadNotifications} unread notification${unreadNotifications === 1 ? "" : "s"}` : "Notifications clear", tone: unreadNotifications > 0 ? "accent" : "ok" },
           { id: "d", label: lastHealth ? `Last health check ${lastHealth.status.toLowerCase()}` : "No health check recorded yet", tone: lastHealth?.status === "OK" ? "ok" : "warn" },
         ]}
       />
 
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">What needs my attention</p>
+      {/* Same counts as the sidebar Inbox badge and the Inbox page (getInboxCounts). */}
       <AttentionBanner
+        summary={inboxCounts.total > 0 ? { label: `${inboxCounts.total} in your Inbox`, href: "/app/inbox" } : undefined}
         items={[
-          { label: "pending approvals", count: pendingApprovals, href: "/app/approvals", tone: "warning" },
-          { label: "open actions", count: openActionsCount, href: "/app/action-center" },
-          { label: "unread notifications", count: unreadNotifications, href: "/app/inbox" },
+          { label: "pending approvals", one: "pending approval", count: inboxCounts.approvals, href: "/app/approvals", tone: "warning" },
+          { label: "action requests", one: "action request", count: inboxCounts.tasks, href: "/app/inbox?filter=TASK" },
+          { label: "unread notifications", one: "unread notification", count: inboxCounts.notifications, href: "/app/inbox?filter=NOTIFICATION" },
+          { label: "unread briefings", one: "unread briefing", count: inboxCounts.briefings, href: "/app/inbox?filter=BRIEFING" },
+          { label: "runs needing a decision or retry", one: "run needing a decision or retry", count: inboxCounts.runs, href: "/app/inbox?filter=RUN" },
+          { label: "failed standing orders", one: "failed standing order", count: inboxCounts.standingFailures, href: "/app/inbox?filter=STANDING_FAILURE", tone: "danger" },
         ]}
       />
 
@@ -233,77 +239,74 @@ export default async function AppHomePage() {
             href="/app/approvals"
           />
           <MetricCard
-            label="Open actions"
+            label="Open team actions"
             value={<CountUp value={openActionsCount} />}
-            sublabel={`${unreadNotifications} unread notifications`}
+            sublabel="Action Center · all owners"
             icon={Bell}
             href="/app/action-center"
           />
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <DynAreaChart
-          title="Weekly value motion"
-          description="Identified opportunity vs recovered/realized by week"
-          footnote={chartWeekly.sourceNote}
-          data={chartWeekly.weeks}
-          series={[
-            { key: "projectedRr", label: "RR potential", color: CHART.amber },
-            { key: "projectedOe", label: "OE projected", color: CHART.sky },
-            { key: "recovered", label: "Cash recovered", color: CHART.emerald },
-            { key: "realized", label: "Realized savings", color: "#34d399" },
-          ]}
-          stacked
-          height={280}
-          stagger={0}
-        />
-        <div className="space-y-4">
-          <DynBarChart
-            title="Open work by aging"
-            description="Current open items across aging buckets"
-            footnote={chartAction.sourceNote}
-            data={chartAction.aging}
-            series={[{ key: "count", label: "Open items", color: CHART.amber }]}
-            height={200}
+      <section aria-labelledby="value-motion-title" className="space-y-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p id="value-motion-title" className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">Value motion · estimated vs realized</p>
+          <p className="text-[10px] text-neutral-600">Shown separately on purpose — estimates are never added to recorded outcomes.</p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <DynLineChart
+            title="Estimated value identified"
+            description="Running total of modeled opportunity — RR potential and OE projected savings. Not cash."
+            badge={{ label: "Estimated", tone: "estimate" }}
+            data={chartWeekly.estimated}
+            series={[
+              { key: "rrPotential", label: "RR potential (est.)", color: CHART.amber },
+              { key: "oeProjected", label: "OE projected savings (est.)", color: CHART.sky },
+            ]}
+            money
+            dashed
+            height={260}
+            footnote={chartWeekly.cumulativeNote}
+            emptyLabel="No opportunities identified yet"
+            stagger={0}
+          />
+          <DynLineChart
+            title="Realized value recorded"
+            description="Running total of recorded outcomes — cash recovered and realized savings."
+            badge={{ label: "Realized", tone: "realized" }}
+            data={chartWeekly.realized}
+            series={[
+              { key: "cashRecovered", label: "Cash recovered", color: CHART.emerald },
+              { key: "realizedSavings", label: "Realized savings", color: CHART.silver },
+            ]}
+            money
+            height={260}
+            footnote="Recorded outcomes only, dated when the recovery or savings was recorded."
+            emptyLabel="No realized outcomes recorded yet"
             stagger={1}
           />
-          <KpiSpark
-            label="SLA risk"
-            value={chartAction.slaSpark.at(-1)?.value ?? 0}
-            delta={(chartAction.slaSpark.at(-1)?.value ?? 0) - (chartAction.slaSpark.at(-2)?.value ?? 0)}
-            deltaLabel="vs prior week"
-            data={chartAction.slaSpark}
-            color={CHART.rose}
-            footnote={chartAction.sourceNote}
-            stagger={2}
-          />
         </div>
-      </div>
+      </section>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <DynComposedChart
-          className="lg:col-span-2"
-          title="Identified bars · outcomes line"
-          description="Composed view of weekly motion — estimates ≠ recorded outcomes"
-          data={chartWeekly.weeks}
-          bars={[
-            { key: "projectedRr", label: "RR potential", color: CHART.amber },
-            { key: "projectedOe", label: "OE projected", color: CHART.sky },
-          ]}
-          lines={[
-            { key: "recovered", label: "Cash recovered", color: CHART.emerald },
-            { key: "realized", label: "Realized savings", color: "#34d399" },
-          ]}
-          money
-          height={280}
-          footnote={chartWeekly.sourceNote}
-          stagger={3}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DynBarChart
+          title="Open work by aging"
+          description="Current open items across aging buckets"
+          footnote={chartAction.sourceNote}
+          data={chartAction.aging}
+          series={[{ key: "count", label: "Open items", color: CHART.amber }]}
+          height={200}
+          stagger={2}
         />
-        <PulseSpark
-          title="Queue activity"
-          description="Open-work signal · not a financial metric"
-          baseSeries={chartAction.slaSpark}
+        <KpiSpark
+          label="SLA risk"
+          value={chartAction.slaSpark.at(-1)?.value ?? 0}
+          delta={(chartAction.slaSpark.at(-1)?.value ?? 0) - (chartAction.slaSpark.at(-2)?.value ?? 0)}
+          deltaLabel="vs prior week"
+          data={chartAction.slaSpark}
+          color={CHART.rose}
+          footnote={chartAction.sourceNote}
+          stagger={3}
         />
       </div>
 

@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { ComponentProps } from "react";
 import { ChartShell } from "./chart-shell";
 import { CHART, formatMoneyTick, tooltipStyle } from "./theme";
 
@@ -27,6 +28,7 @@ export function AnimatedAreaChart({
   className,
   stacked = false,
   stagger = 0,
+  badge,
 }: {
   title: string;
   description?: string;
@@ -39,11 +41,12 @@ export function AnimatedAreaChart({
   className?: string;
   stacked?: boolean;
   stagger?: number;
+  badge?: ComponentProps<typeof ChartShell>["badge"];
 }) {
   const empty = !data.length || series.every((s) => data.every((d) => !Number(d[s.key])));
   const gradId = (key: string) => `area-grad-${key}`;
   return (
-    <ChartShell title={title} description={description} footnote={footnote} empty={empty} height={height} className={className} stagger={stagger}>
+    <ChartShell title={title} description={description} footnote={footnote} empty={empty} height={height} className={className} stagger={stagger} badge={badge}>
       <ResponsiveContainer width="100%" height="100%">
         <RAreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <defs>

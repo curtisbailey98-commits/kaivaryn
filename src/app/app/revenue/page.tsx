@@ -205,13 +205,12 @@ export default async function RevenuePage({
         <DynAreaChart
           className="lg:col-span-1"
           title="Recovered vs projected"
-          description="Weekly identified potential vs recovered"
+          description="Weekly identified potential (estimate) and cash recovered (realized) — overlaid, not stacked"
           data={chartData.trend}
           series={[
             { key: "projected", label: "Projected (identified)", color: CHART.amber },
             { key: "recovered", label: "Recovered", color: CHART.emerald },
           ]}
-          stacked
           footnote={chartData.sourceNote}
           height={280}
           stagger={1}

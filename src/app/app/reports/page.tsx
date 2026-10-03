@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { queueWeeklyDigest } from "../operations/actions";
 import { getWeeklyBriefChartData } from "@/lib/chart-data";
-import { DynLineChart, DynComposedChart, DynBarChart } from "@/components/charts/dynamic";
+import { DynLineChart, DynBarChart } from "@/components/charts/dynamic";
 import { CHART } from "@/components/charts/theme";
 
 export const dynamic = "force-dynamic";
@@ -73,50 +73,49 @@ export default async function ReportsPage({
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
         <DynLineChart
-          title="Weekly trend"
-          description="Identified opportunity and recovered/realized outcomes by week"
-          data={weekly.weeks}
+          title="Estimated value identified"
+          description="Running total of modeled opportunity — not cash"
+          badge={{ label: "Estimated", tone: "estimate" }}
+          data={weekly.estimated}
           series={[
-            { key: "projectedRr", label: "RR identified", color: CHART.amber },
-            { key: "projectedOe", label: "OE identified", color: CHART.sky },
-            { key: "recovered", label: "RR recovered", color: CHART.emerald },
-            { key: "realized", label: "OE realized", color: "#34d399" },
+            { key: "rrPotential", label: "RR potential (est.)", color: CHART.amber },
+            { key: "oeProjected", label: "OE projected savings (est.)", color: CHART.sky },
           ]}
           money
-          height={280}
-          footnote={weekly.sourceNote}
+          dashed
+          height={260}
+          footnote={weekly.cumulativeNote}
+          emptyLabel="No opportunities identified yet"
           stagger={0}
         />
-        <DynComposedChart
-          title="Identified vs outcomes"
-          description="Bars for identified · lines for recovered/realized"
-          data={weekly.weeks}
-          bars={[
-            { key: "projectedRr", label: "RR identified", color: CHART.amber },
-            { key: "projectedOe", label: "OE identified", color: CHART.sky },
-          ]}
-          lines={[
-            { key: "recovered", label: "RR recovered", color: CHART.emerald },
-            { key: "realized", label: "OE realized", color: "#34d399" },
+        <DynLineChart
+          title="Realized value recorded"
+          description="Running total of recorded outcomes"
+          badge={{ label: "Realized", tone: "realized" }}
+          data={weekly.realized}
+          series={[
+            { key: "cashRecovered", label: "Cash recovered", color: CHART.emerald },
+            { key: "realizedSavings", label: "Realized savings", color: CHART.silver },
           ]}
           money
-          height={280}
-          footnote={weekly.sourceNote}
+          height={260}
+          footnote="Recorded outcomes only, dated when recorded."
+          emptyLabel="No realized outcomes recorded yet"
           stagger={1}
         />
         <DynBarChart
           className="lg:col-span-2"
-          title="Stacked weekly outcomes"
-          description="Recovered + realized stacked by week"
+          title="Weekly recorded outcomes"
+          description="Cash recovered and realized savings recorded each week — shown side by side, not summed"
+          badge={{ label: "Realized", tone: "realized" }}
           data={weekly.weeks}
           series={[
-            { key: "recovered", label: "RR recovered", color: CHART.emerald },
-            { key: "realized", label: "OE realized", color: "#34d399" },
+            { key: "recovered", label: "Cash recovered", color: CHART.emerald },
+            { key: "realized", label: "Realized savings", color: CHART.silver },
           ]}
-          stacked
           money
           height={240}
-          footnote="Outcomes only · projected excluded from this stack"
+          footnote="Outcomes only · estimates excluded"
           stagger={2}
         />
       </div>

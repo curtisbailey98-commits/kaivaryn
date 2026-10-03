@@ -555,6 +555,8 @@ async function main() {
     return created;
   };
 
+  // Demo cadence: one RR and one OE item identified per week across the 8-week charts (52…10 days ago),
+  // so the demo has no empty weeks. Recovery/resolution dates always follow identification.
   await mkOpp({
     title: "[DEMO] Underbilled contract services — Q3",
     description: "DEMO: Variance between contracted rates and invoiced amounts for managed services (linked to Northwind).",
@@ -564,7 +566,7 @@ async function main() {
     status: "IDENTIFIED",
     priority: OpportunityPriority.CRITICAL,
     amount: 182000,
-    identifiedAt: daysAgo(45),
+    identifiedAt: daysAgo(38),
   });
   await mkOpp({
     title: "[DEMO] Uncollected late fees",
@@ -577,7 +579,7 @@ async function main() {
     amount: 64000,
     recovered: 12000,
     assigneeId: demoUser.id,
-    identifiedAt: daysAgo(28),
+    identifiedAt: daysAgo(24),
     recoveredAt: daysAgo(10),
   });
   await mkOpp({
@@ -589,7 +591,7 @@ async function main() {
     status: "UNDER_REVIEW",
     priority: OpportunityPriority.HIGH,
     amount: 95500,
-    identifiedAt: daysAgo(18),
+    identifiedAt: daysAgo(17),
   });
   await mkOpp({
     title: "[DEMO] Duplicate discount applied",
@@ -602,7 +604,7 @@ async function main() {
     amount: 22000,
     recovered: 22000,
     recoveredAt: daysAgo(21),
-    identifiedAt: daysAgo(49),
+    identifiedAt: daysAgo(45),
     assigneeId: demoUser.id,
   });
   await mkOpp({
@@ -616,7 +618,7 @@ async function main() {
     amount: 210000,
     recovered: 45000,
     assigneeId: demoOwner.id,
-    identifiedAt: daysAgo(35),
+    identifiedAt: daysAgo(31),
     recoveredAt: daysAgo(7),
   });
   await mkOpp({
@@ -628,7 +630,7 @@ async function main() {
     status: "IDENTIFIED",
     priority: OpportunityPriority.HIGH,
     amount: 88000,
-    identifiedAt: daysAgo(12),
+    identifiedAt: daysAgo(10),
   });
   await mkOpp({
     title: "[DEMO] Denial write-off cluster",
@@ -640,7 +642,7 @@ async function main() {
     priority: OpportunityPriority.MEDIUM,
     amount: 31000,
     recovered: 27500,
-    identifiedAt: daysAgo(56),
+    identifiedAt: daysAgo(52),
     recoveredAt: daysAgo(14),
     assigneeId: demoUser.id,
   });
@@ -733,7 +735,7 @@ async function main() {
     hours: 24,
     auto: true,
     processId: procInvoice.id,
-    identifiedAt: daysAgo(40),
+    identifiedAt: daysAgo(31),
   });
   await mkIneff({
     title: "[DEMO] Duplicate data entry across ERP and CRM",
@@ -748,7 +750,7 @@ async function main() {
     hours: 40,
     auto: true,
     assigneeId: demoUser.id,
-    identifiedAt: daysAgo(33),
+    identifiedAt: daysAgo(24),
     resolvedAt: daysAgo(9),
   });
   await mkIneff({
@@ -761,7 +763,7 @@ async function main() {
     priority: InefficiencyPriority.MEDIUM,
     waste: 36000,
     hours: 12,
-    identifiedAt: daysAgo(16),
+    identifiedAt: daysAgo(17),
   });
   await mkIneff({
     title: "[DEMO] Exception queue backlog",
@@ -774,7 +776,7 @@ async function main() {
     waste: 54000,
     realized: 40000,
     hours: 18,
-    identifiedAt: daysAgo(52),
+    identifiedAt: daysAgo(38),
     resolvedAt: daysAgo(20),
   });
   await mkIneff({
@@ -788,7 +790,7 @@ async function main() {
     waste: 67000,
     hours: 15,
     auto: true,
-    identifiedAt: daysAgo(8),
+    identifiedAt: daysAgo(10),
   });
   await mkIneff({
     title: "[DEMO] Spreadsheet inventory sync",
@@ -802,7 +804,7 @@ async function main() {
     realized: 28000,
     hours: 10,
     auto: true,
-    identifiedAt: daysAgo(60),
+    identifiedAt: daysAgo(45),
     resolvedAt: daysAgo(25),
   });
 
