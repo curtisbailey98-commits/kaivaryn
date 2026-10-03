@@ -183,10 +183,12 @@ export async function schedulerHealthComponent(orgId: string, now: number = Date
     detail: !tickConfigured
       ? "Not configured. Standing orders run only when you press Run due now."
       : [
-          "Configured — an external scheduler calls the secure tick (requested every 15 minutes; GitHub may delay scheduled runs).",
+          lastTick
+            ? "Configured — an external scheduler calls the secure tick (requested every 15 minutes; GitHub may delay scheduled runs)."
+            : "Configured — secure tick token is set; waiting for the external scheduler's first call.",
           lastTick
             ? `Last tick ${et(lastTick.startedAt)} (${ago(lastTick.startedAt)}) via ${sourceLabel}${lastTick.status === "FAILED" ? " — failed" : ""}${(tickAgeH ?? 0) > 6 ? " — overdue" : ""}.`
-            : "No tick recorded yet.",
+            : "",
           lastAuto?.lastRunAt ? `Last automatic run here: ${et(lastAuto.lastRunAt)}.` : "No automatic run in this workspace yet.",
           nextDue?.nextRunAt ? `Next due: ${et(nextDue.nextRunAt)}.` : "",
         ]

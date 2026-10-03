@@ -70,6 +70,8 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
     lastSchedulerTick(),
   ]);
   const schedulerOn = tickTokenConfigured();
+  // "Active" only when a real scheduler call was recorded recently — never assumed from configuration alone.
+  const schedulerActive = Boolean(schedulerOn && lastTick && lastTick.status !== "FAILED" && Date.now() - lastTick.startedAt.getTime() < 6 * 3_600_000);
   const created = searchParams.created ? orders.find((o) => o.id === searchParams.created) ?? null : null;
   const d = preview?.draft;
   const formDefaults: AutomationFormDefaults = d
@@ -120,14 +122,18 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
         }
       />
 
-      <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border px-4 py-2.5 text-xs ${schedulerOn ? "border-emerald-900/60 bg-emerald-950/20 text-neutral-300" : "border-neutral-800 bg-neutral-950/60 text-neutral-400"}`}>
+      <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border px-4 py-2.5 text-xs ${schedulerActive ? "border-emerald-900/60 bg-emerald-950/20 text-neutral-300" : schedulerOn ? "border-amber-900/60 bg-amber-950/10 text-neutral-300" : "border-neutral-800 bg-neutral-950/60 text-neutral-400"}`}>
         <span className="flex items-center gap-2 font-medium">
-          <span className={`h-2 w-2 rounded-full ${schedulerOn ? "bg-emerald-400" : "bg-neutral-600"}`} />
-          {schedulerOn ? "Scheduler on" : "Scheduler not configured"}
+          <span className={`h-2 w-2 rounded-full ${schedulerActive ? "bg-emerald-400" : schedulerOn ? "bg-amber-400" : "bg-neutral-600"}`} />
+          {schedulerActive ? "Scheduler on" : schedulerOn ? (lastTick ? "Scheduler overdue" : "Scheduler ready") : "Scheduler not configured"}
         </span>
         <span className="text-neutral-500">
-          {schedulerOn
-            ? `Checks for due automations about every 15 minutes (external scheduler; GitHub can delay a check).${lastTick ? ` Last check ${formatInZone(lastTick.startedAt, tz)} (${relativeTime(lastTick.startedAt)}).` : " No check recorded yet."}`
+          {schedulerActive
+            ? `Checks for due automations about every 15 minutes (GitHub can delay a check). Last check ${formatInZone(lastTick!.startedAt, tz)} (${relativeTime(lastTick!.startedAt)}).`
+            : schedulerOn
+            ? lastTick
+              ? `Last automatic check ${formatInZone(lastTick.startedAt, tz)} (${relativeTime(lastTick.startedAt)})${lastTick.status === "FAILED" ? " failed" : ""}. Due automations run on the next check, or press Run due now.`
+              : "Secure tick is set up; no automatic check recorded yet. Due automations run on the first check, or press Run due now."
             : "Due automations run only when someone presses Run due now."}
         </span>
         <Link href="/app/operate" className="text-amber-400 hover:text-amber-300">Health →</Link>
@@ -142,7 +148,7 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
               <p className="mt-1 text-xs leading-5 text-neutral-400">
                 {describeOrderSchedule(created)} · next run{" "}
                 <span className="text-neutral-200">{created.nextRunAt ? `${formatInZone(created.nextRunAt, created.timezone ?? tz)} (${relativeTime(created.nextRunAt)})` : "—"}</span>
-                {schedulerOn ? " · runs automatically" : " · press Run due now when it is due"}
+                {schedulerActive ? " · runs automatically" : schedulerOn ? " · runs on the next scheduler check (or Run due now)" : " · press Run due now when it is due"}
               </p>
               {created.prompt ? <p className="mt-1 text-[11px] text-neutral-500">From: “{created.prompt}”</p> : null}
             </div>
@@ -185,7 +191,7 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
                 ))}
               </dl>
               {preview.nextRuns[0] ? (
-                <p className="flex items-center gap-2 text-xs text-neutral-400"><Clock3 className="h-3.5 w-3.5 text-amber-400" /> First run {relativeTime(preview.nextRuns[0])}{schedulerOn ? ", automatically." : " — press Run due now when it is due (scheduler not configured)."}</p>
+                <p className="flex items-center gap-2 text-xs text-neutral-400"><Clock3 className="h-3.5 w-3.5 text-amber-400" /> First run {relativeTime(preview.nextRuns[0])}{schedulerActive ? ", automatically." : schedulerOn ? ", on the next scheduler check after it is due (or Run due now)." : " — press Run due now when it is due (scheduler not configured)."}</p>
               ) : null}
               {d.recognized.length ? (
                 <div>
