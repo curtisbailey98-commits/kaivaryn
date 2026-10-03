@@ -769,6 +769,9 @@ model ImportJob {
   rowCount       Int       @default(0)
   successCount   Int       @default(0)
   errorCount     Int       @default(0)
+  skippedCount   Int       @default(0) // template imports: rows with no gap / duplicates
+  source         String?   // CSV_UPLOAD | GOOGLE_SHEETS | WEBHOOK (null = legacy CSV upload)
+  template       String?   // import template slug (billing_export, payer_remittance, ...)
   createdById    String?
   startedAt      DateTime?
   finishedAt     DateTime?
@@ -1694,12 +1697,37 @@ model OpStandingOrder {
   runCount       Int       @default(0)
   failureCount   Int       @default(0)
   createdById    String?
+  // Prompted automations (additive): original plain-English prompt + parsed spec
+  prompt         String?
+  scheduleJson   String? // ScheduleSpec — cadence, time, days, day of month
+  timezone       String? // IANA zone, default America/New_York
+  actionJson     String? // { steps, product, playbookSlug, label }
+  conditionJson  String? // optional threshold { metric, op, amount }
+  delivery       String? // INBOX (email only when a real mail mechanism exists)
+  lastAlertAt    DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, enabled, nextRunAt])
+}
+
+/// Platform scheduler ticks (POST /api/operate/tick with OPERATE_TICK_TOKEN). Not tenant data:
+/// only counts and timing are stored. tickKey makes retried ticks idempotent.
+model OpSchedulerTick {
+  id            String    @id @default(cuid())
+  tickKey       String    @unique
+  source        String    @default("external") // github-actions | external | manual
+  status        String    @default("RUNNING") // RUNNING | SUCCEEDED | FAILED
+  organizations Int       @default(0)
+  ran           Int       @default(0)
+  skipped       Int       @default(0)
+  error         String?
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+
+  @@index([startedAt])
 }
 
 model OpPlaybook {

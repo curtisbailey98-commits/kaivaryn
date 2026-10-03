@@ -16,7 +16,8 @@ import { runHealthCheck } from "./health";
 import { buildDigest, buildRecall } from "./briefing";
 import { createRun, executeRun, describeStep, type RunStep } from "./runs";
 import { runPlaybook, savePlaybook, listPlaybooks } from "./playbooks";
-import { createStandingOrder, CADENCE_LABEL, type Cadence } from "./standing";
+import { previewAutomationPrompt } from "./standing";
+import { formatInZone } from "./schedule";
 import { createInitiative, listInitiatives } from "./initiatives";
 
 export type CommandLink = { label: string; href: string };
@@ -224,11 +225,31 @@ async function dispatch(ctx: OpCtx, text: string, route: CommandRoute, reason: s
     }
 
     case "STANDING": {
-      const order = await createStandingOrder(ctx, { directive: text });
+      // Prompted automation: preview only. Nothing is saved until the person confirms.
+      requireOpPermission(ctx, "write");
+      const p = await previewAutomationPrompt(ctx, text);
+      const href = `/app/automations?prompt=${encodeURIComponent(text)}#preview`;
+      const automationPreview = {
+        prompt: text,
+        ok: p.draft.ok,
+        title: p.title,
+        schedule: p.scheduleText,
+        timezone: p.draft.timezone,
+        actions: p.actionsText,
+        condition: p.conditionText,
+        deliveryNote: p.draft.deliveryNote,
+        nextRuns: p.nextRuns.map((d) => d.toISOString()),
+        assumptions: p.draft.assumptions,
+        unparsed: p.draft.unparsed,
+        problems: p.draft.problems,
+      };
+      if (!p.draft.ok) {
+        return ok(`I need a bit more before I can schedule this. ${p.draft.problems.join(" ")}`, [{ label: "Finish in Automations", href }], { automationPreview });
+      }
       return ok(
-        `Standing order created: ${CADENCE_LABEL[order.cadence as Cadence]} · ${order.kind.toLowerCase()} · “${order.directive}”. Next due ${order.nextRunAt?.toISOString().slice(0, 16).replace("T", " ")} UTC. Runs on “Run due now” or the scheduler tick — there is no always-on worker on the current plan.`,
-        [{ label: "Automations", href: "/app/automations" }],
-        { standingOrderId: order.id },
+        `Here's what I'll set up: ${p.actionsText.join(" + ")}${p.conditionText ? ` · ${p.conditionText.toLowerCase()}` : ""} — ${p.scheduleText}. Next run ${formatInZone(p.nextRuns[0], p.draft.timezone)}. Results go to your Inbox. Confirm to save.`,
+        [{ label: "Review & edit first", href }],
+        { automationPreview },
       );
     }
 

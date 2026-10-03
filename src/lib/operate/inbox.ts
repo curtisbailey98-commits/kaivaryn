@@ -50,9 +50,9 @@ export async function getInbox(ctx: OpCtx, limit = 60) {
       orderBy: { createdAt: "desc" },
       take: limit,
     }),
-    prisma.opRun.findMany({ where: { organizationId: orgId, status: { in: ["FAILED", "WAITING_APPROVAL"] } }, orderBy: { updatedAt: "desc" }, take: 20 }),
-    prisma.opStandingOrder.findMany({ where: { organizationId: orgId, enabled: true, lastStatus: "FAILED" }, orderBy: { updatedAt: "desc" }, take: 20 }),
-    prisma.opBriefing.findMany({ where: { organizationId: orgId, readAt: null }, orderBy: { createdAt: "desc" }, take: 10 }),
+    prisma.opRun.findMany({ where: { organizationId: orgId, status: { in: ["FAILED", "WAITING_APPROVAL"] } }, orderBy: { updatedAt: "desc" }, take: limit }),
+    prisma.opStandingOrder.findMany({ where: { organizationId: orgId, enabled: true, lastStatus: "FAILED" }, orderBy: { updatedAt: "desc" }, take: limit }),
+    prisma.opBriefing.findMany({ where: { organizationId: orgId, readAt: null }, orderBy: { createdAt: "desc" }, take: limit }),
   ]);
 
   const items: InboxItem[] = [

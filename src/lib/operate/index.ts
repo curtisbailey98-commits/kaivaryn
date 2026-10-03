@@ -8,3 +8,6 @@ export * from "./standing";
 export * from "./initiatives";
 export * from "./inbox";
 export * from "./command";
+export * from "./schedule";
+export * from "./automation-prompt";
+export * from "./metrics";

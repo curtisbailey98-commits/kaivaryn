@@ -107,15 +107,7 @@ export async function runHealthCheck(ctx: OpCtx, source: "MANUAL" | "COMMAND" | 
       detail: `${connected.length} connected${connected.length ? ` (${connected.map((c) => c.displayName).join(", ")})` : ""} · ${missing.length} not connected — labeled, never assumed`,
     });
 
-    const tickConfigured = Boolean(process.env.OPERATE_TICK_TOKEN && process.env.OPERATE_TICK_TOKEN.length >= 16);
-    components.push({
-      key: "scheduler",
-      label: "Scheduler",
-      status: "INFO",
-      detail: tickConfigured
-        ? "External tick configured (POST /api/operate/tick). No always-on worker on the current plan."
-        : "No always-on worker on the current plan. Standing orders run when you press Run due, or when OPERATE_TICK_TOKEN + an external cron is configured.",
-    });
+    components.push(await schedulerHealthComponent(orgId, now));
   }
 
   const status: HealthSnapshot["status"] = components.some((c) => c.status === "DOWN")
@@ -166,5 +158,39 @@ export async function healthRollup(ctx: OpCtx, days = 14) {
     total,
     okRate: total ? Math.round((okCount / total) * 100) : null,
     series: Array.from(byDay.values()),
+  };
+}
+
+/** Live scheduler status (token configured, last platform tick, last automatic run here, next due). */
+export async function schedulerHealthComponent(orgId: string, now: number = Date.now()): Promise<HealthComponent> {
+  const tickConfigured = Boolean(process.env.OPERATE_TICK_TOKEN && process.env.OPERATE_TICK_TOKEN.length >= 16);
+  const [lastTick, lastAuto, nextDue] = await Promise.all([
+    prisma.opSchedulerTick.findFirst({ orderBy: { startedAt: "desc" }, select: { startedAt: true, status: true, source: true } }),
+    prisma.opStandingOrder.findFirst({ where: { organizationId: orgId, lastResultJson: { contains: '"trigger":"TICK"' } }, orderBy: { lastRunAt: "desc" }, select: { lastRunAt: true, title: true } }),
+    prisma.opStandingOrder.findFirst({ where: { organizationId: orgId, enabled: true, nextRunAt: { not: null } }, orderBy: { nextRunAt: "asc" }, select: { nextRunAt: true } }),
+  ]);
+  const ago = (d: Date) => {
+    const m = Math.max(0, Math.round((now - d.getTime()) / 60000));
+    return m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`;
+  };
+  const et = (d: Date) => `${new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(d)} ET`;
+  const tickAgeH = lastTick ? (now - lastTick.startedAt.getTime()) / 3_600_000 : null;
+  const sourceLabel = lastTick?.source === "github-actions" ? "GitHub Actions" : lastTick?.source ?? "external scheduler";
+  return {
+    key: "scheduler",
+    label: "Scheduler",
+    status: !tickConfigured ? "INFO" : !lastTick ? "INFO" : lastTick.status === "FAILED" || (tickAgeH ?? 0) > 6 ? "DEGRADED" : "OK",
+    detail: !tickConfigured
+      ? "Not configured. Standing orders run only when you press Run due now."
+      : [
+          "Configured — an external scheduler calls the secure tick (requested every 15 minutes; GitHub may delay scheduled runs).",
+          lastTick
+            ? `Last tick ${et(lastTick.startedAt)} (${ago(lastTick.startedAt)}) via ${sourceLabel}${lastTick.status === "FAILED" ? " — failed" : ""}${(tickAgeH ?? 0) > 6 ? " — overdue" : ""}.`
+            : "No tick recorded yet.",
+          lastAuto?.lastRunAt ? `Last automatic run here: ${et(lastAuto.lastRunAt)}.` : "No automatic run in this workspace yet.",
+          nextDue?.nextRunAt ? `Next due: ${et(nextDue.nextRunAt)}.` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
   };
 }

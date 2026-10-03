@@ -16,6 +16,11 @@ import { OpError, requireOpPermission, safeJson } from "./context";
 import type { ProductScope } from "./router";
 import { runHealthCheck } from "./health";
 import { buildDigest, buildRecall } from "./briefing";
+import { measureMetric, metricHref, metricSentence } from "./metrics";
+import { METRIC_LABEL, METRIC_IS_MONEY, formatMoneyShort, type MetricKey } from "./automation-prompt";
+import { notify } from "@/lib/notifications";
+
+const METRIC_KEYS = new Set(Object.keys(METRIC_LABEL));
 
 export type RunStep =
   | { kind: "ANALYZE"; product: ProductScope; intent?: string }
@@ -25,7 +30,8 @@ export type RunStep =
   | { kind: "STATUS" }
   | { kind: "ANSWER"; question: string }
   | { kind: "TASK"; title: string; body?: string }
-  | { kind: "APPROVAL"; title: string; description?: string; needsIntegration?: string };
+  | { kind: "APPROVAL"; title: string; description?: string; needsIntegration?: string }
+  | { kind: "CHECK"; metric: MetricKey; op: "gt" | "lt"; amount: number };
 
 export type StepEvidence = {
   index: number;
@@ -47,6 +53,7 @@ export const STEP_LABEL: Record<RunStep["kind"], string> = {
   ANSWER: "Executive answer",
   TASK: "Owned task",
   APPROVAL: "Approval gate",
+  CHECK: "Threshold check",
 };
 
 export function describeStep(step: RunStep): string {
@@ -59,6 +66,8 @@ export function describeStep(step: RunStep): string {
       return `${STEP_LABEL.TASK} · ${step.title}`;
     case "APPROVAL":
       return `${STEP_LABEL.APPROVAL} · ${step.title}`;
+    case "CHECK":
+      return `${STEP_LABEL.CHECK} · alert if ${METRIC_LABEL[step.metric].toLowerCase()} is ${step.op === "gt" ? "over" : "under"} ${METRIC_IS_MONEY[step.metric] ? formatMoneyShort(step.amount) : step.amount}`;
     default:
       return STEP_LABEL[step.kind];
   }
@@ -80,6 +89,11 @@ export function normalizeSteps(raw: unknown): RunStep[] {
       out.push({ kind, question: String(o.question || "Top opportunities").slice(0, 300) });
     } else if (kind === "TASK") {
       out.push({ kind, title: String(o.title || "Follow-up").slice(0, 200), body: o.body ? String(o.body).slice(0, 1000) : undefined });
+    } else if (kind === "CHECK") {
+      const metric = String(o.metric || "");
+      const amount = Number(o.amount);
+      if (!METRIC_KEYS.has(metric) || !Number.isFinite(amount)) continue;
+      out.push({ kind, metric: metric as MetricKey, op: o.op === "lt" ? "lt" : "gt", amount });
     } else if (kind === "APPROVAL") {
       out.push({ kind, title: String(o.title || "Approve plan").slice(0, 200), description: o.description ? String(o.description).slice(0, 1000) : undefined, needsIntegration: o.needsIntegration ? String(o.needsIntegration).slice(0, 60) : undefined });
     } else {
@@ -207,6 +221,19 @@ async function executeStep(ctx: OpCtx, run: { id: string; title: string; created
         data: { organizationId: ctx.organizationId, title: step.title, body: step.body ?? `Created by run “${run.title}”.`, entityType: "OpRun", entityId: run.id, createdById: actor, status: "OPEN" },
       });
       return { ...base, ok: true, summary: `Task created: ${task.title}`, refs: [{ label: "Action Center", href: "/app/action-center" }] };
+    }
+    case "CHECK": {
+      const value = await measureMetric(ctx.organizationId, step.metric);
+      const met = step.op === "gt" ? value > step.amount : value < step.amount;
+      const sentence = metricSentence(step.metric, value, step.op, step.amount, met);
+      const href = metricHref(step.metric);
+      if (met) {
+        const actor = await resolveActorId(ctx, run.createdById);
+        if (actor) {
+          await notify({ organizationId: ctx.organizationId, userId: actor, title: `Alert · ${run.title}`.slice(0, 200), body: sentence, href }).catch(() => undefined);
+        }
+      }
+      return { ...base, ok: true, summary: `${sentence}${met ? " · alert sent to your Inbox" : ""}`, refs: [{ label: METRIC_LABEL[step.metric].split(" (")[0]!, href }] };
     }
     case "APPROVAL": {
       const actor = await resolveActorId(ctx, run.createdById);

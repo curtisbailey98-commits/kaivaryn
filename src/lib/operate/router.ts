@@ -16,6 +16,8 @@
  *  INITIATIVE → create / list initiatives ("initiative create Q4 billing cleanup")
  *  HELP       → command reference
  */
+import { looksLikeAutomation } from "./automation-prompt";
+
 export type CommandRoute =
   | "ANALYZE"
   | "ANSWER"
@@ -57,12 +59,13 @@ export function routeCommand(text: string): RouteResult {
 
   // Explicit prefixes first (mirrors SI precedence: project/recipe/request/job before build)
   if (/^(initiative|initiatives|project|projects)\b/.test(t)) return r("INITIATIVE", "initiative_prefix");
+  if (/^run\s+(playbook|recipe)\b/.test(t) && looksLikeAutomation(t)) return r("STANDING", "cadence_keyword");
   if (/^(playbooks?|recipes?)\b/.test(t) || /^run\s+(playbook|recipe)\b/.test(t) || /\b(save|create)\s+(playbook|recipe)\b/.test(t)) {
     return r("PLAYBOOK", "playbook_keyword");
   }
   if (/^request\b/.test(t)) return r("REQUEST", "request_prefix");
   if (/^(find|search|lookup|look up)\b/.test(t)) return r("SEARCH", "search_prefix");
-  if (/\b(every|hourly|daily|weekly|each (morning|day|week|hour))\b/.test(t) || /^(standing|schedule)\b/.test(t)) {
+  if (/\b(every|hourly|daily|weekly|each (morning|day|week|hour))\b/.test(t) || /^(standing|schedule)\b/.test(t) || (!/\?$/.test(t) && looksLikeAutomation(t))) {
     return r("STANDING", "cadence_keyword");
   }
   if (/\bdigest\b|\bbriefing\b|\bbrief me\b|\bsummar(y|ize|ise)\b|\bwhat changed\b/.test(t)) return r("DIGEST", "digest_keyword");
@@ -92,7 +95,8 @@ export const COMMAND_EXAMPLES: Array<{ label: string; text: string; route: Comma
   { label: "How much have we recovered?", text: "How much revenue have we recovered?", route: "ANSWER" },
   { label: "Morning briefing", text: "Brief me on what changed", route: "DIGEST" },
   { label: "Platform health", text: "status", route: "STATUS" },
-  { label: "Daily digest order", text: "Every day send me a digest", route: "STANDING" },
+  { label: "Monday 8am briefing", text: "Every Monday at 8am send me a briefing", route: "STANDING" },
+  { label: "Leakage alert", text: "Every weekday at 9 check revenue leakage and alert me if it's over $50k", route: "STANDING" },
   { label: "Run revenue sweep", text: "run playbook revenue-leakage-sweep", route: "PLAYBOOK" },
   { label: "Plan a fix", text: "Plan a fix for unbilled change orders", route: "BUILD" },
   { label: "What have we learned?", text: "What did Kaivaryn learn?", route: "RECALL" },
@@ -106,7 +110,7 @@ export const COMMAND_HELP: Array<{ route: CommandRoute; name: string; triggers: 
   { route: "STATUS", name: "Status", triggers: "status · health · health check", does: "Workspace health check: database latency, analysis freshness, overdue schedules, failed runs, integrations." },
   { route: "DIGEST", name: "Briefing", triggers: "digest · brief me · summary · what changed", does: "Executive briefing snapshot saved to your Inbox." },
   { route: "RECALL", name: "Recall", triggers: "recall · remember · what did Kaivaryn learn", does: "What Kaivaryn has learned from completed analysis cycles — lessons and saved context. Honest if empty." },
-  { route: "STANDING", name: "Standing order", triggers: "every hour / day / week …", does: "Schedules a recurring analysis, briefing, health check, or playbook." },
+  { route: "STANDING", name: "Automation", triggers: "every Monday at 8am … · daily at 7 … · weekdays at 9 … · first of the month …", does: "Turns a plain-English instruction into a scheduled automation — analysis, briefing, health check, detection, playbook, or a threshold alert — and shows you exactly what it will do and when before anything is saved." },
   { route: "PLAYBOOK", name: "Playbook", triggers: "run playbook <slug> · save playbook <name> :: <directive>", does: "Runs a multi-step playbook with recorded run history, or saves a reusable one." },
   { route: "REQUEST", name: "Request", triggers: "request: <what you need>", does: "Records an owner action request (task + approval). Kaivaryn does not perform it on its own." },
   { route: "SEARCH", name: "Find", triggers: "find <term>", does: "Searches opportunities, inefficiencies, customers, and findings in your organization." },
