@@ -145,10 +145,10 @@ async function main() {
   const demoHash = await hash("DemoClient!2026", 12);
   const demoUser = await prisma.user.upsert({
     where: { email: "demo@kaivaryn.com" },
-    update: { passwordHash: demoHash, name: "Demo Analyst" },
+    update: { passwordHash: demoHash, name: "Alex Morgan" },
     create: {
       email: "demo@kaivaryn.com",
-      name: "Demo Analyst",
+      name: "Alex Morgan",
       passwordHash: demoHash,
       role: Role.VIEWER,
     },
@@ -156,10 +156,10 @@ async function main() {
 
   const demoOwner = await prisma.user.upsert({
     where: { email: "owner@acme-demo.kaivaryn.com" },
-    update: { passwordHash: demoHash, name: "Demo Owner" },
+    update: { passwordHash: demoHash, name: "Jordan Reyes" },
     create: {
       email: "owner@acme-demo.kaivaryn.com",
-      name: "Demo Owner",
+      name: "Jordan Reyes",
       passwordHash: demoHash,
       role: Role.VIEWER,
     },
@@ -167,10 +167,10 @@ async function main() {
 
   const manager = await prisma.user.upsert({
     where: { email: "manager@acme-demo.kaivaryn.com" },
-    update: { passwordHash: demoHash, name: "Demo Manager" },
+    update: { passwordHash: demoHash, name: "Priya Shah" },
     create: {
       email: "manager@acme-demo.kaivaryn.com",
-      name: "Demo Manager",
+      name: "Priya Shah",
       passwordHash: demoHash,
       role: Role.VIEWER,
     },
@@ -178,10 +178,10 @@ async function main() {
 
   const viewer = await prisma.user.upsert({
     where: { email: "viewer@acme-demo.kaivaryn.com" },
-    update: { passwordHash: demoHash, name: "Demo Viewer" },
+    update: { passwordHash: demoHash, name: "Sam Ellis" },
     create: {
       email: "viewer@acme-demo.kaivaryn.com",
-      name: "Demo Viewer",
+      name: "Sam Ellis",
       passwordHash: demoHash,
       role: Role.VIEWER,
     },
@@ -189,8 +189,8 @@ async function main() {
 
   const org = await prisma.organization.upsert({
     where: { slug: "acme-demo" },
-    update: { name: "Acme Demo", isDemo: true },
-    create: { name: "Acme Demo", slug: "acme-demo", isDemo: true },
+    update: { name: "Acme Industries", isDemo: true },
+    create: { name: "Acme Industries", slug: "acme-demo", isDemo: true },
   });
 
   // Isolation foil org (empty entitlements for cross-tenant tests)
@@ -540,7 +540,8 @@ async function main() {
         fromStatus: null,
         toStatus: o.status,
         actorId: demoUser.id,
-        note: "Demo workspace setup",
+        note: "Added to the workspace",
+        createdAt: identifiedAt,
       },
     });
     await prisma.evidence.create({
@@ -548,7 +549,8 @@ async function main() {
         organizationId: org.id,
         opportunityId: created.id,
         kind: "FACT",
-        summary: `Sample evidence for ${o.title}`,
+        summary: o.description,
+        createdAt: identifiedAt,
         source: o.source,
       },
     });
@@ -708,7 +710,8 @@ async function main() {
         fromStatus: null,
         toStatus: o.status,
         actorId: demoUser.id,
-        note: "Demo workspace setup",
+        note: "Added to the workspace",
+        createdAt: identifiedAt,
       },
     });
     await prisma.evidence.create({
@@ -716,7 +719,8 @@ async function main() {
         organizationId: org.id,
         inefficiencyId: created.id,
         kind: "FACT",
-        summary: `Sample evidence for ${o.title}`,
+        summary: o.description,
+        createdAt: identifiedAt,
         source: o.source,
       },
     });
@@ -813,7 +817,7 @@ async function main() {
       organizationId: org.id,
       type: "AUTOMATION_CANDIDATE",
       title: "Propose RPA for invoice reconciliation",
-      description: "Candidate only. No external automation will run without explicit approval.",
+      description: "Proposal only. No automation runs without explicit approval.",
       status: "PENDING",
       payloadJson: JSON.stringify({
         inefficiencyTitle: "Manual invoice reconciliation",
@@ -828,13 +832,169 @@ async function main() {
       organizationId: org.id,
       type: "EXTERNAL_ACTION",
       title: "Push claim adjustment to billing system",
-      description: "Needs integration billing_system — will not execute.",
+      description: "Waiting on the billing system connection. Nothing runs until it is connected and approved.",
       status: "PENDING",
       needsIntegration: "billing_system",
       payloadJson: JSON.stringify({ provider: "billing_system", executesExternally: false }),
       requestedById: manager.id,
     },
   });
+
+  // ── Live-demo story (additive) ────────────────────────────────────────────────────────────
+  // One Revenue Recovery item and one Operations Efficiency item carry the full arc a presenter
+  // walks through: evidence → owner → approval → recorded outcome → verified / realized.
+  // Illustrative example data for the Acme demo workspace only — not client results.
+  {
+    const at = (n: number, h = 10) => {
+      const d = daysAgo(n);
+      d.setHours(h, 0, 0, 0);
+      return d;
+    };
+    const trail = async (entityType: "Opportunity" | "Inefficiency", entityId: string, identifiedAt: Date, steps: Array<[string | null, string, string, string, number]>) => {
+      await prisma.statusHistory.deleteMany({ where: { organizationId: org.id, entityType, entityId } });
+      await prisma.statusHistory.create({ data: { organizationId: org.id, entityType, entityId, fromStatus: null, toStatus: "IDENTIFIED", actorId: demoUser.id, note: "Identified from imported records", createdAt: identifiedAt } });
+      for (const [fromStatus, toStatus, actorId, note, n] of steps) {
+        await prisma.statusHistory.create({ data: { organizationId: org.id, entityType, entityId, fromStatus, toStatus, actorId, note, createdAt: at(n, 11) } });
+      }
+    };
+
+    // RR — Payer underpayment batch: in recovery, first batch recovered AND verified.
+    const payer = await prisma.opportunity.findFirst({ where: { organizationId: org.id, title: "Payer underpayment batch" } });
+    if (payer) {
+      await prisma.opportunity.update({
+        where: { id: payer.id },
+        data: {
+          description: "Claims from one commercial payer were paid below the contracted fee schedule. The first appeal batch has been paid and matched to remittance; the remaining claims are being appealed.",
+          verifiedAmount: 45000,
+          verifiedAt: at(5),
+        },
+      });
+      await prisma.evidence.createMany({
+        data: [
+          { organizationId: org.id, opportunityId: payer.id, kind: "METRIC", summary: "412 claims paid below contracted rate · average shortfall $510 per claim", source: "claims", createdAt: at(31) },
+          { organizationId: org.id, opportunityId: payer.id, kind: "DOCUMENT", summary: "Payer agreement fee schedule (effective Jan 1) — contracted allowed amounts by code", source: "contracts", createdAt: at(30) },
+          { organizationId: org.id, opportunityId: payer.id, kind: "FACT", summary: "First appeal batch: $45,000 received and matched to remittance advice", source: "claims", createdAt: at(5) },
+        ],
+      });
+      await trail("Opportunity", payer.id, payer.identifiedAt, [
+        ["IDENTIFIED", "UNDER_REVIEW", demoUser.id, "Evidence checked against the payer agreement", 29],
+        ["UNDER_REVIEW", "APPROVED", manager.id, "Appeal approved — within contract terms", 27],
+        ["APPROVED", "IN_RECOVERY", demoOwner.id, "First appeal batch submitted to payer", 26],
+      ]);
+      await prisma.approvalRequest.create({
+        data: {
+          organizationId: org.id,
+          type: "RECOVERY_PLAN",
+          title: "Appeal underpaid claims — Payer underpayment batch",
+          description: "Submit appeals for claims paid below the contracted fee schedule. Your team submits; Kaivaryn records the decision only.",
+          status: "APPROVED",
+          payloadJson: JSON.stringify({ opportunityId: payer.id, amount: 210000, executesExternally: false }),
+          requestedById: demoOwner.id,
+          decidedById: manager.id,
+          decidedAt: at(27),
+          decisionNote: "Evidence reviewed; appeal is within contract terms.",
+          createdAt: at(28),
+        },
+      });
+      await prisma.task.create({
+        data: { organizationId: org.id, title: "Submit second appeal batch (remaining 324 claims)", entityType: "Opportunity", entityId: payer.id, status: "OPEN", dueAt: at(-5), assigneeId: demoOwner.id, createdById: manager.id, createdAt: at(5) },
+      });
+      await prisma.opportunityNote.create({
+        data: { opportunityId: payer.id, authorId: demoOwner.id, body: "First batch paid in full. $45,000 recovered and verified against remittance. Second batch goes out this week.", createdAt: at(5, 15) },
+      });
+    }
+
+    // RR — Missed change-order revenue: owned, waiting on an approval the presenter can decide live.
+    const changeOrders = await prisma.opportunity.findFirst({ where: { organizationId: org.id, title: "Missed change-order revenue" } });
+    if (changeOrders) {
+      await prisma.opportunity.update({ where: { id: changeOrders.id }, data: { assigneeId: manager.id } });
+      await prisma.evidence.create({
+        data: { organizationId: org.id, opportunityId: changeOrders.id, kind: "METRIC", summary: "14 approved change orders delivered with no matching invoice line", source: "project_mgmt", createdAt: at(16) },
+      });
+      await trail("Opportunity", changeOrders.id, changeOrders.identifiedAt, [["IDENTIFIED", "UNDER_REVIEW", demoUser.id, "Matched delivered scope to invoices; owner assigned", 15]]);
+      await prisma.approvalRequest.create({
+        data: {
+          organizationId: org.id,
+          type: "RECOVERY_PLAN",
+          title: "Bill delivered change orders — Missed change-order revenue",
+          description: "Issue invoices for 14 delivered change orders. Approving records the decision; your billing team issues the invoices.",
+          status: "PENDING",
+          payloadJson: JSON.stringify({ opportunityId: changeOrders.id, amount: 95500, executesExternally: false }),
+          requestedById: manager.id,
+          createdAt: at(2),
+        },
+      });
+    }
+
+    // OE — Duplicate data entry: approved automation, savings realized so far recorded.
+    const dupEntry = await prisma.inefficiency.findFirst({ where: { organizationId: org.id, title: "Duplicate data entry across ERP and CRM" } });
+    if (dupEntry) {
+      await prisma.inefficiency.update({
+        where: { id: dupEntry.id },
+        data: {
+          description: "Customer updates are keyed into the ERP and again into the CRM. An approved sync now covers billing addresses; contacts are next.",
+          realizedHoursWeekly: 6,
+        },
+      });
+      await prisma.evidence.createMany({
+        data: [
+          { organizationId: org.id, inefficiencyId: dupEntry.id, kind: "METRIC", summary: "Time study: 40 hours a week re-keying customer updates across three analysts", source: "interview", createdAt: at(24) },
+          { organizationId: org.id, inefficiencyId: dupEntry.id, kind: "FACT", summary: "Billing-address sync live; re-keying down 6 hours a week, measured over four weeks", source: "interview", createdAt: at(9) },
+        ],
+      });
+      await trail("Inefficiency", dupEntry.id, dupEntry.identifiedAt, [
+        ["IDENTIFIED", "ANALYZING", demoUser.id, "Time study confirmed; owner assigned", 22],
+        ["ANALYZING", "APPROVED", demoOwner.id, "Sync automation approved", 20],
+        ["APPROVED", "IMPLEMENTING", demoUser.id, "Phase 1 (billing addresses) live", 12],
+      ]);
+      await prisma.approvalRequest.create({
+        data: {
+          organizationId: org.id,
+          type: "AUTOMATION_CANDIDATE",
+          title: "Automate ERP–CRM customer sync — Duplicate data entry",
+          description: "Replace manual re-keying with a scheduled sync, in two phases. Your IT team implements; Kaivaryn records the decision only.",
+          status: "APPROVED",
+          payloadJson: JSON.stringify({ inefficiencyId: dupEntry.id, projectedSavings: 120000, executesExternally: false }),
+          requestedById: demoUser.id,
+          decidedById: demoOwner.id,
+          decidedAt: at(20),
+          decisionNote: "Approved in two phases. Measure hours saved after each.",
+          createdAt: at(21),
+        },
+      });
+      await prisma.task.create({
+        data: { organizationId: org.id, title: "Phase 2: extend sync to customer contacts", entityType: "Inefficiency", entityId: dupEntry.id, status: "OPEN", dueAt: at(-10), assigneeId: demoUser.id, createdById: demoOwner.id, createdAt: at(9) },
+      });
+      await prisma.inefficiencyNote.create({
+        data: { inefficiencyId: dupEntry.id, authorId: demoUser.id, body: "Phase 1 recorded: $15,000 annualized savings realized, 6 hours a week back. Phase 2 starts next sprint.", createdAt: at(9, 15) },
+      });
+    }
+
+    // OE — Exception queue backlog: a completed, verified example.
+    const backlog = await prisma.inefficiency.findFirst({ where: { organizationId: org.id, title: "Exception queue backlog" } });
+    if (backlog) {
+      await prisma.inefficiency.update({ where: { id: backlog.id }, data: { assigneeId: manager.id, realizedHoursWeekly: 13 } });
+      await prisma.evidence.create({
+        data: { organizationId: org.id, inefficiencyId: backlog.id, kind: "FACT", summary: "Exceptions now owned on arrival; median age down from 11 days to 3", source: "ticket_system", createdAt: at(20) },
+      });
+      await trail("Inefficiency", backlog.id, backlog.identifiedAt, [
+        ["IDENTIFIED", "IMPLEMENTING", manager.id, "Ownership rule and daily triage introduced", 30],
+        ["IMPLEMENTING", "VERIFIED", demoOwner.id, "Savings confirmed against four weeks of queue data", 20],
+      ]);
+    }
+
+    // Link the existing invoice-reconciliation approval to its inefficiency so it opens in context.
+    const recon = await prisma.inefficiency.findFirst({ where: { organizationId: org.id, title: "Manual invoice reconciliation" } });
+    if (recon) {
+      const rpa = await prisma.approvalRequest.findFirst({ where: { organizationId: org.id, title: "Propose RPA for invoice reconciliation" } });
+      if (rpa) {
+        await prisma.approvalRequest.update({
+          where: { id: rpa.id },
+          data: { payloadJson: JSON.stringify({ inefficiencyId: recon.id, inefficiencyTitle: recon.title, proposedAction: "document_only", executesExternally: false }) },
+        });
+      }
+    }
+  }
 
   await prisma.onboardingProgress.upsert({
     where: { organizationId_userId: { organizationId: org.id, userId: demoUser.id } },
@@ -991,7 +1151,7 @@ async function main() {
   console.log("  CEO:         curtis@kaivaryn.com / [see BOOTSTRAP_CEO_PASSWORD or seed fallback]");
   console.log("  CSEO:        don@kaivaryn.com / [see BOOTSTRAP_CSEO_PASSWORD or seed fallback]");
   console.log("  Demo user:   demo@kaivaryn.com / DemoClient!2026");
-  console.log("  Demo org:    Acme Demo (isDemo)");
+  console.log("  Demo org:    Acme Industries (acme-demo, isDemo)");
   console.log("  Other org:   Other Co (TEST) — isolation foil");
 }
 
