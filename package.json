@@ -21,8 +21,9 @@
     "test:si": "tsx scripts/si-cycle-validation.ts",
     "test:operate": "tsx scripts/operating-layer-validation.ts",
     "test:operate:api": "tsx scripts/operating-api-smoke.ts",
-    "test": "npm run -s test:operate && npm run -s test:operate:guards && npm run -s test:si && npm run -s test:enterprise && npm run -s test:chief && npm run -s test:acquisition && npm run -s test:execution",
-    "test:operate:guards": "tsx scripts/operating-guards-validation.ts"
+    "test": "npm run -s test:operate && npm run -s test:operate:guards && npm run -s test:si && npm run -s test:enterprise && npm run -s test:chief && npm run -s test:acquisition && npm run -s test:execution && npm run -s test:stripe",
+    "test:operate:guards": "tsx scripts/operating-guards-validation.ts",
+    "test:stripe": "tsx scripts/stripe-webhook-validation.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
