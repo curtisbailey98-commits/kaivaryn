@@ -13,6 +13,7 @@ import {
   StatusDot,
 } from "@/components/motion";
 import { getPricingConfig, centsToDollars } from "@/lib/pricing";
+import { TalkToVikiButton } from "@/components/voice/public-viki";
 
 export const metadata: Metadata = {
   title: "Executive AI Consulting Firm",
@@ -284,6 +285,22 @@ export default async function HomePage() {
             </div>
           </Reveal>
         </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pt-16 sm:px-6 sm:pt-20" aria-labelledby="talk-to-viki">
+        <Reveal>
+          <div className="relative grid gap-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] via-transparent to-amber-500/[0.05] p-6 sm:p-8 lg:grid-cols-[auto_1fr_auto] lg:items-center">
+            <div className="relative h-16 w-16 shrink-0 rounded-full shadow-[0_0_0_1px_rgba(161,161,170,0.35),0_0_36px_rgba(245,158,11,0.18)]" style={{ background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.85), rgba(212,212,216,0.5) 22%, rgba(82,82,91,0.75) 55%, rgba(10,10,10,0.95) 78%)" }} aria-hidden />
+            <div>
+              <p className="public-kicker">Prefer to talk it through?</p>
+              <h2 id="talk-to-viki" className="mt-3 text-xl font-semibold text-white sm:text-2xl">Talk to Viki, Kaivaryn&apos;s AI voice assistant.</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">
+                Describe what&apos;s happening in your business. Viki asks a few questions, tells you whether Revenue Recovery or Operations Efficiency is the better fit, answers common questions, and points you to an executive demo when it makes sense. She&apos;s an AI — and she won&apos;t quote results she can&apos;t stand behind.
+              </p>
+            </div>
+            <TalkToVikiButton />
+          </div>
+        </Reveal>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pt-16 sm:px-6 sm:pt-20">

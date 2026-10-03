@@ -30,6 +30,10 @@ export default async function OnboardingPage({ searchParams }: { searchParams: {
   let progress = await prisma.onboardingProgress.findUnique({ where: { organizationId_userId: { organizationId: ctx.organizationId, userId: ctx.user.id } } });
   if (!progress) progress = await prisma.onboardingProgress.create({ data: { organizationId: ctx.organizationId, userId: ctx.user.id, currentStep: 0, completedSteps: "[]", dataJson: "{}" } });
   const completed: string[] = JSON.parse(progress.completedSteps || "[]");
+  const activatedSub = await prisma.subscription.findFirst({ where: { organizationId: ctx.organizationId, status: "ACTIVE" }, select: { id: true } });
+  const activatedPaid = activatedSub ? null : await prisma.acquisitionAccount.findFirst({ where: { onboardingOrganizationId: ctx.organizationId, paymentStatus: "PAID" }, select: { id: true } });
+  const voiceUnlocked = Boolean(activatedSub || activatedPaid);
+  const voiceAgent = voiceUnlocked ? await prisma.voiceAgent.findFirst({ where: { tenantId: ctx.organizationId, kind: "CLIENT" }, select: { name: true, status: true } }) : null;
   const answers: Record<string, Record<string, unknown>> = JSON.parse(progress.dataJson || "{}") as Record<string, Record<string, unknown>>;
   const step = ONBOARDING_STEPS[progress.currentStep] ?? ONBOARDING_STEPS[0];
   const current = answers[step.id] || {};
@@ -84,6 +88,16 @@ export default async function OnboardingPage({ searchParams }: { searchParams: {
         {step.id === "done" ? <><div><p className="mb-2 text-xs font-medium text-neutral-300">What should success look like in the first 30 days?</p><div className="grid gap-3 sm:grid-cols-2">{choice("launchPriority", "recover", "Recover visible value", "Turn a known leakage pattern into owned work.", current.launchPriority === "recover")}{choice("launchPriority", "efficiency", "Remove recurring friction", "Make one expensive process measurably better.", current.launchPriority === "efficiency")}{choice("launchPriority", "alignment", "Align the team", "Create one shared queue and operating language.", current.launchPriority === "alignment")}{choice("launchPriority", "learn", "Learn where to look", "Start with a structured signal and evidence review.", current.launchPriority === "learn")}</div></div><label className="block text-xs font-medium text-neutral-300">Define the first success metric<input name="successMetric" defaultValue={String(current.successMetric || "")} placeholder="Example: verify $100k of recovery opportunity" className="mt-2 h-10 w-full rounded-md border border-neutral-700 bg-neutral-950 px-3 text-sm text-neutral-100 placeholder:text-neutral-600" /></label></> : null}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-900 pt-5"><p className="text-xs text-neutral-500">Saved to your organization workspace.</p><Button type="submit">{step.id === "done" ? "Finish activation" : "Save and continue"}</Button></div>
       </form>}
+    </div>
+    <div className={`mt-6 rounded-xl border p-5 ${voiceUnlocked ? "border-amber-500/30 bg-amber-500/[0.04]" : "border-neutral-800 bg-neutral-950"}`} data-testid="onboarding-voice-step">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="si-label text-amber-500">{voiceUnlocked ? "After activation · next to your data sources" : "Unlocks after activation"}</p>
+          <h2 className="mt-1 text-lg font-semibold text-white">Create your company&apos;s voice agent</h2>
+          <p className="mt-1 max-w-xl text-sm text-neutral-400">{voiceAgent ? `${voiceAgent.name} · ${voiceAgent.status.replace(/_/g, " ")}` : "An AI voice employee configured around how you work — built by Kaivaryn from a short questionnaire, or configured by you. Nothing goes live without your approval."}</p>
+        </div>
+        {voiceUnlocked ? <Link href="/app/voice-agent" className="rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-neutral-950">{voiceAgent ? "Open voice agent →" : "Create voice agent →"}</Link> : <span className="text-xs text-neutral-500">Available once your engagement is active</span>}
+      </div>
     </div>
     <div className="mt-6 grid gap-3 sm:grid-cols-3"><Link href="/app/integrations" className="rounded-lg border border-neutral-800 p-4 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-white">Review integrations <span className="float-right text-amber-400">→</span></Link><Link href="/app" className="rounded-lg border border-neutral-800 p-4 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-white">Preview command center <span className="float-right text-amber-400">→</span></Link><Link href="/contact" className="rounded-lg border border-neutral-800 p-4 text-sm text-neutral-300 transition hover:border-neutral-600 hover:text-white">Talk to Kaivaryn <span className="float-right text-amber-400">→</span></Link></div>
   </div>;

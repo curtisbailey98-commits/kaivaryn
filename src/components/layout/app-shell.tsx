@@ -24,6 +24,8 @@ import {
   Target,
   GraduationCap,
   HeartPulse,
+  PhoneCall,
+  Mic,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
 import { ExampleDataTag } from "@/components/ui/badge";
@@ -59,6 +61,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/app/initiatives", label: "Initiatives", icon: Target },
       { href: "/app/playbooks", label: "Playbooks", icon: BookOpen },
       { href: "/app/automations", label: "Automations", icon: Workflow },
+      { href: "/app/calls", label: "Calls", icon: PhoneCall },
       { href: "/app/intelligence", label: "Intelligence", icon: Brain },
     ],
   },
@@ -77,6 +80,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/app/integrations", label: "Integrations", icon: Plug },
       { href: "/app/settings", label: "Org settings", icon: SlidersHorizontal },
       { href: "/app/onboarding", label: "Setup", icon: Rocket },
+      { href: "/app/voice-agent", label: "Voice agent", icon: Mic },
     ],
   },
 ];

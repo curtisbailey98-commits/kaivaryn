@@ -4,6 +4,8 @@ import { AppShell } from "@/components/layout/app-shell";
 import { requireOrgAccess } from "@/lib/tenant";
 import { FlashToast } from "@/components/ui/flash-toast";
 import { getInboxCounts } from "@/lib/operate/inbox";
+import { WorkspaceViki } from "@/components/voice/workspace-viki";
+import { humanizeLabel } from "@/lib/labels";
 
 export const metadata: Metadata = {
   title: { default: "Workspace", template: "%s | Kaivaryn" },
@@ -31,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <FlashToast />
       </Suspense>
       {children}
+      {ctx.organizationId ? <WorkspaceViki orgName={ctx.organization?.name || "Your workspace"} roleLabel={humanizeLabel(ctx.effectiveRole).toLowerCase()} /> : null}
     </AppShell>
   );
 }

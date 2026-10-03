@@ -1,6 +1,7 @@
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
 import { PageEnter } from "@/components/motion";
+import { PublicViki } from "@/components/voice/public-viki";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -11,6 +12,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         <PageEnter>{children}</PageEnter>
       </div>
       <SiteFooter />
+      <PublicViki />
     </div>
   );
 }
