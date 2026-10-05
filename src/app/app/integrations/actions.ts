@@ -115,3 +115,35 @@ export async function disconnectSheetAction() {
   revalidatePath("/app/integrations");
   redirect(target);
 }
+
+import { saveSystemSetup } from "@/lib/integrations/setup-store";
+import { requireOrgAccess } from "@/lib/tenant";
+
+/** Save business intake + checklist for one selected system. Never marks it connected. */
+export async function saveSystemSetupAction(formData: FormData) {
+  const ctx = await requireOrgAccess();
+  assertOrgId(ctx.organizationId);
+  const key = String(formData.get("systemKey") || "").trim();
+  const intake: Record<string, string> = {};
+  for (const [k, v] of Array.from(formData.entries())) {
+    if (k.startsWith("intake.")) intake[k.slice(7)] = String(v);
+  }
+  const checklist = formData.getAll("checklist[]").map(String);
+  const result = await saveSystemSetup({
+    organizationId: ctx.organizationId!,
+    userId: ctx.user.id,
+    role: ctx.effectiveRole,
+    key,
+    intake,
+    checklist,
+  });
+  if (!result.ok) {
+    redirect(back("error", result.error));
+  }
+  const note = result.rejected?.length
+    ? `Saved ${key} setup. Skipped ${result.rejected.length} field(s) that looked like secrets — never paste passwords or API keys here.`
+    : `Saved setup notes for ${key}. Checklist progress does not mark this system connected.`;
+  revalidatePath("/app/integrations");
+  revalidatePath("/app/onboarding");
+  redirect(back("ok", note, `#system-${key}`));
+}
