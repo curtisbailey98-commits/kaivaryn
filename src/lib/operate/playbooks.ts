@@ -133,12 +133,12 @@ export function stepsFromDirective(directive: string): RunStep[] {
 
 export async function savePlaybook(
   ctx: OpCtx,
-  input: { name: string; summary?: string; product?: string; steps?: unknown; directive?: string },
+  input: { name: string; summary?: string; product?: string; steps?: unknown; directive?: string; slug?: string },
 ) {
   requireOpPermission(ctx, "write");
   const name = input.name.trim().slice(0, 120);
   if (!name) throw new OpError("invalid", "Playbook name required");
-  const slug = slugify(name);
+  const slug = slugify(input.slug || name);
   const existing = await prisma.opPlaybook.findUnique({ where: { organizationId_slug: { organizationId: ctx.organizationId, slug } } });
   if (existing?.isSystem) throw new OpError("conflict", "A system playbook already uses that name", 409);
   const steps = input.steps ? normalizeSteps(input.steps) : stepsFromDirective(input.directive || name);

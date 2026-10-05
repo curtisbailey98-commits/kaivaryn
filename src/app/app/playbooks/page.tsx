@@ -8,6 +8,9 @@ import { RunStatusBadge } from "@/components/operate/route-badge";
 import { formatDate } from "@/lib/utils";
 import { can } from "@/lib/rbac";
 import { runPlaybookAction, savePlaybookAction, deletePlaybookAction } from "../operate-actions";
+import { getIndustryContext, getSelectedSystems } from "@/lib/industry/context";
+import { RestaurantPlaybooksPanel } from "@/components/industry/restaurant-playbooks-panel";
+import { RESTAURANT_TEMPLATE_PREFIX } from "@/lib/industry/restaurant-playbooks";
 import { TrendingUp, Settings2, Layers, ShieldCheck, FileText, HeartPulse } from "lucide-react";
 
 export const metadata = { title: "Playbooks" };
@@ -22,11 +25,22 @@ const PRODUCT_META: Record<string, { label: string; icon: typeof TrendingUp; ton
 const CATEGORY_ICON: Record<string, typeof TrendingUp> = { ANALYSIS: Layers, GOVERNANCE: ShieldCheck, BRIEFING: FileText, HEALTH: HeartPulse };
 
 export default async function PlaybooksPage() {
-  const ctx = opCtxFromSession(await requireOrgAccess());
-  const [playbooks, runs] = await Promise.all([listPlaybooks(ctx), listRuns(ctx, { take: 60 })]);
+  const session = await requireOrgAccess();
+  const ctx = opCtxFromSession(session);
+  const [playbooks, runs, industry, systems] = await Promise.all([
+    listPlaybooks(ctx),
+    listRuns(ctx, { take: 60 }),
+    getIndustryContext(session.organizationId, session.user.id),
+    getSelectedSystems(session.organizationId),
+  ]);
   const canRun = can(ctx.role, "run_intelligence");
   const canWrite = can(ctx.role, "write");
   const lastRunFor = (id: string) => runs.find((r) => r.sourceId === id);
+  const ownedRestaurantSlugs = new Set(
+    playbooks
+      .filter((p) => (p.summary || "").startsWith(RESTAURANT_TEMPLATE_PREFIX) || String(p.slug || "").startsWith("restaurant-"))
+      .flatMap((p) => [String(p.slug || ""), p.name.toLowerCase()].filter(Boolean)),
+  );
 
   return (
     <div className="space-y-6">
@@ -35,6 +49,10 @@ export default async function PlaybooksPage() {
         title="Reusable plays for revenue and operations"
         description="Each playbook is an ordered set of steps — detection, nine-step analysis, answers, owned tasks, approval gates, and briefings. Running one creates a recorded run. Governance plays pause for a human decision before they continue."
       />
+
+      {industry.isRestaurant ? (
+        <RestaurantPlaybooksPanel selectedSystems={systems.selected} ownedSlugs={ownedRestaurantSlugs} canWrite={canWrite} />
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {playbooks.map((p) => {

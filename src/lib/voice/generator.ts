@@ -4,6 +4,7 @@
  */
 import { defaultToolMap, sanitizeToolMap, type ActionLevel } from "./action-levels";
 import { buildClientAgentPrompt } from "./prompts";
+import { restaurantPresetAdditions } from "@/lib/industry/restaurant-voice";
 
 export const VOICE_OPTIONS = [
   { id: "Layla", label: "Layla — warm, polished" },
@@ -68,6 +69,7 @@ export type Questionnaire = {
   canSchedule: "none" | "request_only";
   systems: string[];
   needsApproval: string[];
+  restaurantPresets?: string[];
 };
 
 export type GeneratedConfig = {
@@ -123,6 +125,10 @@ export function generateConfig(q: Questionnaire): GeneratedConfig {
     ...label(APPROVAL_OPTIONS, q.needsApproval).map((x) => `Needs approval before anything is promised: ${x.toLowerCase()}`),
   ];
   if (q.alwaysHumanNotes?.trim()) escalation.push(`Also hand off: ${q.alwaysHumanNotes.trim().slice(0, 300)}`);
+
+  const restaurant = restaurantPresetAdditions(q.restaurantPresets);
+  for (const r of restaurant.responsibilities) if (!responsibilities.includes(r)) responsibilities.push(r);
+  for (const e of restaurant.escalation) if (!escalation.includes(e)) escalation.push(e);
 
   const hours = q.hours.trim() || "Not provided — treat every call as after hours until hours are confirmed";
   const config: Omit<GeneratedConfig, "systemPrompt"> = {

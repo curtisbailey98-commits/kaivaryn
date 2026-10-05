@@ -73,5 +73,5 @@ export const selectedRestaurantSystems = (selected: string[]) => selected.filter
 export async function addRestaurantPlaybook(ctx: OpCtx, slug: string) {
   const t = restaurantPlaybook(slug);
   if (!t) throw new OpError("not_found", "That restaurant template doesn't exist", 404);
-  return savePlaybook(ctx, { name: t.name, product: t.product, summary: `${RESTAURANT_TEMPLATE_PREFIX}${t.looksFor}`, steps: t.steps });
+  return savePlaybook(ctx, { name: t.name, product: t.product, summary: `${RESTAURANT_TEMPLATE_PREFIX}${t.looksFor}`, steps: t.steps, slug: t.slug });
 }

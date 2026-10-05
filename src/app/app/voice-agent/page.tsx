@@ -9,6 +9,8 @@ import { currentUsage } from "@/lib/voice/usage";
 import { AGENT_STATUS_LABEL, type AgentStatus } from "@/lib/voice/constants";
 import { CLIENT_TOOLS, ACTION_LEVELS, ACTION_LEVEL_LABEL, sanitizeToolMap, systemStateFromIntegration, type SystemState } from "@/lib/voice/action-levels";
 import { VOICE_OPTIONS, TONE_OPTIONS, CALLER_TYPES, HANDLE_OPTIONS, HUMAN_ALWAYS_OPTIONS, APPROVAL_OPTIONS } from "@/lib/voice/generator";
+import { getIndustryContext } from "@/lib/industry/context";
+import { RESTAURANT_VOICE_PRESETS, RESTAURANT_CALLER_TYPES } from "@/lib/industry/restaurant-voice";
 import { IncludedVoiceUsage } from "@/components/voice/usage-card";
 import { AgentPreviewCall } from "@/components/voice/agent-preview-call";
 import { generateAction, saveSelfAction, toolLevelsAction, provisionAction, submitAction, approveAction, activateAction, pauseAction } from "./actions";
@@ -48,12 +50,13 @@ export default async function VoiceAgentPage({ searchParams }: { searchParams: R
   const ctx = await requireOrgAccess();
   assertOrgId(ctx.organizationId);
   const role = ctx.effectiveRole;
-  const [agent, sub, paidAcct, usage, systems] = await Promise.all([
+  const [agent, sub, paidAcct, usage, systems, industry] = await Promise.all([
     getTenantClientAgent(ctx.organizationId),
     prisma.subscription.findFirst({ where: { organizationId: ctx.organizationId, status: "ACTIVE" }, select: { id: true } }),
     prisma.acquisitionAccount.findFirst({ where: { onboardingOrganizationId: ctx.organizationId, paymentStatus: "PAID" }, select: { id: true } }),
     currentUsage(ctx.organizationId),
     orgSystems(ctx.organizationId),
+    getIndustryContext(ctx.organizationId, ctx.user.id),
   ]);
   const activated = Boolean(sub || paidAcct);
   const canEdit = canVoice(role, "voice.agent.edit");
@@ -163,7 +166,8 @@ export default async function VoiceAgentPage({ searchParams }: { searchParams: R
           <div><h2 className="text-lg font-semibold text-white">Tell us about {company}</h2><p className="mt-1 text-xs text-neutral-500">About three minutes. You&apos;ll review and edit everything before anything goes live.</p></div>
           <label className="block text-xs font-medium text-neutral-300">What should your voice agent be called?<input name="agentName" required maxLength={40} defaultValue={agent?.name || ""} placeholder={`e.g. Ava, Morgan, or “${company} Front Desk”`} className={inputCls} /></label>
           <label className="block text-xs font-medium text-neutral-300">What does {company} do?<textarea name="whatCompanyDoes" rows={3} defaultValue={String(q.whatCompanyDoes || "")} placeholder="Example: Regional HVAC installer and service company serving Charlotte. Residential and light commercial." className={inputCls} /></label>
-          <fieldset><legend className="text-xs font-medium text-neutral-300">Who calls?</legend><div className="mt-2 grid gap-2 sm:grid-cols-3">{CALLER_TYPES.map(([v, l]) => <label key={v} className={optionCls}><input type="checkbox" name="whoCalls" value={v} defaultChecked={qa("whoCalls").includes(v)} className="mt-1 accent-amber-500" /><span className="text-neutral-100">{l}</span></label>)}</div></fieldset>
+          <fieldset><legend className="text-xs font-medium text-neutral-300">Who calls?</legend><div className="mt-2 grid gap-2 sm:grid-cols-3">{CALLER_TYPES.map(([v, l]) => <label key={v} className={optionCls}><input type="checkbox" name="whoCalls" value={v} defaultChecked={qa("whoCalls").includes(v)} className="mt-1 accent-amber-500" /><span className="text-neutral-100">{l}</span></label>)}{industry.isRestaurant ? RESTAURANT_CALLER_TYPES.map(([v, l]) => <label key={v} className={optionCls}><input type="checkbox" name="whoCalls" value={v} defaultChecked={qa("whoCalls").includes(v)} className="mt-1 accent-amber-500" /><span className="text-neutral-100">{l}</span></label>) : null}</div></fieldset>
+          {industry.isRestaurant ? <fieldset data-testid="restaurant-voice-presets"><legend className="text-xs font-medium text-neutral-300">Restaurant responsibilities</legend><p className="mb-2 mt-1 text-[11px] text-neutral-500">Safe additions only — consequential actions still need approval, and allergy questions never get a guarantee.</p><div className="mt-2 grid gap-2 sm:grid-cols-2">{RESTAURANT_VOICE_PRESETS.map((p) => <label key={p.id} className={optionCls}><input type="checkbox" name="restaurantPresets" value={p.id} defaultChecked={qa("restaurantPresets").includes(p.id)} className="mt-1 accent-amber-500" /><span><span className="block text-neutral-100">{p.label}</span><span className="mt-0.5 block text-[11px] text-neutral-500">{p.description}</span></span></label>)}</div></fieldset> : null}
           <fieldset><legend className="text-xs font-medium text-neutral-300">What should it handle?</legend><div className="mt-2 grid gap-2 sm:grid-cols-3">{HANDLE_OPTIONS.map(([v, l]) => <label key={v} className={optionCls}><input type="checkbox" name="whatToHandle" value={v} defaultChecked={qa("whatToHandle").length ? qa("whatToHandle").includes(v) : ["faq", "messages", "callbacks"].includes(v)} className="mt-1 accent-amber-500" /><span className="text-neutral-100">{l}</span></label>)}</div></fieldset>
           <fieldset><legend className="text-xs font-medium text-neutral-300">What must always go to a person?</legend><div className="mt-2 grid gap-2 sm:grid-cols-3">{HUMAN_ALWAYS_OPTIONS.map(([v, l]) => <label key={v} className={optionCls}><input type="checkbox" name="alwaysHuman" value={v} defaultChecked={qa("alwaysHuman").length ? qa("alwaysHuman").includes(v) : ["complaints", "billing_disputes", "legal", "emergencies"].includes(v)} className="mt-1 accent-amber-500" /><span className="text-neutral-100">{l}</span></label>)}</div><input name="alwaysHumanNotes" defaultValue={String(q.alwaysHumanNotes || "")} placeholder="Anything else? e.g. calls from our two largest accounts" className={inputCls} /></fieldset>
           <div className="grid gap-4 sm:grid-cols-2">

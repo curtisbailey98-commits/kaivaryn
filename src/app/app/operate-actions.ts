@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import { requireOrgAccess } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { safeReturnPath } from "@/lib/operate/paths";
+import { addRestaurantPlaybook } from "@/lib/industry/context";
 import {
   opCtxFromSession,
   executeCommand,
@@ -202,6 +203,18 @@ export async function deletePlaybookAction(id: string) {
   try {
     const n = await deletePlaybook(await ctx(), id);
     target = withMsg(target, n ? "ok" : "error", n ? "Playbook deleted" : "System playbooks cannot be deleted");
+  } catch (e) {
+    target = withMsg(target, "error", errMsg(e));
+  }
+  revalidatePath("/app/playbooks");
+  redirect(target);
+}
+
+export async function addRestaurantPlaybookAction(formData: FormData) {
+  let target = "/app/playbooks";
+  try {
+    const pb = await addRestaurantPlaybook(await ctx(), String(formData.get("slug") || ""));
+    target = withMsg(target, "ok", `Added restaurant playbook: ${pb.name}`);
   } catch (e) {
     target = withMsg(target, "error", errMsg(e));
   }

@@ -57,6 +57,7 @@ export async function generateAction(formData: FormData) {
       canSchedule: formData.get("canSchedule") === "request_only" ? "request_only" : "none",
       systems: formData.getAll("systems").map(String),
       needsApproval: formData.getAll("needsApproval").map(String),
+      restaurantPresets: formData.getAll("restaurantPresets").map(String),
     });
     return "Your recommended voice agent is ready to review.";
   });

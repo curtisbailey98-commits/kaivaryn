@@ -6,6 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "",
     "/solutions/revenue-recovery",
     "/solutions/operations-efficiency",
+    "/restaurants",
     "/platform",
     "/how-it-works",
     "/intelligence",

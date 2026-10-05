@@ -7,6 +7,7 @@ const links = [
   { href: "/solutions/operations-efficiency", label: "Operations Efficiency" },
   { href: "/how-it-works", label: "How it works" },
   { href: "/value", label: "Leak calculator" },
+  { href: "/restaurants", label: "Restaurants" },
   { href: "/platform", label: "Platform" },
   { href: "/pricing", label: "Pricing" },
   { href: "/company", label: "Firm" },
