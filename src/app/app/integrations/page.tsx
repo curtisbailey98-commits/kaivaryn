@@ -13,6 +13,8 @@ import { importSheetAction, resyncSheetAction, disconnectSheetAction, revokeInbo
 import { formatInZone } from "@/lib/operate";
 import { getIndustryContext, getSelectedSystems } from "@/lib/industry/context";
 import { RestaurantSystemsPanel } from "@/components/industry/restaurant-systems-panel";
+import { SelectedSystemsGuides } from "@/components/integrations/selected-systems-guides";
+import { getSystemSetup } from "@/lib/integrations/setup-store";
 
 export const metadata = { title: "Integrations" };
 
@@ -80,7 +82,8 @@ export default async function IntegrationsPage() {
   const ctx = await requireOrgAccess();
   assertOrgId(ctx.organizationId);
   const orgId = ctx.organizationId;
-  const [industry, systems] = await Promise.all([getIndustryContext(orgId, ctx.user.id), getSelectedSystems(orgId)]);
+  const [industry, systems, setup] = await Promise.all([getIndustryContext(orgId, ctx.user.id), getSelectedSystems(orgId), getSystemSetup(orgId)]);
+  const canWrite = can(ctx.effectiveRole, "write");
   const [connections, lastFileImport, recent, inbound, pricing] = await Promise.all([
     prisma.integrationConnection.findMany({ where: { organizationId: orgId } }),
     prisma.importJob.findFirst({ where: { organizationId: orgId, status: "SUCCEEDED", OR: [{ source: null }, { source: "CSV_UPLOAD" }] }, orderBy: { createdAt: "desc" } }),
@@ -107,7 +110,9 @@ export default async function IntegrationsPage() {
         description="Three simple ways to bring data into Kaivaryn today, each set up in a few steps. Nothing is marked connected until data has actually arrived. Direct system connectors are set up with you on request."
       />
 
-      {industry.isRestaurant ? <RestaurantSystemsPanel selected={systems.selected} posOther={systems.posOther} connections={connections} /> : null}
+      {industry.isRestaurant ? <RestaurantSystemsPanel selected={systems.selected} posOther={systems.posOther} connections={connections} setup={setup} readOnly={!canWrite} /> : null}
+
+      <SelectedSystemsGuides selected={systems.selected} connections={connections} setup={setup} readOnly={!canWrite} includeRestaurant={false} />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <SetupCard

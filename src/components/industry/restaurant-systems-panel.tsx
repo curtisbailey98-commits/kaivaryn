@@ -3,11 +3,22 @@ import { RESTAURANT_GROUPS, restaurantSystemName, isPos, isRestaurantSystem } fr
 import { resolveSystemStates, type SystemState } from "@/lib/industry/states";
 import { PosDataMap } from "./pos-data-map";
 import { StateLadder } from "./state-ladder";
+import { SystemGuideCard } from "@/components/integrations/system-guide-card";
+import { getGuide } from "@/lib/integrations/guides";
+import type { SystemSetupMap } from "@/lib/integrations/setup-store";
 
 const groupOf = (key: string) => RESTAURANT_GROUPS.find((g) => g.options.some((o) => o.key === key))?.title ?? "Restaurant system";
 
-/** Integrations page: the restaurant systems this workspace selected, each with its honest state and (for a POS) the data map. */
-export function RestaurantSystemsPanel({ selected, posOther, connections }: { selected: string[]; posOther: string | null; connections: Array<{ provider: string; status: string | null }> }) {
+/** Integrations page: restaurant systems selected by this workspace, each with honest state, POS data map, and setup guide. */
+export function RestaurantSystemsPanel({
+  selected, posOther, connections, setup, readOnly = false,
+}: {
+  selected: string[];
+  posOther: string | null;
+  connections: Array<{ provider: string; status: string | null }>;
+  setup: SystemSetupMap;
+  readOnly?: boolean;
+}) {
   const restaurant = selected.filter(isRestaurantSystem);
   const states = resolveSystemStates(restaurant, connections.filter((c) => isRestaurantSystem(c.provider)));
   const keys = Array.from(states.keys()).sort((a, b) => Number(isPos(b)) - Number(isPos(a)));
@@ -17,7 +28,7 @@ export function RestaurantSystemsPanel({ selected, posOther, connections }: { se
         <div>
           <p className="si-label text-amber-500">Restaurant</p>
           <h2 className="mt-1 text-[15px] font-semibold text-white">Your POS and restaurant systems</h2>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-neutral-400">Kaivaryn works alongside your POS. Picking a system plans the connection; it is not connected until data has arrived. Until then, a POS back-office export through File import works today.</p>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-neutral-400">Kaivaryn works alongside your POS. Picking a system plans the connection; it is not connected until data has arrived. Open each system for the setup guide and business details.</p>
         </div>
         <Link href="/app/imports" className="inline-flex h-9 items-center rounded-md bg-amber-500 px-3 text-xs font-semibold text-neutral-950 transition hover:bg-amber-400">Import a POS export</Link>
       </div>
@@ -26,13 +37,17 @@ export function RestaurantSystemsPanel({ selected, posOther, connections }: { se
           {keys.map((k) => {
             const state = states.get(k) as SystemState;
             const name = k === "pos_other" && posOther ? posOther : restaurantSystemName(k) ?? k;
+            const guide = getGuide(k);
             return (
-              <li key={k} className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-4" data-system={k}>
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div><p className="text-sm font-medium text-neutral-100">{name}</p><p className="text-[11px] text-neutral-500">{groupOf(k)}</p></div>
+              <li key={k} className="space-y-3" data-system={k}>
+                <div className="rounded-xl border border-neutral-800 bg-neutral-950/60 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div><p className="text-sm font-medium text-neutral-100">{name}</p><p className="text-[11px] text-neutral-500">{groupOf(k)}</p></div>
+                  </div>
+                  <div className="mt-3"><StateLadder state={state} /></div>
+                  {isPos(k) ? <div className="mt-4"><PosDataMap posKey={k} otherName={posOther} /></div> : null}
                 </div>
-                <div className="mt-3"><StateLadder state={state} /></div>
-                {isPos(k) ? <div className="mt-4"><PosDataMap posKey={k} otherName={posOther} /></div> : null}
+                {guide ? <SystemGuideCard guide={guide} setup={setup[k] ?? null} state={state} readOnly={readOnly} /> : null}
               </li>
             );
           })}
