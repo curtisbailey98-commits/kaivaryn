@@ -11,6 +11,8 @@ import { IMPORT_TEMPLATES, getTemplate } from "@/lib/integrations/templates";
 import { InboundKey } from "@/components/integrations/inbound-key";
 import { importSheetAction, resyncSheetAction, disconnectSheetAction, revokeInboundKeyAction } from "./actions";
 import { formatInZone } from "@/lib/operate";
+import { getIndustryContext, getSelectedSystems } from "@/lib/industry/context";
+import { RestaurantSystemsPanel } from "@/components/industry/restaurant-systems-panel";
 
 export const metadata = { title: "Integrations" };
 
@@ -78,6 +80,7 @@ export default async function IntegrationsPage() {
   const ctx = await requireOrgAccess();
   assertOrgId(ctx.organizationId);
   const orgId = ctx.organizationId;
+  const [industry, systems] = await Promise.all([getIndustryContext(orgId, ctx.user.id), getSelectedSystems(orgId)]);
   const [connections, lastFileImport, recent, inbound, pricing] = await Promise.all([
     prisma.integrationConnection.findMany({ where: { organizationId: orgId } }),
     prisma.importJob.findFirst({ where: { organizationId: orgId, status: "SUCCEEDED", OR: [{ source: null }, { source: "CSV_UPLOAD" }] }, orderBy: { createdAt: "desc" } }),
@@ -103,6 +106,8 @@ export default async function IntegrationsPage() {
         title="Get your data in"
         description="Three simple ways to bring data into Kaivaryn today, each set up in a few steps. Nothing is marked connected until data has actually arrived. Direct system connectors are set up with you on request."
       />
+
+      {industry.isRestaurant ? <RestaurantSystemsPanel selected={systems.selected} posOther={systems.posOther} connections={connections} /> : null}
 
       <div className="grid gap-5 lg:grid-cols-2">
         <SetupCard
