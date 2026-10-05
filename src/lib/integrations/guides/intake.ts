@@ -126,7 +126,8 @@ export const INTAKE_FIELDS: Record<IntakeKind, IntakeField[]> = {
 };
 
 const MAX = 600;
-const SECRET_ID = /pass|secret|token|apikey|api_key|credential|pin/i;
+const SECRET_ID = /pass|secret|token|apikey|api_key|credential/i;
+export const isSecretFieldId = (id: string) => SECRET_ID.test(id);
 const SECRET_VALUE = /(sk|rk|pk)_(live|test)_[A-Za-z0-9]{8,}|xox[abp]-|AKIA[0-9A-Z]{12,}|-----BEGIN|\bpassword\s*[:=]/i;
 
 /** True if a value looks like a password/key — such values are rejected, never stored. */
