@@ -1,0 +1,69 @@
+import type { VendorGuide } from "./types";
+import { CONFIRM } from "./shared";
+import { g } from "./make";
+
+const WORK_SHARE = ["Projects / boards and statuses", "Issues / tasks with assignee, priority, and dates", "Cycle time or throughput where available"];
+const DATA_SHARE = ["The specific tables / views agreed in the intake", "A sample of recent rows for verification"];
+const COLLAB_SHARE = ["Named channels / sites / drives in scope", "Shared calendars or documents only if you choose to share them"];
+const HR_SHARE = ["Headcount by department / location", "Hire and termination dates (no SSN / bank details)", "Job titles and managers", "Payroll cost summaries if you choose to share them"];
+
+export const WORK_GUIDES: VendorGuide[] = [
+  g("jira", "oauth", "work", "Jira Cloud is authorized through Atlassian OAuth (3LO) or an API token created by an admin.",
+    ["An Atlassian / Jira admin for the site."],
+    ["On the setup call, approve Kaivaryn's read-only access on Atlassian's authorization screen, or create an API token for a dedicated user.", "Limit access to the projects in scope.", "Add your projects, status flow, and teams to the intake below."],
+    WORK_SHARE, ["Export issues from a JQL filter as CSV and upload them in Kaivaryn → Imports."],
+    "https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/"),
+  g("asana", "oauth", "work", "Asana apps are authorized by a workspace admin or member on Asana's own consent screen.",
+    ["An Asana workspace admin (or a member who can authorize apps).", `Service accounts / PAT options — ${CONFIRM}.`],
+    ["On the setup call, open the Asana authorization link and approve read access to the projects in scope.", "Add those projects and your status flow to the intake below."],
+    WORK_SHARE, ["Export a project as CSV (Project → Export → CSV) and upload it in Kaivaryn → Imports."],
+    "https://developers.asana.com/docs/oauth"),
+  g("monday", "api_credentials", "work", "monday.com API tokens are created by users under their avatar → Developers / Admin → API.",
+    ["A monday.com admin for the account."],
+    ["In monday.com, open your avatar → Developers (or Admin → API) and generate an API token.", "Hand the token to your Kaivaryn lead live on the call — never by email or in this form.", "Add the boards in scope and your status columns to the intake below."],
+    WORK_SHARE, ["Export a board as Excel / CSV and upload it in Kaivaryn → Imports."],
+    "https://developer.monday.com/api-reference/docs/authentication"),
+  g("servicenow_ops", "api_credentials", "work", "Same ServiceNow path as support: OAuth Application Registry plus a least-privilege integration user.",
+    ["A ServiceNow admin."],
+    ["Create a dedicated integration user with a read-only role covering the operational tables in scope.", "Create an OAuth API endpoint for external clients.", "Complete the OAuth handshake on the setup call.", "Add your workspaces / queues to the intake below."],
+    WORK_SHARE, ["Export the relevant list views as CSV and upload them in Kaivaryn → Imports."],
+    "https://www.servicenow.com/docs/r/washingtondc/application-development/app-engine-studio/create-oauth-api-endpoints-for-external-clients.html"),
+  g("smartsheet", "api_credentials", "work", "Smartsheet API access tokens are created under Account → Personal Settings → API Access (or by a SysAdmin for a service account).",
+    ["A Smartsheet user with API Access enabled, or a SysAdmin."],
+    ["In Smartsheet, open Account → Personal Settings → API Access and generate a token.", "Hand the token to your Kaivaryn lead live on the call.", "Add the sheets / workspaces in scope to the intake below."],
+    WORK_SHARE, ["Export sheets as Excel / CSV and upload them in Kaivaryn → Imports."],
+    "https://smartsheet.redoc.ly/#section/API-Basics/Authentication"),
+];
+
+export const DATA_GUIDES: VendorGuide[] = [
+  g("snowflake", "database", "data", "Snowflake access is a least-privilege read-only role and user created by your data team.",
+    ["A Snowflake ACCOUNTADMIN or SECURITYADMIN to create roles / users.", "Network rules for Kaivaryn's egress IPs if your account requires them."],
+    ["Your data team creates a role with SELECT-only grants on the agreed schemas / views.", "Create a dedicated user assigned only that role.", "Hand the login and warehouse details to your Kaivaryn lead live on the call.", "Add the schemas / views and refresh cadence to the intake below."],
+    DATA_SHARE, ["If a live warehouse connection isn't ready, export the agreed views as CSV and upload them in Kaivaryn → Imports."],
+    "https://docs.snowflake.com/en/user-guide/security-access-control-overview"),
+  g("bigquery", "database", "data", "BigQuery access is a Google Cloud service account with dataViewer (or equivalent) on the agreed datasets.",
+    ["A Google Cloud project owner / IAM admin."],
+    ["Create a service account named “kaivaryn-readonly”.", "Grant it BigQuery Data Viewer (and Job User if needed) only on the agreed datasets.", "Create a JSON key and hand it to your Kaivaryn lead live on the call — never by email or in this form.", "Add the project, datasets, and refresh cadence to the intake below."],
+    DATA_SHARE, ["Export the agreed tables as CSV from the BigQuery console and upload them in Kaivaryn → Imports."],
+    "https://cloud.google.com/bigquery/docs/access-control"),
+  g("redshift", "database", "data", "Amazon Redshift access is a least-privilege database user (and optional IAM role) created by your AWS / data team.",
+    ["An AWS admin or Redshift admin for the cluster."],
+    ["Create a database user with SELECT-only grants on the agreed schemas.", "Share the host, port, database, and user with your Kaivaryn lead live on the call.", "Confirm network access (security groups / PrivateLink) on the same call.", "Add the schemas and refresh cadence to the intake below."],
+    DATA_SHARE, ["Unload / export the agreed tables as CSV to S3 (or download) and upload them in Kaivaryn → Imports."],
+    "https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_USER.html"),
+  g("postgres", "database", "data", "PostgreSQL access is a least-privilege read-only role created by your DBA / IT team.",
+    ["A DBA or cloud admin for the database."],
+    ["Create a role with CONNECT on the database and SELECT on the agreed schemas / views only.", "Share the host, port, database, SSL mode, and user with your Kaivaryn lead live on the call.", "Confirm network access (allowlist / VPN) on the same call.", "Add the schemas and refresh cadence to the intake below."],
+    DATA_SHARE, ["Export the agreed views as CSV (\\copy or a BI tool) and upload them in Kaivaryn → Imports."],
+    "https://www.postgresql.org/docs/current/ddl-priv.html"),
+  g("sql_server", "database", "data", "SQL Server / Azure SQL access is a least-privilege login and user created by your DBA.",
+    ["A SQL Server / Azure SQL admin."],
+    ["Create a login and database user with SELECT-only on the agreed schemas / views.", "Share the host, database, and user with your Kaivaryn lead live on the call.", "Confirm network access (firewall / Private Link) on the same call.", "Add the schemas and refresh cadence to the intake below."],
+    DATA_SHARE, ["Export the agreed views as CSV from SSMS / Azure Data Studio and upload them in Kaivaryn → Imports."],
+    "https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/create-a-database-user"),
+  g("databricks", "database", "data", "Databricks access is a service principal with SELECT on the agreed Unity Catalog schemas / tables.",
+    ["A Databricks account / workspace admin."],
+    ["Create a service principal for Kaivaryn and grant it SELECT on the agreed catalogs / schemas.", "Generate a personal access token or OAuth credentials and hand them over live on the call.", "Add the catalogs / schemas and refresh cadence to the intake below."],
+    DATA_SHARE, ["Export the agreed tables as CSV and upload them in Kaivaryn → Imports."],
+    "https://docs.databricks.com/en/admin/users-groups/service-principals.html"),
+];
