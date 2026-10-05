@@ -127,7 +127,7 @@ export function ValueEstimator() {
         </div>
 
         <p className="mt-6 text-xs leading-5 text-neutral-500">
-          This calculator does not use Kaivaryn tenant data and does not invent peer averages. A working session
+          This calculator does not use Kaivaryn tenant data and does not invent peer averages. A demo
           validates which signals exist before any recovery or savings is treated as verified.
         </p>
       </div>

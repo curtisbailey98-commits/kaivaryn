@@ -25,7 +25,7 @@ export function DemoForm({ zoomUrl = ZOOM_SCHEDULER_URL }: { zoomUrl?: string })
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-500">
           Fastest path
         </p>
-        <h2 className="mt-2 text-lg font-semibold text-white">Book an executive working session</h2>
+        <h2 className="mt-2 text-lg font-semibold text-white">Book a live demo</h2>
         <p className="mt-2 text-sm text-neutral-400">
           Choose a time on Kaivaryn&apos;s calendar. We host the Zoom meeting.
         </p>

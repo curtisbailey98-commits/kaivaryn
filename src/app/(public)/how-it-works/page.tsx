@@ -37,7 +37,7 @@ export default function HowItWorksPage() {
             <div className="mt-5 h-px w-20 bg-gradient-to-r from-amber-400 to-transparent" />
             <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-300 sm:text-lg">Kaivaryn is not a black box. Every finding comes with its evidence, every action has an owner and an approval, and every result is recorded and verified.</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Magnetic><Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link></Magnetic>
+              <Magnetic><Link href="/demo" className="public-button-primary">Book a demo <span aria-hidden>↗</span></Link></Magnetic>
               <Link href="/pricing" className="public-button-secondary">View pricing</Link>
             </div>
           </Reveal>
@@ -90,7 +90,7 @@ export default function HowItWorksPage() {
               <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-400">Architecture, analysis method, governance controls, and integrations are documented on the platform page.</p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-3">
-              <Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link>
+              <Link href="/demo" className="public-button-primary">Book a demo <span aria-hidden>↗</span></Link>
               <Link href="/platform" className="public-button-secondary">Platform and governance</Link>
             </div>
           </div>

@@ -49,7 +49,7 @@ export function SolutionPage({ c }: { c: SolutionContent }) {
             <div className={`mt-5 h-px w-20 bg-gradient-to-r ${t.rule} to-transparent`} />
             <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-300 sm:text-lg">{c.lede}</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Magnetic><Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link></Magnetic>
+              <Magnetic><Link href="/demo" className="public-button-primary">Book a demo <span aria-hidden>↗</span></Link></Magnetic>
               <Link href="/pricing" className="public-button-secondary">View pricing</Link>
             </div>
           </Reveal>
@@ -189,7 +189,7 @@ export function SolutionPage({ c }: { c: SolutionContent }) {
             <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-amber-400/15 blur-3xl" />
             <h2 className="max-w-2xl text-2xl font-semibold text-white sm:text-3xl">{c.closing}</h2>
             <div className="flex shrink-0 flex-wrap gap-3">
-              <Magnetic><Link href="/demo" className="public-button-primary relative">Book a working session <span aria-hidden>↗</span></Link></Magnetic>
+              <Magnetic><Link href="/demo" className="public-button-primary relative">Book a demo <span aria-hidden>↗</span></Link></Magnetic>
               <Link href="/how-it-works" className="public-button-secondary">How it works</Link>
             </div>
           </div>

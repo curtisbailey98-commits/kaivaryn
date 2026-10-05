@@ -43,7 +43,7 @@ export default async function PricingPage() {
             <p className="public-kicker text-amber-400">Pricing</p>
             <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-tight tracking-[-0.045em] text-white sm:text-6xl">One engagement. Both disciplines. Full software access.</h1>
             <div className="mt-5 h-px w-20 bg-gradient-to-r from-amber-400 to-transparent" />
-            <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-400 sm:text-lg">Revenue Recovery, Operations Efficiency, the Kaivaryn software, and our operators in one monthly engagement. It starts with a working session, not a checkout page.</p>
+            <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-400 sm:text-lg">Revenue Recovery, Operations Efficiency, the Kaivaryn software, and our operators in one monthly engagement. It starts with a demo, not a checkout page.</p>
           </Reveal>
         </div>
       </section>
@@ -61,7 +61,7 @@ export default async function PricingPage() {
               </p>
               <p className="mt-4 max-w-md text-sm leading-6 text-neutral-400">Our first clients get the full engagement at founding-client pricing. Same scope as standard — limited by our capacity, not by features.</p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Magnetic><Link href="/demo" className="public-button-primary inline-block">Book a working session <span aria-hidden>↗</span></Link></Magnetic>
+                <Magnetic><Link href="/demo" className="public-button-primary inline-block">Book a demo <span aria-hidden>↗</span></Link></Magnetic>
                 <a href={zoomUrl} target="_blank" rel="noopener noreferrer" className="public-button-secondary inline-block">Schedule on Zoom</a>
                               </div>
             </div>
@@ -75,7 +75,7 @@ export default async function PricingPage() {
               </p>
               <p className="mt-4 text-sm leading-6 text-neutral-400">Standard pricing once the founding seats are filled. The same Revenue Recovery and Operations Efficiency engagement.</p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link href="/demo" className="public-button-secondary inline-block">Book a working session</Link>
+                <Link href="/demo" className="public-button-secondary inline-block">Book a demo</Link>
                 <Link href="/contact" className="public-button-secondary inline-block">Ask a question</Link>
               </div>
             </div>
@@ -98,6 +98,24 @@ export default async function PricingPage() {
               </Reveal>
             ))}
           </ul>
+        </div>
+        <SectionRule className="my-12" />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Reveal>
+            <div className="public-card h-full p-6">
+              <p className="public-kicker text-amber-400">Is it worth it?</p>
+              <h2 className="mt-3 text-xl font-semibold text-white">Check it against your own numbers.</h2>
+              <p className="mt-2 text-sm leading-6 text-neutral-400">The leak calculator uses your overdue invoices, missed calls, quote volume, admin hours, and lost customers, shows every formula, and compares the estimate with the fee. It&apos;s an estimate, not a promise.</p>
+              <Link href="/#calculator" className="mt-4 inline-block text-sm font-medium text-amber-400 hover:text-amber-300">Open the calculator →</Link>
+            </div>
+          </Reveal>
+          <Reveal delay={80}>
+            <div className="public-card h-full p-6">
+              <p className="public-kicker">What if it doesn&apos;t work?</p>
+              <h2 className="mt-3 text-xl font-semibold text-white">You&apos;ll know early, in your own workspace.</h2>
+              <p className="mt-2 text-sm leading-6 text-neutral-400">The first findings come with dollar estimates and evidence, targeted for weeks 1–2 once your records are in. Every recovered dollar and saved hour is recorded against the issue that produced it, so the scorecard is yours. Commitment length and terms are agreed in writing before any payment.</p>
+            </div>
+          </Reveal>
         </div>
         <SectionRule className="my-12" />
         <Reveal>

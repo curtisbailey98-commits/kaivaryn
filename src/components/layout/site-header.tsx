@@ -6,6 +6,7 @@ const links = [
   { href: "/solutions/revenue-recovery", label: "Revenue Recovery" },
   { href: "/solutions/operations-efficiency", label: "Operations Efficiency" },
   { href: "/how-it-works", label: "How it works" },
+  { href: "/value", label: "Leak calculator" },
   { href: "/platform", label: "Platform" },
   { href: "/pricing", label: "Pricing" },
   { href: "/company", label: "Firm" },
@@ -34,7 +35,7 @@ export function SiteHeader() {
           <Link href="/login" className="hidden text-xs text-neutral-400 transition hover:text-white sm:inline">Client login</Link>
           <Magnetic strength={0.2}>
             <Link href="/demo" className="rounded-lg bg-amber-500 px-3.5 py-2 text-xs font-semibold text-neutral-950 shadow-[0_0_0_1px_rgba(245,158,11,0.35),0_8px_20px_rgba(245,158,11,0.18)] transition hover:bg-amber-400 hover:shadow-[0_0_0_1px_rgba(251,191,36,0.5),0_12px_28px_rgba(245,158,11,0.28)] active:scale-[.98]">
-              <span className="sm:hidden">Book a session</span><span className="hidden sm:inline">Book a working session</span> <span aria-hidden>↗</span>
+              Book a demo <span aria-hidden>↗</span>
             </Link>
           </Magnetic>
         </div>

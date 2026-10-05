@@ -17,6 +17,13 @@ const BUSINESS_OUTCOMES = [
   ["Measure and verify", "Recovered revenue and realized savings are recorded and verified — never inferred from estimates."],
 ] as const;
 
+const PLAIN_ENGLISH = [
+  ["What is it?", "Software that reads the records you already have (billing, receivables, CRM, call logs, time data), finds where money or time is being lost, puts a dollar estimate on each issue, and tracks it until it's fixed and the result is recorded."],
+  ["What does it never do on its own?", "It never commits you to anything with a customer, moves money, or changes your systems on its own. Those actions wait for a named person on your team to approve them, and every decision is logged."],
+  ["Where does my data live?", "In your own private, isolated workspace. Access is role-based, so you decide who sees what, and your records are never visible to another client."],
+  ["Is it just a chatbot?", "No. Issues are found by fixed rules applied to your records, so the same records always give the same answer, and it says 'not enough data' instead of guessing. AI language models are used where they help, such as the voice assistant."],
+] as const;
+
 const OPERATING_PARTS = [
   ["Command", "One input for every ask. Readable rules route it to analysis, an answer, a governed plan, a briefing, a schedule, or a playbook — and record why."],
   ["Playbooks", "Named, reusable step sequences: detect, analyze, brief, recall, create a task, request approval. Six system playbooks ship with every workspace."],
@@ -27,7 +34,7 @@ const OPERATING_PARTS = [
 ] as const;
 
 const INTEGRATIONS = [
-  ["CSV import", "Available", "ok"],
+  ["CSV, Excel, and Google Sheets import", "Available", "ok"],
   ["Manual entry", "Available", "ok"],
   ["CRM, billing, ERP, ticketing", "Scoped per engagement · labeled not connected until connected", "warn"],
   ["Outbound actions in your systems", "Not automated · performed by your team after approval", "muted"],
@@ -52,7 +59,7 @@ export default function PlatformPage() {
               Kaivaryn&apos;s proprietary platform finds and ranks revenue leakage and operating friction, turns each finding into owned, approved work, and records what was actually recovered or saved. This page covers how it is built and governed.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Magnetic><Link href="/demo" className="public-button-primary">Book a working session <span aria-hidden>↗</span></Link></Magnetic>
+              <Magnetic><Link href="/demo" className="public-button-primary">Book a demo <span aria-hidden>↗</span></Link></Magnetic>
               <Link href="/how-it-works" className="public-button-secondary">How an engagement runs</Link>
             </div>
           </Reveal>
@@ -69,9 +76,27 @@ export default function PlatformPage() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-6xl px-4 pt-16 sm:px-6 sm:pt-20" aria-labelledby="plain-title">
+        <Reveal>
+          <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.04] p-6 sm:p-8">
+            <p className="public-kicker text-amber-400">In plain English</p>
+            <h2 id="plain-title" className="mt-3 text-2xl font-semibold text-white">The short version for owners.</h2>
+            <dl className="mt-6 grid gap-5 text-sm leading-6 sm:grid-cols-2">
+              {PLAIN_ENGLISH.map(([q, a]) => (
+                <div key={q}>
+                  <dt className="font-semibold text-white">{q}</dt>
+                  <dd className="mt-1 text-neutral-400">{a}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-6 text-xs text-neutral-500">The rest of this page is the technical detail, written for your IT or finance team.</p>
+          </div>
+        </Reveal>
+      </section>
+
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
         <Reveal>
-          <p className="public-kicker">Architecture</p>
+          <p className="public-kicker">For your technical team · Architecture</p>
           <h2 className="public-heading mt-4 max-w-2xl">Five layers, from raw evidence to an executive decision.</h2>
         </Reveal>
         <SectionRule className="mt-8 mb-10" />
@@ -184,7 +209,7 @@ export default function PlatformPage() {
               <h2 className="mt-3 max-w-2xl text-2xl font-semibold text-white sm:text-3xl">Bring one hard question. Watch it become owned, governed work.</h2>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Magnetic><Link href="/demo" className="public-button-primary relative shrink-0">Book a working session <span aria-hidden>↗</span></Link></Magnetic>
+              <Magnetic><Link href="/demo" className="public-button-primary relative shrink-0">Book a demo <span aria-hidden>↗</span></Link></Magnetic>
               <Link href="/pricing" className="public-button-secondary shrink-0">Pricing</Link>
             </div>
           </div>
