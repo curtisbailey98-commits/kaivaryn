@@ -4,8 +4,6 @@ import { g } from "./make";
 
 const WORK_SHARE = ["Projects / boards and statuses", "Issues / tasks with assignee, priority, and dates", "Cycle time or throughput where available"];
 const DATA_SHARE = ["The specific tables / views agreed in the intake", "A sample of recent rows for verification"];
-const COLLAB_SHARE = ["Named channels / sites / drives in scope", "Shared calendars or documents only if you choose to share them"];
-const HR_SHARE = ["Headcount by department / location", "Hire and termination dates (no SSN / bank details)", "Job titles and managers", "Payroll cost summaries if you choose to share them"];
 
 export const WORK_GUIDES: VendorGuide[] = [
   g("jira", "oauth", "work", "Jira Cloud is authorized through Atlassian OAuth (3LO) or an API token created by an admin.",

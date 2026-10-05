@@ -1,5 +1,4 @@
 import type { VendorGuide } from "./types";
-import { CONFIRM } from "./shared";
 import { g } from "./make";
 
 const SUPPORT_SHARE = ["Tickets / conversations with status, priority, assignee, and created / resolved times", "Queues / groups and SLA targets", "Agent / team roster"];
