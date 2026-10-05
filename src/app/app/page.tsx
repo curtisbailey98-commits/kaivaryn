@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PriorityBadge, StatusBadge, ExampleDataTag } from "@/components/ui/badge";
 import { MetricCard } from "@/components/ui/metric-card";
 import { PageHeader } from "@/components/ui/page-header";
-import { AttentionBanner, NextBestAction } from "@/components/ui/attention";
+import { AttentionBanner } from "@/components/ui/attention";
 import { EmptyState } from "@/components/ui/states";
 import { getLearningSummary } from "@/lib/learning";
 import { MONEY, MONEY_GLOSSARY_FOOTNOTE, RR_CLOSED_STATUSES, OE_CLOSED_STATUSES } from "@/lib/money-glossary";
@@ -19,6 +19,7 @@ import { CHART } from "@/components/charts/theme";
 import { ActivityStrip, CountUp, CountUpCurrency } from "@/components/motion";
 import { OperatingDesk } from "@/components/operate/operating-desk";
 import { getInboxCounts } from "@/lib/operate/inbox";
+import { ValueTour } from "@/components/tour/value-tour";
 
 export const metadata = { title: "Home" };
 
@@ -78,6 +79,9 @@ export default async function AppHomePage() {
     getInboxCounts(ctx.organizationId, ctx.user.id),
   ]);
   const slaOpenCount = chartAction.slaSpark.at(-1)?.value ?? 0;
+  const firstPending = pendingApprovals > 0
+    ? await prisma.approvalRequest.findFirst({ where: { organizationId: ctx.organizationId, status: "PENDING" }, orderBy: { createdAt: "asc" }, select: { title: true } })
+    : null;
   const lastHealth = await prisma.opHealthCheck.findFirst({ where: { organizationId: ctx.organizationId }, orderBy: { createdAt: "desc" }, select: { status: true } });
 
   // Split KPIs — never mix RR cash with OE savings under one "Verified value"
@@ -126,20 +130,22 @@ export default async function AppHomePage() {
 
   const onboardingDone = Boolean(onboarding?.completedAt);
   const onboardingStepsDone: string[] = onboarding ? JSON.parse(onboarding.completedSteps || "[]") : [];
-  const showOnboardingStrip = !onboardingDone && onboardingStepsDone.length < ONBOARDING_STEPS.length;
+  const isDemo = Boolean(ctx.organization?.isDemo);
+  // A demo workspace is shown to prospects; its setup checklist is not part of the story.
+  const showOnboardingStrip = !isDemo && !onboardingDone && onboardingStepsDone.length < ONBOARDING_STEPS.length;
 
   // Open actions aligns with Action Center: open tasks (owned work) — notifications separate
   const openActionsCount = openTasks;
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="space-y-5 pb-16 sm:space-y-6">
       <PageHeader
         eyebrow="Executive overview"
         title={ctx.user.name ? `Welcome back, ${ctx.user.name.split(" ")[0]}` : "Executive overview"}
         description={ctx.organization?.name
           ? `${ctx.organization.name} — what matters, what it is worth, what to do next, and whether it worked.`
           : "What matters, what it is worth, what to do next, and whether it worked."}
-        actions={ctx.organization?.isDemo ? <ExampleDataTag label="Example workspace" /> : undefined}
+        actions={<><ValueTour />{ctx.organization?.isDemo ? <ExampleDataTag label="Example workspace" /> : null}</>}
       />
 
       {showOnboardingStrip ? (
@@ -157,8 +163,56 @@ export default async function AppHomePage() {
         </Link>
       ) : null}
 
+      {/* 0 — The value story in plain English. Estimates and recorded results stay in separate clauses; never summed. */}
+      <section aria-labelledby="summary-title" data-tour="summary" className="rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/[0.06] via-neutral-950 to-neutral-950 p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="summary-title" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-400">In plain terms</h2>
+          {isDemo ? (
+            <span className="rounded-full border border-neutral-700 bg-neutral-900 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-300">Example data · demo company, not a client</span>
+          ) : null}
+        </div>
+        <p className="mt-3 max-w-4xl text-base leading-7 text-neutral-200 sm:text-lg sm:leading-8">
+          Kaivaryn has found <span className="font-semibold text-white">{formatCurrency(pipelinePotential)}</span> in revenue opportunity
+          {hasOps ? <> and <span className="font-semibold text-white">{formatCurrency(projectedSavings)} a year</span> in possible savings</> : null}
+          <span className="text-neutral-500"> (estimates)</span>.{" "}
+          {pendingApprovals > 0
+            ? <><span className="font-semibold text-amber-300">{pendingApprovals} decision{pendingApprovals === 1 ? " is" : "s are"} waiting on you</span>. </>
+            : <>No decisions are waiting on you. </>}
+          So far your team has recorded <span className="font-semibold text-emerald-400">{formatCurrency(cashRecovered)} in recovered cash</span>
+          {verifiedRecovered > 0 ? <> ({formatCurrency(verifiedRecovered)} verified)</> : null}
+          {hasOps ? <> and <span className="font-semibold text-emerald-400">{formatCurrency(realizedSavings)} in realized savings</span></> : null}.
+        </p>
+        <ol className="mt-5 grid gap-px overflow-hidden rounded-xl border border-neutral-800 bg-neutral-800 sm:grid-cols-2 lg:grid-cols-4">
+          <li className="bg-neutral-950 p-3.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">1 · Found</p>
+            <p className="mt-1 text-lg font-semibold text-white">{revenue._count + operations._count} issues</p>
+            <p className="text-[11px] text-neutral-500">Each with a dollar estimate and evidence</p>
+          </li>
+          <li className="bg-neutral-950 p-3.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-400/90">2 · Waiting on you</p>
+            <p className="mt-1 text-lg font-semibold text-amber-300">{pendingApprovals} approval{pendingApprovals === 1 ? "" : "s"}</p>
+            <p className="line-clamp-1 text-[11px] text-neutral-500">{firstPending ? `Oldest: ${clientTitle(firstPending.title)}` : "Nothing consequential runs without one"}</p>
+          </li>
+          <li className="bg-neutral-950 p-3.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400/80">3 · Recorded so far</p>
+            <p className="mt-1 text-lg font-semibold text-emerald-400">{formatCurrency(cashRecovered)}<span className="text-xs font-normal text-neutral-400"> cash recovered</span></p>
+            {hasOps ? <p className="text-sm font-semibold text-emerald-400">{formatCurrency(realizedSavings)}<span className="text-xs font-normal text-neutral-400"> savings realized</span></p> : null}
+            <p className="text-[11px] text-neutral-500">Only what your team recorded. Not estimates.</p>
+          </li>
+          <li className="bg-neutral-950">
+            <Link href={nextAction.href} className="group flex h-full flex-col justify-between gap-2 p-3.5 transition hover:bg-neutral-900/70">
+              <span>
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-500">4 · Next action</span>
+                <span className="mt-1 line-clamp-2 block text-sm font-semibold text-white">{nextAction.title}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400 group-hover:text-amber-300">Go <ArrowRight className="h-3 w-3" /></span>
+            </Link>
+          </li>
+        </ol>
+      </section>
+
       {/* 1 — What is it worth? Estimates on the left of each product, recorded results on the right. Never summed. */}
-      <section aria-labelledby="value-title" className="si-glass relative overflow-hidden rounded-2xl border border-neutral-800/90 bg-gradient-to-br from-neutral-950 to-neutral-900/40 p-4 sm:p-6">
+      <section aria-labelledby="value-title" data-tour="value" className="si-glass relative overflow-hidden rounded-2xl border border-neutral-800/90 bg-gradient-to-br from-neutral-950 to-neutral-900/40 p-4 sm:p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="value-title" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-400">The value case</h2>
           <p className="text-[11px] text-neutral-500">Estimates and recorded results are shown side by side — never added together.</p>
@@ -244,7 +298,7 @@ export default async function AppHomePage() {
               href: "/app/reports",
             },
           ].map((step) => (
-            <li key={step.n} className="bg-neutral-950">
+            <li key={step.n} className="bg-neutral-950" data-tour={step.n === "3" ? "decisions" : undefined}>
               <Link href={step.href} className="group flex h-full flex-col p-4 transition hover:bg-neutral-900/70">
                 <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full border border-amber-500/40 font-mono text-[10px] text-amber-400">{step.n}</span>
@@ -272,7 +326,7 @@ export default async function AppHomePage() {
       />
 
       {/* 3 — What matters, who owns it, what happens next. */}
-      <section aria-labelledby="top-issues-title">
+      <section aria-labelledby="top-issues-title" data-tour="issues">
         <div className="mb-2 flex items-center justify-between">
           <h2 id="top-issues-title" className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Highest-value open issues</h2>
           <Link href="/app/findings" className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300">
@@ -306,8 +360,6 @@ export default async function AppHomePage() {
         )}
       </section>
 
-      <NextBestAction title={nextAction.title} description={nextAction.description} href={nextAction.href} actionLabel="Review" />
-
       <section aria-labelledby="value-motion-title" className="space-y-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="value-motion-title" className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Estimated vs. realized, over time</h2>
@@ -330,6 +382,7 @@ export default async function AppHomePage() {
             emptyLabel="No opportunities identified yet"
             stagger={0}
           />
+          <div data-tour="results">
           <DynLineChart
             title="Realized value recorded"
             description="Running total of recorded outcomes — cash recovered and realized savings."
@@ -345,10 +398,21 @@ export default async function AppHomePage() {
             emptyLabel="No realized outcomes recorded yet"
             stagger={1}
           />
+          </div>
         </div>
         <p className="text-[10px] text-neutral-600">{MONEY_GLOSSARY_FOOTNOTE}</p>
       </section>
 
+      {/* Secondary detail for the team: counts, learning, the operating desk, work aging. Collapsed so the value story leads. */}
+      <details className="group rounded-2xl border border-neutral-800 bg-neutral-950/50 [&_summary::-webkit-details-marker]:hidden" data-testid="operating-detail">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 sm:px-5">
+          <span>
+            <span className="block text-sm font-semibold text-white">Team detail</span>
+            <span className="block text-xs text-neutral-500">Counts, workload age, the command desk, and system health. For the people working the list.</span>
+          </span>
+          <span className="shrink-0 text-xs font-semibold text-amber-400"><span className="group-open:hidden">Show</span><span className="hidden group-open:inline">Hide</span></span>
+        </summary>
+        <div className="space-y-5 border-t border-neutral-900 p-4 sm:p-5">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="High-confidence revenue" value={<CountUp value={highConfidenceRevenue} />} sublabel="Open · confidence 70+" icon={TrendingUp} href="/app/revenue?view=high_confidence" />
         <MetricCard label="Critical bottlenecks" value={<CountUp value={criticalOperations} />} sublabel="Open · critical priority" icon={Settings2} href="/app/operations?view=critical" />
@@ -381,7 +445,6 @@ export default async function AppHomePage() {
 
       {/* Operating detail — command bar, health, runs. Secondary to the value story above. */}
       <section aria-label="Operating detail" className="space-y-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-600">Operating detail</p>
         <OperatingDesk organizationId={ctx.organizationId} userId={ctx.user.id} />
         <ActivityStrip
           items={[
@@ -413,6 +476,8 @@ export default async function AppHomePage() {
           />
         </div>
       </section>
+        </div>
+      </details>
     </div>
   );
 }

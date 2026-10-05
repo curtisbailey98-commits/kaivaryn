@@ -32,6 +32,7 @@ const STATUS_LABELS: Record<string, string> = {
   HIGH_VALUE_SAVINGS: "High-value savings",
   AUTOMATION_CANDIDATE: "Automation candidate",
   INTEGRATION_GATE: "Integration gate",
+  EXTERNAL_ACTION: "Change in another system",
   REVENUE_RECOVERY: "Revenue Recovery",
   OPERATIONS_EFFICIENCY: "Operations Efficiency",
 };
