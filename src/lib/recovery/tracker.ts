@@ -78,6 +78,11 @@ export type RecoveryConfirmation = {
   byRole: string | null;
   note: string | null;
   toStatus: string;
+  /**
+   * RECORDED: someone moved the item to a won-back status (record form or an approved request).
+   * ENTERED_AT_CREATION: the item was created already marked as won back (no prior status) — shown as such.
+   */
+  kind: "RECORDED" | "ENTERED_AT_CREATION";
 };
 
 export type RecoveryLedgerItem = RecoverySourceRow & {
@@ -410,7 +415,7 @@ export async function getRecoveryTracker(organizationId: string, opts: { now?: D
                 toStatus: { in: REALIZED_STATUSES },
               },
               orderBy: { createdAt: "desc" },
-              select: { entityId: true, toStatus: true, note: true, createdAt: true, actorId: true, actor: { select: { name: true, email: true } } },
+              select: { entityId: true, fromStatus: true, toStatus: true, note: true, createdAt: true, actorId: true, actor: { select: { name: true, email: true } } },
             })
           : Promise.resolve([]),
         prisma.finding.findMany({
@@ -440,6 +445,7 @@ export async function getRecoveryTracker(organizationId: string, opts: { now?: D
       byRole: h.actorId ? roleOf.get(h.actorId) ?? null : null,
       note: h.note,
       toStatus: h.toStatus,
+      kind: h.fromStatus ? "RECORDED" : "ENTERED_AT_CREATION",
     });
   }
   const findingMap = new Map<string, string[]>();
@@ -477,14 +483,16 @@ export function recoveryLedgerToCsv(t: RecoveryTracker): string {
   const header = [
     "category", "item_id", "title", "stage", "status", "type", "source",
     "found_estimated_usd", "won_back_recorded_usd", "verified_usd", "unit",
-    "found_on", "won_back_on", "recorded_by", "recorded_by_role", "record_note", "finding_ids", "evidence_items", "initiatives",
+    "found_on", "won_back_on", "recorded_by", "recorded_by_role", "recorded_how", "record_note", "finding_ids", "evidence_items", "initiatives",
   ];
   const lines = [header.join(",")];
   for (const i of t.items) {
     lines.push([
       CATEGORY_LABEL[i.category], i.id, i.title, i.stageLabel, i.status, i.typeLabel, i.sourceLabel,
       r2(i.foundAmount), r2(i.realizedAmount), r2(i.verifiedAmount), i.unit === "cash" ? "one-time cash" : "per year",
-      iso(i.foundAt), iso(i.realizedAt), i.confirmation?.byName ?? "", i.confirmation?.byRole ?? "", i.confirmation?.note ?? "",
+      iso(i.foundAt), iso(i.realizedAt), i.confirmation?.byName ?? "", i.confirmation?.byRole ?? "",
+      i.confirmation ? (i.confirmation.kind === "RECORDED" ? "recorded on item" : "entered when item was added") : i.stage === "WON_BACK" ? "no record" : "",
+      i.confirmation?.note ?? "",
       i.findingIds.join(" "), i.evidenceCount, i.initiatives.join("; "),
     ].map(esc).join(","));
   }

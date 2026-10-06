@@ -164,8 +164,14 @@ async function db() {
     assert(ta.revenue.found === 148_000 && ta.operations.found === 52_000, "A found totals (estimates)");
     assert(ta.revenue.wonBack === 25_000 && ta.operations.wonBack === 18_000, "A won back = recorded amounts only (estimated 90k / approved 12k not counted)");
     const wi = ta.items.find((i) => i.id === won.id)!;
-    assert(wi.confirmation?.byName === "Rita Manager" && wi.confirmation.byRole === "MANAGER" && wi.confirmation.note === "Recorded recovery 25000", "won-back item shows who recorded it, their role and note (same tenant only)");
+    assert(wi.confirmation?.byName === "Rita Manager" && wi.confirmation.byRole === "MANAGER" && wi.confirmation.note === "Recorded recovery 25000" && wi.confirmation.kind === "RECORDED", "won-back item shows who recorded it, their role and note (same tenant only)");
     assert(wi.findingIds.length === 1 && wi.evidenceCount === 1 && wi.isVerified, "won-back item links its finding and evidence");
+    assert(tb.items[0].confirmation === null, "won-back item with no status record shows 'no record of who entered this amount' (nothing invented)");
+    const created = await prisma.opportunity.create({ data: { organizationId: a.id, title: "Entered as recovered", status: "RECOVERED", potentialAmount: 1_000, estimatedAmount: 1_000, recoveredAmount: 1_000, recoveredAt: new Date() } });
+    await prisma.statusHistory.create({ data: { organizationId: a.id, entityType: "Opportunity", entityId: created.id, fromStatus: null, toStatus: "RECOVERED", actorId: viewer.id, note: "Added" } });
+    const ta2 = await getRecoveryTracker(a.id);
+    assert(ta2.items.find((i) => i.id === created.id)?.confirmation?.kind === "ENTERED_AT_CREATION", "amount entered at creation is labelled as such, not as a confirmation");
+    await prisma.opportunity.delete({ where: { id: created.id } });
     reconciles(ta, "org A");
     reconciles(tb, "org B");
 

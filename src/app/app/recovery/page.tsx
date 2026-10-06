@@ -112,7 +112,7 @@ function WonBackRow({ i }: { i: RecoveryLedgerItem }) {
           <span className="text-neutral-600">Won back on </span>{i.realizedAt ? formatDate(i.realizedAt) : <span className="text-amber-400/80">date not recorded</span>}
           {c ? (
             <>
-              <span className="text-neutral-600"> · recorded by </span>
+              <span className="text-neutral-600">{c.kind === "RECORDED" ? " · recorded by " : " · entered as already won back when the item was added, by "}</span>
               {c.byName ?? "a former team member"}{c.byRole ? ` (${humanizeLabel(c.byRole)})` : ""}
               <span className="text-neutral-600"> on </span>{formatDate(c.at)}
             </>
