@@ -275,7 +275,7 @@ export default async function RecoveryPage() {
             {closed.length ? (
               <details className="rounded-xl border border-neutral-800 bg-neutral-950/50 [&_summary::-webkit-details-marker]:hidden">
                 <summary className="cursor-pointer list-none px-4 py-3 text-xs text-neutral-400 hover:text-neutral-200">
-                  {closed.length} closed or ruled-out item{closed.length === 1 ? "" : "s"} (counted in “found”, $0 won back) — show
+                  {closed.length} closed or ruled-out item{closed.length === 1 ? "" : "s"} (counted in “found”, nothing won back) — show
                 </summary>
                 <ul className="divide-y divide-neutral-900 border-t border-neutral-900">
                   {closed.map((i) => <OpenRow key={i.id} i={i} canConfirm={canConfirm} />)}
