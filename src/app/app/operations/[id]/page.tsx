@@ -224,7 +224,7 @@ export default async function InefficiencyDetailPage({ params }: { params: { id:
         <p className="si-label">Take action</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
           {canRecord ? (
-            <form action={savings} className="si-panel space-y-2 p-4 text-sm">
+            <form id="record" action={savings} className="si-panel space-y-2 p-4 text-sm">
               <p className="font-medium text-white">Record realized savings</p>
               <Input name="realizedSavings" type="number" step="0.01" min="0" placeholder="Annualized savings realized (USD)" aria-label="Realized savings" required />
               <label className="flex items-center gap-2 text-xs text-neutral-400"><input type="checkbox" name="verified" /> Verified</label>
@@ -232,7 +232,7 @@ export default async function InefficiencyDetailPage({ params }: { params: { id:
               <Button type="submit" variant="secondary">Record</Button>
             </form>
           ) : (
-            <div className="si-panel p-4 text-sm">
+            <div id="record" className="si-panel p-4 text-sm">
               <p className="font-medium text-white">Record realized savings</p>
               <p className="mt-2 text-xs text-neutral-500">A manager or above records realized savings.</p>
             </div>

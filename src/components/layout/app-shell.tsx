@@ -26,6 +26,7 @@ import {
   HeartPulse,
   PhoneCall,
   Mic,
+  CircleDollarSign,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/constants";
 import { ExampleDataTag } from "@/components/ui/badge";
@@ -48,6 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Value",
     items: [
+      { href: "/app/recovery", label: "Money recovered", icon: CircleDollarSign },
       { href: "/app/revenue", label: "Revenue Recovery", icon: TrendingUp },
       { href: "/app/operations", label: "Operations Efficiency", icon: Settings2 },
       { href: "/app/findings", label: "Findings", icon: FileSearch },

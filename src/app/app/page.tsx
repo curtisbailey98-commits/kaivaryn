@@ -20,6 +20,8 @@ import { ActivityStrip, CountUp, CountUpCurrency } from "@/components/motion";
 import { OperatingDesk } from "@/components/operate/operating-desk";
 import { getInboxCounts } from "@/lib/operate/inbox";
 import { ValueTour } from "@/components/tour/value-tour";
+import { RecoveryCard } from "@/components/recovery/recovery-card";
+import { getRecoveryTracker } from "@/lib/recovery/tracker";
 
 export const metadata = { title: "Home" };
 
@@ -34,7 +36,7 @@ export default async function AppHomePage() {
   const rrClosed = [...RR_CLOSED_STATUSES];
   const oeClosed = [...OE_CLOSED_STATUSES];
 
-  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks, learning, chartWeekly, chartAction, topOpportunities, topInefficiencies, highConfidenceRevenue, criticalOperations, onboarding, inboxCounts] = await Promise.all([
+  const [revenue, operations, pendingApprovals, unreadNotifications, openTasks, learning, chartWeekly, chartAction, topOpportunities, topInefficiencies, highConfidenceRevenue, criticalOperations, onboarding, inboxCounts, recovery] = await Promise.all([
     prisma.opportunity.aggregate({
       where: { organizationId: ctx.organizationId },
       _sum: { estimatedAmount: true, potentialAmount: true, recoveredAmount: true, verifiedAmount: true, approvedAmount: true, inProgressAmount: true },
@@ -77,6 +79,7 @@ export default async function AppHomePage() {
       where: { organizationId_userId: { organizationId: ctx.organizationId, userId: ctx.user.id } },
     }),
     getInboxCounts(ctx.organizationId, ctx.user.id),
+    getRecoveryTracker(ctx.organizationId),
   ]);
   const slaOpenCount = chartAction.slaSpark.at(-1)?.value ?? 0;
   const firstPending = pendingApprovals > 0
@@ -260,6 +263,9 @@ export default async function AppHomePage() {
           </Link>
         </div>
       </section>
+
+      {/* Proof of value — every recorded dollar, same data layer as /app/recovery. */}
+      <RecoveryCard tracker={recovery} />
 
       {/* 2 — The path from a finding to a verified result, using live records. */}
       <section aria-labelledby="path-title">
