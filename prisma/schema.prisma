@@ -480,8 +480,8 @@ model Transaction {
   id             String    @id @default(cuid())
   organizationId String
   customerId     String?
-  type           String    // PAYMENT | REFUND | INVOICE | CHECKOUT
-  status         String    // SUCCEEDED | FAILED | ABANDONED | PENDING
+  type           String    // PAYMENT | REFUND | INVOICE | CHECKOUT | ORDER (POS)
+  status         String    // SUCCEEDED | FAILED | ABANDONED | PENDING (+ POS: DECLINED | CANCELED | REJECTED | VOIDED)
   amount         Float     @default(0)
   currency       String    @default("USD")
   occurredAt     DateTime  @default(now())
@@ -490,12 +490,17 @@ model Transaction {
   importedAt     DateTime?
   lastSyncAt     DateTime?
   createdAt      DateTime  @default(now())
+  /// POS location the row belongs to (e.g. Square location id). Null for non-POS sources.
+  locationId     String?
+  /// Source-specific detail as JSON (e.g. Square tender, tip, discounts, comps). Never holds secrets.
+  detailJson     String?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   customer     Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
   @@index([organizationId, occurredAt])
+  @@index([organizationId, source, sourceId])
 }
 
 model Appointment {

@@ -21,7 +21,7 @@
     "test:si": "tsx scripts/si-cycle-validation.ts",
     "test:operate": "tsx scripts/operating-layer-validation.ts",
     "test:operate:api": "tsx scripts/operating-api-smoke.ts",
-    "test": "npm run -s test:operate && npm run -s test:operate:guards && npm run -s test:automations && npm run -s test:integrations && npm run -s test:si && npm run -s test:enterprise && npm run -s test:chief && npm run -s test:acquisition && npm run -s test:execution && npm run -s test:stripe && npm run -s test:voice && npm run -s test:restaurant && npm run -s test:recovery",
+    "test": "npm run -s test:operate && npm run -s test:operate:guards && npm run -s test:automations && npm run -s test:integrations && npm run -s test:si && npm run -s test:enterprise && npm run -s test:chief && npm run -s test:acquisition && npm run -s test:execution && npm run -s test:stripe && npm run -s test:voice && npm run -s test:restaurant && npm run -s test:recovery && npm run -s test:square",
     "test:operate:guards": "tsx scripts/operating-guards-validation.ts",
     "test:stripe": "tsx scripts/stripe-webhook-validation.ts",
     "test:automations": "tsx scripts/automation-prompt-validation.ts",
@@ -29,6 +29,7 @@
     "test:voice": "tsx scripts/voice-validation.ts",
     "test:restaurant": "tsx scripts/restaurant-validation.ts",
     "test:recovery": "tsx scripts/recovery-validation.ts",
+    "test:square": "tsx scripts/square-validation.ts",
     "test:voice:api": "tsx scripts/voice-api-smoke.ts"
   },
   "dependencies": {

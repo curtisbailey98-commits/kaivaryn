@@ -15,6 +15,9 @@ import { getIndustryContext, getSelectedSystems } from "@/lib/industry/context";
 import { RestaurantSystemsPanel } from "@/components/industry/restaurant-systems-panel";
 import { SelectedSystemsGuides } from "@/components/integrations/selected-systems-guides";
 import { getSystemSetup } from "@/lib/integrations/setup-store";
+import { getSquareView } from "@/lib/integrations/square/connection";
+import { getPosSummary } from "@/lib/integrations/square/summary";
+import { SquareCard } from "@/components/integrations/square-card";
 
 export const metadata = { title: "Integrations" };
 
@@ -92,6 +95,9 @@ export default async function IntegrationsPage() {
     getPricingConfig(),
   ]);
   const byProvider = new Map(connections.map((c) => [c.provider, c]));
+  const squareView = await getSquareView(orgId);
+  const showSquare = industry.isRestaurant || systems.selected.includes("pos_square") || squareView.state === "connected" || squareView.state === "connected_waiting" || squareView.state === "needs_attention";
+  const squareSummary = showSquare && squareView.rowsSynced > 0 ? await getPosSummary(orgId, squareView.locations.map((l) => ({ id: l.id, name: l.name, timezone: squareView.locationTimezones[l.id] }))) : null;
   const sheet = byProvider.get("google_sheets");
   const sheetCfg = sheet?.configJson ? (JSON.parse(sheet.configJson) as { url?: string; template?: string }) : null;
   const sheetStatus: Status = sheet?.status === "CONNECTED" && !sheet.errorMessage ? "CONNECTED" : "NOT_CONNECTED";
@@ -109,6 +115,10 @@ export default async function IntegrationsPage() {
         title="Get your data in"
         description="Three simple ways to bring data into Kaivaryn today, each set up in a few steps. Nothing is marked connected until data has actually arrived. Direct system connectors are set up with you on request."
       />
+
+      {showSquare ? (
+        <SquareCard view={squareView} summary={squareSummary} canConnect={canManage} canSync={canImport} showServerDetail={ctx.isSuperAdmin} tz={tz} />
+      ) : null}
 
       {industry.isRestaurant ? <RestaurantSystemsPanel selected={systems.selected} posOther={systems.posOther} connections={connections} setup={setup} readOnly={!canWrite} /> : null}
 

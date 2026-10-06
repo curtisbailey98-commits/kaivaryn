@@ -7,6 +7,7 @@ import { scoreWorkItem } from "./scoring";
 import { normalizeRevenueAmounts, normalizeOpsAmounts } from "./financial-impact";
 import { recordStatusChange } from "./status-history";
 import { getLearnedAdjustment } from "./learning";
+import { detectPosSignals } from "./integrations/square/summary";
 
 
 function consumerDetectionsEnabled(settings: { settingsJson?: string | null }): boolean {
@@ -388,6 +389,30 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
         source: "detection:abandoned_checkout",
         sourceId: t.id,
         evidenceSummary: `Abandoned checkout ${t.id}`,
+      });
+      const after = await prisma.opportunity.count({ where: { organizationId } });
+      createdOpportunities += Math.max(0, after - before);
+    }
+  }
+
+  // RR: restaurant POS signals from synced Square rows (estimates only; compared with the restaurant's own baseline)
+  const posRows = txns.filter((t) => t.source === "square");
+  if (posRows.length) {
+    const pos = detectPosSignals(posRows, now);
+    if (pos.insufficient) insufficient.push(pos.insufficient);
+    for (const sig of pos.signals) {
+      rulesFired.push(sig.ruleId);
+      const before = await prisma.opportunity.count({ where: { organizationId } });
+      await upsertOpportunityFromRule({
+        organizationId,
+        ruleId: sig.ruleId,
+        title: sig.title,
+        description: sig.description,
+        amount: sig.estimate,
+        source: `detection:${sig.ruleId}`,
+        sourceId: `square:${sig.periodKey}`,
+        department: "Restaurant operations",
+        evidenceSummary: sig.evidence,
       });
       const after = await prisma.opportunity.count({ where: { organizationId } });
       createdOpportunities += Math.max(0, after - before);

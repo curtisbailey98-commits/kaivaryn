@@ -147,3 +147,44 @@ export async function saveSystemSetupAction(formData: FormData) {
   revalidatePath("/app/onboarding");
   redirect(back("ok", note, `#system-${key}`));
 }
+
+import { syncSquareForOrg } from "@/lib/integrations/square/sync";
+import { disconnectSquare } from "@/lib/integrations/square/connection";
+
+/** "Sync now" for Square — read-only pull. Manager+ (import). */
+export async function syncSquareNowAction() {
+  let target: string;
+  try {
+    const ctx = await requirePermission("import");
+    assertOrgId(ctx.organizationId);
+    const r = await syncSquareForOrg(ctx.organizationId, { pageBudget: 60 });
+    if (r.skipped === "not_enabled") target = back("error", r.error ?? "Square connection isn't switched on yet.", "#square");
+    else if (r.skipped === "not_connected") target = back("error", "Square isn't connected for this workspace.", "#square");
+    else if (r.skipped === "locked") target = back("ok", "A Square sync is already running — refresh in a minute.", "#square");
+    else if (r.skipped === "needs_attention") target = back("error", "Square no longer accepts Kaivaryn's access. An Owner or Admin needs to reconnect Square.", "#square");
+    else if (!r.ok) target = back("error", r.error ?? "Square sync failed.", "#square");
+    else target = back("ok", `Square synced: ${r.created} new · ${r.updated} updated${r.complete ? "" : " · more to fetch on the next sync"}`, "#square");
+    await writeAudit({ organizationId: ctx.organizationId, actorId: ctx.user.id, action: "square.sync_now", entityType: "IntegrationConnection", metadata: { ok: r.ok, skipped: r.skipped ?? null, created: r.created, updated: r.updated } });
+  } catch (e) {
+    target = back("error", errMsg(e), "#square");
+  }
+  revalidatePath("/app/integrations");
+  redirect(target);
+}
+
+/** Disconnect Square: revoke at Square, then delete the stored tokens. Owner/Admin (manage_settings). */
+export async function disconnectSquareAction() {
+  let target: string;
+  try {
+    const ctx = await requirePermission("manage_settings");
+    assertOrgId(ctx.organizationId);
+    const r = await disconnectSquare(ctx.organizationId, ctx.user.id);
+    target = !r.removed
+      ? back("ok", "Square wasn't connected.", "#square")
+      : back("ok", r.revoked ? "Square disconnected and access revoked at Square. Stored keys deleted; sales already synced stay in your workspace." : "Square disconnected and stored keys deleted. Square didn't confirm the revoke — you can also remove Kaivaryn in your Square Dashboard under Apps.", "#square");
+  } catch (e) {
+    target = back("error", errMsg(e), "#square");
+  }
+  revalidatePath("/app/integrations");
+  redirect(target);
+}
