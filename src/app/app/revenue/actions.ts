@@ -13,6 +13,7 @@ import { RR_STATUSES } from "@/lib/enums";
 import { notify, notifyOrgManagers } from "@/lib/notifications";
 import { recordLearningEvent } from "@/lib/learning";
 import { evaluateRecoveryGate, isHighValue } from "@/lib/approval-thresholds";
+import { settleWonBackOnCreate, RR_WON_BACK_STATUSES } from "@/lib/recovery/create-gate";
 
 const opportunitySchema = z.object({
   title: z.string().min(1).max(300),
@@ -66,9 +67,12 @@ export async function createOpportunity(formData: FormData) {
     evidenceCount: 0,
     settings,
   });
-  const status = (RR_STATUSES as readonly string[]).includes(data.status || "")
+  // A won-back status/amount is never written by create itself: the amount goes through
+  // settleWonBackOnCreate (Manager+ and the same limits/approvals as Record recovery).
+  const requested = (RR_STATUSES as readonly string[]).includes(data.status || "")
     ? (data.status as string)
     : "IDENTIFIED";
+  const status = RR_WON_BACK_STATUSES.includes(requested) ? "IDENTIFIED" : requested;
   const created = await prisma.opportunity.create({
     data: {
       organizationId: ctx.organizationId,
@@ -85,10 +89,10 @@ export async function createOpportunity(formData: FormData) {
       estimatedAmount: money.potential,
       approvedAmount: money.approved,
       inProgressAmount: money.inProgress,
-      recoveredAmount: money.recovered,
-      verifiedAmount: money.verified,
+      recoveredAmount: 0,
+      verifiedAmount: 0,
       assigneeId: data.assigneeId || null,
-      recoveredAt: status === "RECOVERED" || status === "VERIFIED" ? new Date() : null,
+      recoveredAt: null,
     },
   });
   await recordStatusChange({
@@ -106,9 +110,19 @@ export async function createOpportunity(formData: FormData) {
     entityType: "Opportunity",
     entityId: created.id,
   });
+  const wonBack = await settleWonBackOnCreate({
+    kind: "opportunity",
+    organizationId: ctx.organizationId,
+    actorId: ctx.user.id,
+    role: ctx.effectiveRole,
+    entityId: created.id,
+    amount: money.recovered,
+  });
   revalidatePath("/app/revenue");
   revalidatePath("/app/action-center");
-  redirect(`/app/revenue/${created.id}?ok=1&msg=${encodeURIComponent("Opportunity created")}`);
+  if (wonBack.mode === "queued_approval") revalidatePath("/app/approvals");
+  const createdMsg = wonBack.mode === "none" ? "Opportunity created" : `Opportunity created. ${wonBack.message}`;
+  redirect(`/app/revenue/${created.id}?ok=1&msg=${encodeURIComponent(createdMsg)}`);
 }
 
 export async function updateOpportunity(id: string, formData: FormData) {

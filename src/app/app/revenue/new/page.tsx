@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { can } from "@/lib/rbac";
 
 export const metadata = { title: "New opportunity" };
 
@@ -12,6 +13,7 @@ export default async function NewOpportunityPage() {
   const ctx = await requireOrgAccess();
   assertOrgId(ctx.organizationId);
   await requireEntitlement(ctx.organizationId, "REVENUE_RECOVERY");
+  const canRecord = can(ctx.effectiveRole, "record_financial");
 
   async function action(formData: FormData) {
     "use server";
@@ -35,7 +37,15 @@ export default async function NewOpportunityPage() {
             </select>
           </label>
           <label className="block text-xs text-neutral-400">Estimated amount<Input name="estimatedAmount" type="number" step="0.01" defaultValue={0} className="mt-1" /></label>
-          <label className="block text-xs text-neutral-400">Recovered amount<Input name="recoveredAmount" type="number" step="0.01" defaultValue={0} className="mt-1" /></label>
+          {canRecord ? (
+            <label className="block text-xs text-neutral-400">
+              Recovered amount (already collected)
+              <Input name="recoveredAmount" type="number" step="0.01" min="0" defaultValue={0} className="mt-1" />
+              <span className="mt-1 block text-[10px] text-neutral-500">Amounts above your approval limit are sent to Approvals first.</span>
+            </label>
+          ) : (
+            <p className="self-end text-[11px] leading-5 text-neutral-500">Recovered amounts are recorded later by a manager, admin or owner.</p>
+          )}
         </div>
         <Button type="submit">Create</Button>
       </form>

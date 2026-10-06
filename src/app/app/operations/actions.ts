@@ -16,6 +16,7 @@ import { can } from "@/lib/rbac";
 import { notify, notifyOrgManagers } from "@/lib/notifications";
 import { recordLearningEvent } from "@/lib/learning";
 import { evaluateRecoveryGate } from "@/lib/approval-thresholds";
+import { settleWonBackOnCreate, OE_WON_BACK_STATUSES } from "@/lib/recovery/create-gate";
 import { canVoice } from "@/lib/voice/permissions";
 
 const schema = z.object({
@@ -58,6 +59,7 @@ export async function createInefficiency(formData: FormData) {
     priority: formData.get("priority") || "MEDIUM",
     estimatedWasteAnnual: formData.get("estimatedWasteAnnual") || 0,
     projectedSavings: formData.get("projectedSavings") || formData.get("estimatedWasteAnnual") || 0,
+    realizedSavings: formData.get("realizedSavings") || undefined,
     recoveredAnnual: formData.get("recoveredAnnual") || 0,
     hoursWastedWeekly: formData.get("hoursWastedWeekly") || null,
     automationCandidate: formData.get("automationCandidate") === "on" || formData.get("automationCandidate") === "true",
@@ -73,9 +75,12 @@ export async function createInefficiency(formData: FormData) {
     priorityHint: data.priority,
     settings,
   });
-  const status = (OE_STATUSES as readonly string[]).includes(data.status || "")
+  // Realized savings are never written by create itself: they go through settleWonBackOnCreate
+  // (Manager+ and the same limits/approvals as Record savings).
+  const requested = (OE_STATUSES as readonly string[]).includes(data.status || "")
     ? (data.status as string)
     : "IDENTIFIED";
+  const status = OE_WON_BACK_STATUSES.includes(requested) ? "IDENTIFIED" : requested;
   const created = await prisma.inefficiency.create({
     data: {
       organizationId: ctx.organizationId,
@@ -90,14 +95,14 @@ export async function createInefficiency(formData: FormData) {
       scoreFactorsJson: JSON.stringify(scored.factors),
       estimatedWasteAnnual: money.projectedSavings,
       projectedSavings: money.projectedSavings,
-      recoveredAnnual: money.realizedSavings,
-      realizedSavings: money.realizedSavings,
+      recoveredAnnual: 0,
+      realizedSavings: 0,
       hoursWastedWeekly: money.projectedHoursWeekly,
       projectedHoursWeekly: money.projectedHoursWeekly,
       realizedHoursWeekly: money.realizedHoursWeekly,
       automationCandidate: data.automationCandidate ?? false,
       assigneeId: data.assigneeId || null,
-      resolvedAt: status === "REALIZED" || status === "VERIFIED" || status === "RESOLVED" ? new Date() : null,
+      resolvedAt: null,
     },
   });
   await recordStatusChange({
@@ -128,9 +133,19 @@ export async function createInefficiency(formData: FormData) {
     entityType: "Inefficiency",
     entityId: created.id,
   });
+  const wonBack = await settleWonBackOnCreate({
+    kind: "inefficiency",
+    organizationId: ctx.organizationId,
+    actorId: ctx.user.id,
+    role: ctx.effectiveRole,
+    entityId: created.id,
+    amount: money.realizedSavings,
+  });
   revalidatePath("/app/operations");
   revalidatePath("/app/action-center");
-  redirect(`/app/operations/${created.id}?ok=1&msg=${encodeURIComponent("Inefficiency created")}`);
+  if (wonBack.mode === "queued_approval") revalidatePath("/app/approvals");
+  const createdMsg = wonBack.mode === "none" ? "Inefficiency created" : `Inefficiency created. ${wonBack.message}`;
+  redirect(`/app/operations/${created.id}?ok=1&msg=${encodeURIComponent(createdMsg)}`);
 }
 
 export async function updateInefficiency(id: string, formData: FormData) {

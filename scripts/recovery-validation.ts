@@ -19,6 +19,7 @@ import {
 } from "../src/lib/recovery/tracker";
 import { getCumulativeValueSeries } from "../src/lib/chart-data";
 import { effectiveRole } from "../src/lib/rbac";
+import { decideWonBackOnCreate, settleWonBackOnCreate } from "../src/lib/recovery/create-gate";
 
 let failed = 0;
 let passed = 0;
@@ -115,6 +116,23 @@ function pure() {
   assert(/export async function recordSavings[\s\S]{0,200}requirePermission\("record_financial"\)/.test(oe), "recordSavings write is gated by record_financial");
   assert(/evaluateRecoveryGate/.test(rr) && /evaluateRecoveryGate/.test(oe), "amount limits / approval queue still applied on confirm");
 
+  console.log("--- won-back amounts entered at creation ---");
+  const lim = { highValueThreshold: 50_000, managerApprovalLimit: 25_000, adminApprovalLimit: 100_000, requireApprovalAbove: 50_000 };
+  const d = (amount: number, role: string) => decideWonBackOnCreate({ amount, role, settings: lim, label: "Recovered amount" });
+  assert(d(5_000, "ANALYST").mode === "ignored_no_rights" && d(5_000, "VIEWER").mode === "ignored_no_rights", "analyst / viewer: amount at creation is ignored");
+  assert(d(0, "ANALYST").mode === "none" && d(0, "OWNER").mode === "none", "no amount → nothing to decide");
+  assert(d(10_000, "MANAGER").mode === "recorded" && d(25_000, "MANAGER").mode === "recorded", "manager within $25k limit records");
+  const over = d(30_000, "MANAGER");
+  assert(over.mode === "blocked_limit" && over.needsRole === "ADMIN", "manager above $25k limit is blocked (needs admin)");
+  assert(d(30_000, "ADMIN").mode === "recorded", "admin within limit records");
+  assert(d(50_000, "MANAGER").mode === "queued_approval" && d(60_000, "ADMIN").mode === "queued_approval" && d(60_000, "OWNER").mode === "queued_approval", "$50k+ goes to Approvals for every role (org setting)");
+  const rrCreate = rr.slice(rr.indexOf("export async function createOpportunity"), rr.indexOf("export async function updateOpportunity"));
+  const oeCreate = oe.slice(oe.indexOf("export async function createInefficiency"), oe.indexOf("export async function updateInefficiency"));
+  assert(/recoveredAmount: 0,/.test(rrCreate) && /verifiedAmount: 0,/.test(rrCreate) && /settleWonBackOnCreate\(/.test(rrCreate) && /RR_WON_BACK_STATUSES/.test(rrCreate), "createOpportunity never writes a won-back amount/status directly; routes it through the gate");
+  assert(/realizedSavings: 0,/.test(oeCreate) && /recoveredAnnual: 0,/.test(oeCreate) && /settleWonBackOnCreate\(/.test(oeCreate) && /OE_WON_BACK_STATUSES/.test(oeCreate), "createInefficiency never writes realized savings/status directly; routes it through the gate");
+  const newPage = src("src/app/app/revenue/new/page.tsx");
+  assert(/canRecord \? \([\s\S]*name="recoveredAmount"[\s\S]*\) : \(/.test(newPage), "new-opportunity form shows the Recovered amount field only to Manager+");
+
   console.log("--- read-only, no invented numbers in UI ---");
   const lib = src("src/lib/recovery/tracker.ts");
   assert(!/prisma\.\w+\.(create|update|upsert|delete|createMany|updateMany|deleteMany)\(/.test(lib), "tracker never writes to the database");
@@ -198,6 +216,51 @@ async function db() {
     const mm = await prisma.membership.findFirst({ where: { organizationId: a.id, userId: mgr.id } });
     assert(!canConfirmRealized(effectiveRole(viewer.role, vm!.role)), "viewer member cannot record won-back amounts");
     assert(canConfirmRealized(effectiveRole(mgr.role, mm!.role)), "manager member can");
+
+    console.log("--- db: won-back amount entered at creation ---");
+    // Mirrors the create actions: the item is inserted with no won-back amount, then settled.
+    const mkOpp = (title: string, potential: number) => prisma.opportunity.create({ data: { organizationId: a.id, title, status: "IDENTIFIED", potentialAmount: potential, estimatedAmount: potential } });
+    const o1 = await mkOpp("Analyst entered 5000", 20_000);
+    const r1 = await settleWonBackOnCreate({ kind: "opportunity", organizationId: a.id, actorId: viewer.id, role: "ANALYST", entityId: o1.id, amount: 5_000 });
+    const o1after = await prisma.opportunity.findUnique({ where: { id: o1.id } });
+    assert(r1.mode === "ignored_no_rights" && o1after!.recoveredAmount === 0 && o1after!.status === "IDENTIFIED" && !o1after!.recoveredAt, "analyst create with an amount stores no won-back amount");
+    assert((await prisma.approvalRequest.count({ where: { organizationId: a.id, payloadJson: { contains: o1.id } } })) === 0, "analyst amount is not queued for approval either");
+    assert((await prisma.auditLog.count({ where: { organizationId: a.id, entityId: o1.id, action: "opportunity.won_back_on_create_rejected" } })) === 1, "ignored amount is audited");
+    const i1 = await prisma.inefficiency.create({ data: { organizationId: a.id, title: "Analyst entered savings", status: "IDENTIFIED", projectedSavings: 9_000, estimatedWasteAnnual: 9_000 } });
+    const ri1 = await settleWonBackOnCreate({ kind: "inefficiency", organizationId: a.id, actorId: viewer.id, role: "ANALYST", entityId: i1.id, amount: 4_000 });
+    const i1after = await prisma.inefficiency.findUnique({ where: { id: i1.id } });
+    assert(ri1.mode === "ignored_no_rights" && i1after!.realizedSavings === 0 && i1after!.recoveredAnnual === 0, "analyst createInefficiency with savings stores no realized savings");
+
+    const o2 = await mkOpp("Manager entered 10000", 20_000);
+    const r2 = await settleWonBackOnCreate({ kind: "opportunity", organizationId: a.id, actorId: mgr.id, role: "MANAGER", entityId: o2.id, amount: 10_000 });
+    const o2after = await prisma.opportunity.findUnique({ where: { id: o2.id } });
+    assert(r2.mode === "recorded" && o2after!.recoveredAmount === 10_000 && o2after!.status === "PARTIALLY_RECOVERED" && !!o2after!.recoveredAt, "manager within limit: amount recorded (partially recovered)");
+    const t2 = await getRecoveryTracker(a.id);
+    const t2i = t2.items.find((i) => i.id === o2.id);
+    assert(t2i?.stage === "WON_BACK" && t2i.confirmation?.kind === "RECORDED" && t2i.confirmation.byName === "Rita Manager", "tracker shows it as recorded by the manager");
+    const i2 = await prisma.inefficiency.create({ data: { organizationId: a.id, title: "Manager entered savings", status: "IDENTIFIED", projectedSavings: 30_000, estimatedWasteAnnual: 30_000 } });
+    const ri2 = await settleWonBackOnCreate({ kind: "inefficiency", organizationId: a.id, actorId: mgr.id, role: "MANAGER", entityId: i2.id, amount: 12_000 });
+    const i2after = await prisma.inefficiency.findUnique({ where: { id: i2.id } });
+    assert(ri2.mode === "recorded" && i2after!.realizedSavings === 12_000 && i2after!.status === "REALIZED", "manager within limit: realized savings recorded");
+
+    const o3 = await mkOpp("Manager entered 30000", 80_000);
+    const r3 = await settleWonBackOnCreate({ kind: "opportunity", organizationId: a.id, actorId: mgr.id, role: "MANAGER", entityId: o3.id, amount: 30_000 });
+    assert(r3.mode === "blocked_limit" && (await prisma.opportunity.findUnique({ where: { id: o3.id } }))!.recoveredAmount === 0, "manager above $25k limit: nothing recorded");
+
+    const o4 = await mkOpp("Manager entered 60000", 90_000);
+    const r4 = await settleWonBackOnCreate({ kind: "opportunity", organizationId: a.id, actorId: mgr.id, role: "MANAGER", entityId: o4.id, amount: 60_000 });
+    const ap = r4.mode === "queued_approval" && r4.approvalId ? await prisma.approvalRequest.findUnique({ where: { id: r4.approvalId } }) : null;
+    const payload = ap?.payloadJson ? JSON.parse(ap.payloadJson) : {};
+    assert(ap?.type === "HIGH_VALUE_RECOVERY" && ap.status === "PENDING" && ap.organizationId === a.id && payload.opportunityId === o4.id && payload.recoveredAmount === 60_000 && payload.executesExternally === false, "amount above threshold routes to Approvals (HIGH_VALUE_RECOVERY, same payload decideApproval applies)");
+    assert((await prisma.opportunity.findUnique({ where: { id: o4.id } }))!.recoveredAmount === 0, "queued amount is not counted as won back until approved");
+    const i4 = await prisma.inefficiency.create({ data: { organizationId: a.id, title: "Owner entered big savings", status: "IDENTIFIED", projectedSavings: 200_000, estimatedWasteAnnual: 200_000 } });
+    const ri4 = await settleWonBackOnCreate({ kind: "inefficiency", organizationId: a.id, actorId: mgr.id, role: "OWNER", entityId: i4.id, amount: 75_000 });
+    const ap4 = ri4.mode === "queued_approval" && ri4.approvalId ? await prisma.approvalRequest.findUnique({ where: { id: ri4.approvalId } }) : null;
+    assert(ap4?.type === "HIGH_VALUE_SAVINGS" && (await prisma.inefficiency.findUnique({ where: { id: i4.id } }))!.realizedSavings === 0, "savings above threshold route to Approvals (HIGH_VALUE_SAVINGS), even for owners");
+    let crossBlocked = false;
+    try { await settleWonBackOnCreate({ kind: "opportunity", organizationId: b.id, actorId: mgr.id, role: "OWNER", entityId: o2.id, amount: 1_000 }); } catch { crossBlocked = true; }
+    assert(crossBlocked, "settling an amount on another tenant's item is refused");
+    reconciles(await getRecoveryTracker(a.id), "org A after create-path checks");
 
     const acme = await prisma.organization.findUnique({ where: { slug: "acme-demo" } });
     if (acme) {
