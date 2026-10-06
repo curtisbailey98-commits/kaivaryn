@@ -271,6 +271,16 @@ async function db() {
       assert(acme.isDemo, "Acme is flagged isDemo (page shows the example-data note)");
       assert(close(t.revenue.found, rr._sum.potentialAmount ?? 0) && close(t.revenue.wonBack, rr._sum.recoveredAmount ?? 0), "acme: matches dashboard");
       console.log(`  acme: RR found ${t.revenue.found} won ${t.revenue.wonBack} (${t.revenue.wonBackCount} items, ${t.revenue.verified} verified) · OE found ${t.operations.found}/yr realized ${t.operations.wonBack}/yr (${t.operations.wonBackCount} items)`);
+      const won = t.items.filter((i) => i.stage === "WON_BACK");
+      assert(won.length >= 5, `acme has won-back items to audit (${won.length})`);
+      const missing = won.filter((i) => !i.confirmation?.byName);
+      assert(missing.length === 0, `every Acme won-back item names who recorded it (missing: ${missing.map((i) => i.title).join("; ") || "none"})`);
+      assert(won.every((i) => i.confirmation && i.confirmation.kind === "RECORDED" && i.confirmation.byName), "Acme won-back amounts are RECORDED (not 'entered at creation' / not anonymous)");
+      for (const i of won) {
+        const role = (i.confirmation?.byRole || "").toUpperCase();
+        assert(["MANAGER", "ADMIN", "OWNER"].includes(role), `Acme "${i.title}" recorded by Manager+ (got ${i.confirmation?.byName} / ${role || "no role"})`);
+        assert(i.confirmation!.at instanceof Date, `Acme "${i.title}" has a recorded-at date`);
+      }
       const demoUser = await prisma.user.findUnique({ where: { email: "demo@kaivaryn.com" }, include: { memberships: { where: { organizationId: acme.id } } } });
       if (demoUser?.memberships[0]) assert(!canConfirmRealized(effectiveRole(demoUser.role, demoUser.memberships[0].role)), "demo@kaivaryn.com is read-only on the tracker");
     }

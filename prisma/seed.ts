@@ -541,18 +541,60 @@ async function main() {
         createdAt: identifiedAt,
       },
     });
+    // Audit trail: identified by the analyst; any won-back amount is recorded by Manager+
+    // (same shape as recordRecovery) so the Money recovered tracker always names who recorded it.
     await prisma.statusHistory.create({
       data: {
         organizationId: org.id,
         entityType: "Opportunity",
         entityId: created.id,
         fromStatus: null,
-        toStatus: o.status,
+        toStatus: "IDENTIFIED",
         actorId: demoUser.id,
-        note: "Added to the workspace",
+        note: "Identified from imported records",
         createdAt: identifiedAt,
       },
     });
+    if ((o.recovered ?? 0) > 0) {
+      const recordedAt = o.recoveredAt ?? identifiedAt;
+      const toStatus =
+        o.status === "VERIFIED"
+          ? "VERIFIED"
+          : o.status === "RECOVERED"
+            ? "RECOVERED"
+            : "PARTIALLY_RECOVERED";
+      // Partial recoveries still being worked are stored as PARTIALLY_RECOVERED (matches recordRecovery).
+      if (o.status === "IN_RECOVERY" || o.status === "IN_PROGRESS" || o.status === "APPROVED") {
+        await prisma.opportunity.update({ where: { id: created.id }, data: { status: "PARTIALLY_RECOVERED" } });
+      }
+      await prisma.statusHistory.create({
+        data: {
+          organizationId: org.id,
+          entityType: "Opportunity",
+          entityId: created.id,
+          fromStatus: "IDENTIFIED",
+          toStatus,
+          actorId: o.status === "VERIFIED" ? demoOwner.id : manager.id,
+          note: o.status === "VERIFIED"
+            ? `Verified recovery ${o.recovered}`
+            : `Recorded recovery ${o.recovered}`,
+          createdAt: recordedAt,
+        },
+      });
+    } else if (o.status !== "IDENTIFIED" && o.status !== "NEW") {
+      await prisma.statusHistory.create({
+        data: {
+          organizationId: org.id,
+          entityType: "Opportunity",
+          entityId: created.id,
+          fromStatus: "IDENTIFIED",
+          toStatus: o.status,
+          actorId: demoUser.id,
+          note: "Status updated",
+          createdAt: identifiedAt,
+        },
+      });
+    }
     await prisma.evidence.create({
       data: {
         organizationId: org.id,
@@ -717,12 +759,43 @@ async function main() {
         entityType: "Inefficiency",
         entityId: created.id,
         fromStatus: null,
-        toStatus: o.status,
+        toStatus: "IDENTIFIED",
         actorId: demoUser.id,
-        note: "Added to the workspace",
+        note: "Identified from imported records",
         createdAt: identifiedAt,
       },
     });
+    if ((o.realized ?? 0) > 0) {
+      const recordedAt = o.resolvedAt ?? identifiedAt;
+      const toStatus = o.status === "VERIFIED" ? "VERIFIED" : "REALIZED";
+      await prisma.statusHistory.create({
+        data: {
+          organizationId: org.id,
+          entityType: "Inefficiency",
+          entityId: created.id,
+          fromStatus: "IDENTIFIED",
+          toStatus,
+          actorId: o.status === "VERIFIED" ? demoOwner.id : manager.id,
+          note: o.status === "VERIFIED"
+            ? `Verified realized savings ${o.realized}`
+            : `Recorded savings ${o.realized}`,
+          createdAt: recordedAt,
+        },
+      });
+    } else if (o.status !== "IDENTIFIED" && o.status !== "NEW") {
+      await prisma.statusHistory.create({
+        data: {
+          organizationId: org.id,
+          entityType: "Inefficiency",
+          entityId: created.id,
+          fromStatus: "IDENTIFIED",
+          toStatus: o.status,
+          actorId: demoUser.id,
+          note: "Status updated",
+          createdAt: identifiedAt,
+        },
+      });
+    }
     await prisma.evidence.create({
       data: {
         organizationId: org.id,
@@ -885,10 +958,16 @@ async function main() {
           { organizationId: org.id, opportunityId: payer.id, kind: "FACT", summary: "First appeal batch: $45,000 received and matched to remittance advice", source: "claims", createdAt: at(5) },
         ],
       });
+      await prisma.opportunity.update({
+        where: { id: payer.id },
+        data: { status: "PARTIALLY_RECOVERED" },
+      });
       await trail("Opportunity", payer.id, payer.identifiedAt, [
         ["IDENTIFIED", "UNDER_REVIEW", demoUser.id, "Evidence checked against the payer agreement", 29],
         ["UNDER_REVIEW", "APPROVED", manager.id, "Appeal approved — within contract terms", 27],
         ["APPROVED", "IN_RECOVERY", demoOwner.id, "First appeal batch submitted to payer", 26],
+        ["IN_RECOVERY", "PARTIALLY_RECOVERED", demoOwner.id, "Recorded recovery 45000", 7],
+        ["PARTIALLY_RECOVERED", "VERIFIED", demoOwner.id, "Verified recovery 45000", 5],
       ]);
       await prisma.approvalRequest.create({
         data: {
@@ -951,11 +1030,17 @@ async function main() {
           { organizationId: org.id, inefficiencyId: dupEntry.id, kind: "FACT", summary: "Billing-address sync live; re-keying down 6 hours a week, measured over four weeks", source: "interview", createdAt: at(9) },
         ],
       });
+      // Keep status IMPLEMENTING (phase 2 still open) but record the phase-1 savings
+      // the same way recordSavings writes StatusHistory, so Money recovered names the recorder.
       await trail("Inefficiency", dupEntry.id, dupEntry.identifiedAt, [
         ["IDENTIFIED", "ANALYZING", demoUser.id, "Time study confirmed; owner assigned", 22],
         ["ANALYZING", "APPROVED", demoOwner.id, "Sync automation approved", 20],
         ["APPROVED", "IMPLEMENTING", demoUser.id, "Phase 1 (billing addresses) live", 12],
+        ["IMPLEMENTING", "REALIZED", manager.id, "Recorded savings 15000", 9],
       ]);
+      // Status stays IMPLEMENTING for the "still working phase 2" story; the REALIZED history
+      // entry is what the Money recovered tracker uses to attribute the recorded amount.
+      await prisma.inefficiency.update({ where: { id: dupEntry.id }, data: { status: "IMPLEMENTING" } });
       await prisma.approvalRequest.create({
         data: {
           organizationId: org.id,
