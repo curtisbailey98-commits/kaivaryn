@@ -116,7 +116,7 @@ export function detectSpotOnSignals(rows: SpotOnRow[], now = new Date()): { sign
 
   const rCD = rate(recent.discounts + recent.comps, recent.grossSales);
   const bCD = rate(base.discounts + base.comps, base.grossSales);
-  const cdEst = r2((rCD - bCD) * recent.grossSales);
+  const cdEst = Math.round((rCD - bCD) * recent.grossSales);
   if ((rCD - bCD) * 100 >= R.minRateDeltaPts && cdEst >= R.minEstimate) {
     out.push({
       ruleId: "spoton_comps_discounts", periodKey,
@@ -128,7 +128,7 @@ export function detectSpotOnSignals(rows: SpotOnRow[], now = new Date()): { sign
   }
   const rV = rate(recent.voids, recent.grossSales + recent.voids);
   const bV = rate(base.voids, base.grossSales + base.voids);
-  const vEst = r2((rV - bV) * (recent.grossSales + recent.voids));
+  const vEst = Math.round((rV - bV) * (recent.grossSales + recent.voids));
   if ((rV - bV) * 100 >= R.minVoidDeltaPts && vEst >= R.minEstimate) {
     out.push({
       ruleId: "spoton_voids", periodKey,
@@ -140,7 +140,7 @@ export function detectSpotOnSignals(rows: SpotOnRow[], now = new Date()): { sign
   }
   const rR = rate(recent.refunds, recent.netSales);
   const bR = rate(base.refunds, base.netSales);
-  const rEst = r2((rR - bR) * recent.netSales);
+  const rEst = Math.round((rR - bR) * recent.netSales);
   if ((rR - bR) * 100 >= R.minRateDeltaPts && rEst >= R.minEstimate) {
     out.push({
       ruleId: "spoton_refunds", periodKey,

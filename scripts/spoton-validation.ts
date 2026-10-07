@@ -71,8 +71,8 @@ const toRows = (m: ReturnType<typeof mapSpotOnRows>): SpotOnRow[] => m.rows.map(
   assert(!sig.signals.find((s) => s.ruleId === "spoton_refunds"), "no refund signal (refunds stay at the usual rate)");
   if (cd && sig.recent && sig.base) {
     const rate = (x: number, of: number) => x / of;
-    const expect = Math.round((rate(sig.recent.discounts + sig.recent.comps, sig.recent.grossSales) - rate(sig.base.discounts + sig.base.comps, sig.base.grossSales)) * sig.recent.grossSales * 100) / 100;
-    assert(Math.abs(cd.estimate - expect) < 0.01, `comps estimate reconciles to (recent rate − baseline rate) × recent sales (${cd.estimate})`);
+    const expect = Math.round((rate(sig.recent.discounts + sig.recent.comps, sig.recent.grossSales) - rate(sig.base.discounts + sig.base.comps, sig.base.grossSales)) * sig.recent.grossSales);
+    assert(cd.estimate === expect && Number.isInteger(cd.estimate), `comps estimate reconciles to (recent rate − baseline rate) × recent sales, whole dollars (${cd.estimate})`);
     assert(cd.description.includes("estimate, not money recovered"), "signal copy says it's an estimate");
   }
   const short = rows.filter((r) => r.occurredAt > new Date(anchor.getTime() - 40 * DAY));

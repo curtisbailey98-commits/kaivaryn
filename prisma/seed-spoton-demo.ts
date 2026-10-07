@@ -158,10 +158,10 @@ export async function seedSpotOnDemo(prisma: PrismaClient, opts: { wipeOrg: (org
 
   const missedCalls = 58;
   const likelyOrders = Math.round(missedCalls / 3);
-  const callsEstimate = r2(likelyOrders * avgCheck);
+  const callsEstimate = Math.round(likelyOrders * avgCheck);
   const calls = await mkOpp({
     title: "Unanswered calls during the dinner rush (last 30 days)",
-    description: `${missedCalls} calls rang out between 5 and 8 pm in the last 30 days (sample phone log). If 1 in 3 was an order or booking, that's ${likelyOrders} orders × ${usd(avgCheck)} average check from your SpotOn export = ${usd(callsEstimate)}. An estimate, not money recovered.`,
+    description: `${missedCalls} calls rang out between 5 and 8 pm in the last 30 days (sample phone log). If 1 in 3 was an order or booking, that's ${likelyOrders} orders × ${usd(avgCheck)} average check from your SpotOn export ≈ ${usd(callsEstimate)}. An estimate, not money recovered.`,
     evidence: [`Sample phone log: ${missedCalls} unanswered calls, 5–8 pm, last 30 days`, `Average check ${usd(avgCheck)} = net sales ÷ orders in the SpotOn export (last 30 days)`],
     source: "phone_log_sample", type: "unanswered_calls", status: "IDENTIFIED", amount: callsEstimate, identifiedAgo: 3, priority: "HIGH",
   });
