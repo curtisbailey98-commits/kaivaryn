@@ -41,6 +41,8 @@ const SECRETS = [ACCESS1, ACCESS2, REFRESH, APP_SECRET];
 
 const SANDBOX_ENV = { SQUARE_APP_ID: "sandbox-sq0idb-testapp", SQUARE_APP_SECRET: APP_SECRET, SQUARE_ENV: "sandbox", NEXTAUTH_URL: "https://kaivaryn.example.test" } as unknown as NodeJS.ProcessEnv;
 const CFG = getSquareConfig(SANDBOX_ENV) as SquareConfig;
+const PROD_ENV = { SQUARE_APP_ID: "sq0idp-testprodapp", SQUARE_APP_SECRET: APP_SECRET, SQUARE_ENV: "production", NEXTAUTH_URL: "https://kaivaryn.example.test" } as unknown as NodeJS.ProcessEnv;
+const PROD_CFG = getSquareConfig(PROD_ENV) as SquareConfig;
 
 // ---------------------------------------------------------------- mock Square
 type Call = { method: string; url: URL; headers: Record<string, string>; body: Record<string, unknown> | null };
@@ -432,6 +434,31 @@ async function db() {
     assert(rb.connected && vb.state === "connected_waiting" && rowB?.row.status === "CONFIGURED" && vb.rowsSynced === 0, "connected Square account with no sales → 'waiting for data', never Connected");
     assert((await prisma.transaction.count({ where: { organizationId: b.id } })) === 0, "org B still has zero rows (no data invented)");
 
+    console.log("--- sandbox connection after Kaivaryn switches to production ---");
+    assert(PROD_CFG && PROD_CFG.env === "production", "production test config resolves");
+    const vSame = await getSquareView(b.id, SANDBOX_ENV);
+    assert(vSame.state === "connected_waiting" && vSame.env === "sandbox", "same environment → unchanged 'waiting for data'");
+    const rowBefore = (await loadSquareConnection(b.id))!.row;
+    const vProd = await getSquareView(b.id, PROD_ENV);
+    assert(vProd.state === "needs_attention", "sandbox connection + production config → Needs attention, never 'Connected'");
+    assert(vProd.errorMessage === "This workspace is connected to Square Sandbox (test data). Kaivaryn now uses live Square, so reconnect Square to keep syncing.", "env-changed message tells the owner to reconnect");
+    assert(vProd.env === "sandbox" && vProd.merchantName === "Testa Trattoria", "card still says which (sandbox) merchant was connected");
+    const rowAfter = (await loadSquareConnection(b.id))!.row;
+    assert(rowAfter.status === rowBefore.status && rowAfter.errorMessage === rowBefore.errorMessage && rowAfter.updatedAt.getTime() === rowBefore.updatedAt.getTime(), "env-changed view is display only (no DB write)");
+    assert(resolveSystemStates(["pos_square"], [{ provider: "pos_square", status: rowAfter.status }]).get("pos_square") !== "connected", "ladder never shows it as connected");
+    const callsBeforeProd = sqB.calls.length;
+    const skipProd = await syncSquareForOrg(b.id, { cfg: PROD_CFG });
+    assert(!skipProd.ok && skipProd.skipped === "not_enabled" && /environment changed/i.test(skipProd.error || "") && sqB.calls.length === callsBeforeProd, "sync with production config skips the sandbox connection without calling Square");
+    const dcEnv = await disconnectSquare(b.id, bowner.id, PROD_CFG);
+    assert(dcEnv.removed && !dcEnv.revoked && dcEnv.envChanged && dcEnv.storedEnv === "sandbox", "disconnect after env change: removed, revoke reported as not done, env change flagged");
+    assert(!sqB.calls.slice(callsBeforeProd).some((c) => c.url.pathname === "/oauth2/revoke"), "no revoke attempted against the wrong Square environment");
+    assert(!(await loadSquareConnection(b.id)), "sandbox connection row (and its keys) deleted");
+    const auditEnv = await prisma.auditLog.findFirst({ where: { organizationId: b.id, action: "square.disconnected" }, orderBy: { createdAt: "desc" } });
+    assert(/environment_changed/.test(auditEnv?.metadataJson || "") && /sandbox/.test(auditEnv?.metadataJson || ""), "audit records the skipped revoke + stored env");
+    assert((await getSquareView(b.id, PROD_ENV)).state === "not_connected", "after removal the card offers a fresh (live) Connect");
+    const sameEnvDc = await disconnectSquare(b.id, bowner.id, PROD_CFG);
+    assert(!sameEnvDc.removed && !sameEnvDc.envChanged, "disconnecting again is a harmless no-op");
+
     console.log("--- secrets never logged / audited ---");
     const audits = await prisma.auditLog.findMany({ where: { organizationId: { in: [a.id, b.id] } } });
     assert(audits.some((x) => x.action === "square.connected") && audits.some((x) => x.action === "square.disconnected"), "connect + disconnect audited");
@@ -465,6 +492,7 @@ function sources() {
   assert(!can("VIEWER", "import") && !can("ANALYST", "import") && can("MANAGER", "import"), "viewer/analyst can't press Sync now; Manager+ can");
   assert(!can("MANAGER", "manage_settings") && can("ADMIN", "manage_settings") && can("OWNER", "manage_settings"), "only Admin/Owner can connect/disconnect");
   const card = src("src/components/integrations/square-card.tsx");
+  assert(/r\.envChanged/.test(actions) && /Square Sandbox test connection removed/.test(actions), "disconnect message is honest when the Square environment changed");
   assert(/isn&apos;t switched on yet/.test(card) && /waiting for data/.test(card) && /Needs attention/.test(card), "card has honest Not switched on / waiting / needs attention states");
   assert(!/partner|marketplace|App Marketplace/i.test(card + src("src/lib/integrations/guides/pos.ts").split("pos_square")[1].split("pos_clover")[0]), "no partner / marketplace claims for Square");
 }

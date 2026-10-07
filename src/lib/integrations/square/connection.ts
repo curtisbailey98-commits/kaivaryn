@@ -146,13 +146,19 @@ export async function ensureFreshAccessToken(organizationId: string, cfg: Square
   return tok.access_token;
 }
 
-/** Revoke at Square (best effort) and delete the connection row with every secret. Synced rows stay. */
+/**
+ * Revoke at Square (best effort) and delete the connection row with every secret. Synced rows stay.
+ * If the workspace connected in a different Square environment (e.g. Sandbox) than the one Kaivaryn uses now,
+ * the revoke is skipped — this server no longer holds that environment's app credentials, so it can't succeed.
+ */
 export async function disconnectSquare(organizationId: string, userId: string, cfgOverride?: SquareConfig | null) {
   const conn = await loadSquareConnection(organizationId);
-  if (!conn) return { removed: false, revoked: false };
+  if (!conn) return { removed: false, revoked: false, envChanged: false, storedEnv: null as SquareEnv | null };
   let revoked = false;
   const cfg = cfgOverride ?? getSquareConfig();
-  if (conn.stored && cfg) {
+  const storedEnv: SquareEnv | null = conn.stored?.env ?? null;
+  const envChanged = Boolean(conn.stored && cfg && conn.stored.env !== cfg.env);
+  if (conn.stored && cfg && !envChanged) {
     try {
       const r = await revokeAccessToken(cfg, openSecret(conn.stored.tokens.access));
       revoked = Boolean(r?.success);
@@ -163,9 +169,16 @@ export async function disconnectSquare(organizationId: string, userId: string, c
   await prisma.integrationConnection.deleteMany({ where: { organizationId, provider: SQUARE_PROVIDER } });
   await writeAudit({
     organizationId, actorId: userId, action: "square.disconnected", entityType: "IntegrationConnection",
-    metadata: { merchantId: conn.stored?.merchantId ?? null, revokedAtSquare: revoked },
+    metadata: { merchantId: conn.stored?.merchantId ?? null, revokedAtSquare: revoked, ...(envChanged ? { revokeSkipped: "environment_changed", storedEnv } : {}) },
   });
-  return { removed: true, revoked };
+  return { removed: true, revoked, envChanged, storedEnv };
+}
+
+/** Shown when a workspace's stored Square connection is from a different environment than the live config. */
+export function squareEnvChangedMessage(storedEnv: SquareEnv): string {
+  return storedEnv === "sandbox"
+    ? "This workspace is connected to Square Sandbox (test data). Kaivaryn now uses live Square, so reconnect Square to keep syncing."
+    : "This workspace is connected to live Square, but Kaivaryn is now set to Square Sandbox (test data). Reconnect Square to keep syncing.";
 }
 
 export type SquareUiState = "not_enabled" | "not_connected" | "connected_waiting" | "connected" | "needs_attention";
@@ -185,13 +198,15 @@ export type SquareView = {
 };
 
 /** What the integrations page shows. Counts come from real rows only. */
-export async function getSquareView(organizationId: string): Promise<SquareView> {
-  const cfgStatus = squareConfigStatus();
+export async function getSquareView(organizationId: string, env: NodeJS.ProcessEnv = process.env): Promise<SquareView> {
+  const cfgStatus = squareConfigStatus(env);
   const [conn, rows] = await Promise.all([loadSquareConnection(organizationId), squareRowCount(organizationId)]);
   const s = conn?.stored ?? null;
   let state: SquareUiState;
+  // Display only (no DB write): a connection made in another Square environment can't sync with the live config.
+  const envChanged = Boolean(s && cfgStatus.enabled && s.env !== cfgStatus.config.env);
   if (conn && s) {
-    if (conn.row.status === "NEEDS_ATTENTION") state = "needs_attention";
+    if (envChanged || conn.row.status === "NEEDS_ATTENTION") state = "needs_attention";
     else state = rows > 0 ? "connected" : "connected_waiting";
   } else {
     state = cfgStatus.enabled ? "not_connected" : "not_enabled";
@@ -207,6 +222,6 @@ export async function getSquareView(organizationId: string): Promise<SquareView>
     lastSyncAt: conn?.row.lastSyncAt ?? null,
     lastSync: s?.lastSync ?? null,
     rowsSynced: rows,
-    errorMessage: conn?.row.errorMessage ?? null,
+    errorMessage: envChanged && s ? squareEnvChangedMessage(s.env) : conn?.row.errorMessage ?? null,
   };
 }

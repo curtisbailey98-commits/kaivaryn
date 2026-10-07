@@ -181,7 +181,11 @@ export async function disconnectSquareAction() {
     const r = await disconnectSquare(ctx.organizationId, ctx.user.id);
     target = !r.removed
       ? back("ok", "Square wasn't connected.", "#square")
-      : back("ok", r.revoked ? "Square disconnected and access revoked at Square. Stored keys deleted; sales already synced stay in your workspace." : "Square disconnected and stored keys deleted. Square didn't confirm the revoke — you can also remove Kaivaryn in your Square Dashboard under Apps.", "#square");
+      : r.envChanged
+        ? back("ok", r.storedEnv === "sandbox"
+          ? "Square Sandbox test connection removed and its stored keys deleted. Kaivaryn now uses live Square, so it couldn't revoke the test access — you can also remove the app in your Square Sandbox dashboard."
+          : "Earlier Square connection removed and its stored keys deleted. Kaivaryn couldn't revoke it from here — you can also remove Kaivaryn in your Square Dashboard under Apps.", "#square")
+        : back("ok", r.revoked ? "Square disconnected and access revoked at Square. Stored keys deleted; sales already synced stay in your workspace." : "Square disconnected and stored keys deleted. Square didn't confirm the revoke — you can also remove Kaivaryn in your Square Dashboard under Apps.", "#square");
   } catch (e) {
     target = back("error", errMsg(e), "#square");
   }
