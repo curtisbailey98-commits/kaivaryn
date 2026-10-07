@@ -19,7 +19,7 @@ import { randomBytes } from "crypto";
 import { scoreWorkItem } from "../src/lib/scoring";
 import { runDetectionEngines } from "../src/lib/detection";
 import { runSpotOnImport } from "../src/lib/integrations/spoton/import";
-import { buildSpotOnDemoDays, spotOnDemoCsv, SPOTON_DEMO_DAYS } from "../src/lib/integrations/spoton/demo-data";
+import { buildSpotOnDemoDays, spotOnDemoCsv, SPOTON_DEMO_DAYS, nyDate } from "../src/lib/integrations/spoton/demo-data";
 import { getSpotOnSummary } from "../src/lib/integrations/spoton/summary";
 import { ensureSystemPlaybooks, runPlaybook, createStandingOrder, findPlaybook } from "../src/lib/operate";
 import { addRestaurantPlaybook } from "../src/lib/industry/context";
@@ -87,7 +87,13 @@ export async function seedSpotOnDemo(prisma: PrismaClient, opts: { wipeOrg: (org
   // 1) Import the sample SpotOn export through the real importer.
   // Story: the weekly SpotOn export was imported 4 days ago and covers the 90 days before that.
   const IMPORT_AGO = 4;
-  const daysAgo = (n: number, h = 10) => { const d = new Date(); d.setDate(d.getDate() - n); d.setHours(h, 0, 0, 0); return d; };
+  // h:00 New York time n days ago, whatever timezone the server runs in (Render runs in UTC).
+  const daysAgo = (n: number, h = 10) => {
+    const ymd = nyDate(new Date(Date.now() - n * 86_400_000));
+    const guess = new Date(`${ymd}T${String(h).padStart(2, "0")}:00:00Z`);
+    const offset = new Date(guess.toLocaleString("en-US", { timeZone: "UTC" })).getTime() - new Date(guess.toLocaleString("en-US", { timeZone: "America/New_York" })).getTime();
+    return new Date(guess.getTime() + offset);
+  };
   const days = buildSpotOnDemoDays(new Date(Date.now() - (IMPORT_AGO - 1) * 86_400_000), SPOTON_DEMO_DAYS);
   const imp = await runSpotOnImport({ organizationId: org.id, userId: owner.id, text: spotOnDemoCsv(days), fileName: `SpotOn Orders Per Day — ${days[0]!.date} to ${days[days.length - 1]!.date} (SAMPLE).csv`, source: "DEMO_SEED" });
   if (imp.errors.length || imp.created === 0) throw new Error(`SpotOn demo import failed: ${JSON.stringify(imp.errors.slice(0, 3))}`);
