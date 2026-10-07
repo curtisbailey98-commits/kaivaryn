@@ -122,7 +122,7 @@ export function detectSpotOnSignals(rows: SpotOnRow[], now = new Date()): { sign
       ruleId: "spoton_comps_discounts", periodKey,
       title: `Comps & discounts above your usual rate (last ${R.recentDays} days)`,
       description: `Your SpotOn sales export shows comps + discounts at ${pct(rCD)} of sales in the last ${R.recentDays} days vs ${pct(bCD)} over the prior ${R.baselineDays} days (comps ${usd(recent.comps)}, discounts ${usd(recent.discounts)} on ${usd(recent.grossSales)} sales). Estimate = the extra rate × recent sales. It's an estimate, not money recovered.`,
-      evidence: `spoton comps+discounts ${pct(rCD)} vs baseline ${pct(bCD)}; sales ${recent.grossSales.toFixed(2)}`,
+      evidence: `SpotOn export: comps + discounts ${pct(rCD)} of sales in the last ${R.recentDays} days vs ${pct(bCD)} in the prior ${R.baselineDays} days (sales ${usd(recent.grossSales)})`,
       estimate: cdEst,
     });
   }
@@ -134,7 +134,7 @@ export function detectSpotOnSignals(rows: SpotOnRow[], now = new Date()): { sign
       ruleId: "spoton_voids", periodKey,
       title: `Voids above your usual rate (last ${R.recentDays} days)`,
       description: `Your SpotOn sales export shows voids at ${pct(rV)} of rung-up sales in the last ${R.recentDays} days vs ${pct(bV)} over the prior ${R.baselineDays} days (${usd(recent.voids)} voided). Estimate = the extra rate × recent rung-up sales. Some voids are honest mistakes, so this is an estimate to review, not money recovered.`,
-      evidence: `spoton voids ${pct(rV)} vs baseline ${pct(bV)}; voided ${recent.voids.toFixed(2)}`,
+      evidence: `SpotOn export: voids ${pct(rV)} of rung-up sales in the last ${R.recentDays} days vs ${pct(bV)} in the prior ${R.baselineDays} days (${usd(recent.voids)} voided)`,
       estimate: vEst,
     });
   }
@@ -146,7 +146,7 @@ export function detectSpotOnSignals(rows: SpotOnRow[], now = new Date()): { sign
       ruleId: "spoton_refunds", periodKey,
       title: `Refunds above your usual rate (last ${R.recentDays} days)`,
       description: `Your SpotOn sales export shows refunds at ${pct(rR)} of net sales in the last ${R.recentDays} days vs ${pct(bR)} over the prior ${R.baselineDays} days (${usd(recent.refunds)} across ${recent.refundCount} refunds). Estimate = the extra rate × recent net sales. It's an estimate, not money recovered.`,
-      evidence: `spoton refunds ${pct(rR)} vs baseline ${pct(bR)}; net ${recent.netSales.toFixed(2)}`,
+      evidence: `SpotOn export: refunds ${pct(rR)} of net sales in the last ${R.recentDays} days vs ${pct(bR)} in the prior ${R.baselineDays} days (net sales ${usd(recent.netSales)})`,
       estimate: rEst,
     });
   }
