@@ -8,6 +8,7 @@ import { generateWebBundle, webAgentRunnerSource } from "../src/lib/chief/webgen
 import { publicBaseUrl } from "../src/lib/chief/deploy-web";
 import { ensureKaivarynVoiceAgents } from "../src/lib/voice/kaivaryn";
 import { ensureSystemPlaybooks, runPlaybook, createStandingOrder, createInitiative, linkToInitiative, findPlaybook, runHealthCheck } from "../src/lib/operate";
+import { seedSpotOnDemo } from "./seed-spoton-demo";
 
 const prisma = new PrismaClient();
 
@@ -1238,6 +1239,14 @@ async function main() {
       },
     });
     console.log(`  Live agent:  ${base}/a/${slug}`);
+  }
+
+  // SpotOn Demo Restaurant — example workspace for SpotOn merchant / partner demos (sample data, isDemo).
+  // Isolated: failures here never block boot or the rest of the seed.
+  try {
+    await seedSpotOnDemo(prisma, { wipeOrg });
+  } catch (e) {
+    console.warn("  SpotOn demo seed skipped:", (e as Error).message);
   }
 
   console.log("Seed complete.");

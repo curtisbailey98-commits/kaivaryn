@@ -18,6 +18,9 @@ import { getSystemSetup } from "@/lib/integrations/setup-store";
 import { getSquareView } from "@/lib/integrations/square/connection";
 import { getPosSummary } from "@/lib/integrations/square/summary";
 import { SquareCard } from "@/components/integrations/square-card";
+import { SpotOnCard } from "@/components/integrations/spoton-card";
+import { getSpotOnSummary } from "@/lib/integrations/spoton/summary";
+import { SPOTON_PROVIDER, SPOTON_TEMPLATE_SLUG } from "@/lib/integrations/spoton/export-format";
 
 export const metadata = { title: "Integrations" };
 
@@ -96,7 +99,14 @@ export default async function IntegrationsPage() {
   ]);
   const byProvider = new Map(connections.map((c) => [c.provider, c]));
   const squareView = await getSquareView(orgId);
-  const showSquare = industry.isRestaurant || systems.selected.includes("pos_square") || squareView.state === "connected" || squareView.state === "connected_waiting" || squareView.state === "needs_attention";
+  const spotOnSelected = systems.selected.includes(SPOTON_PROVIDER);
+  // A restaurant that picked SpotOn (and not Square) isn't shown a Square card unless Square is actually linked.
+  const showSquare = (industry.isRestaurant && !(spotOnSelected && !systems.selected.includes("pos_square"))) || systems.selected.includes("pos_square") || squareView.state === "connected" || squareView.state === "connected_waiting" || squareView.state === "needs_attention";
+  const [spotOnSummary, lastSpotOnImport] = await Promise.all([
+    getSpotOnSummary(orgId),
+    prisma.importJob.findFirst({ where: { organizationId: orgId, template: SPOTON_TEMPLATE_SLUG, status: "SUCCEEDED" }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
+  ]);
+  const showSpotOn = spotOnSelected || Boolean(spotOnSummary);
   const squareSummary = showSquare && squareView.rowsSynced > 0 ? await getPosSummary(orgId, squareView.locations.map((l) => ({ id: l.id, name: l.name, timezone: squareView.locationTimezones[l.id] }))) : null;
   const sheet = byProvider.get("google_sheets");
   const sheetCfg = sheet?.configJson ? (JSON.parse(sheet.configJson) as { url?: string; template?: string }) : null;
@@ -115,6 +125,8 @@ export default async function IntegrationsPage() {
         title="Get your data in"
         description="Three simple ways to bring data into Kaivaryn today, each set up in a few steps. Nothing is marked connected until data has actually arrived. Direct system connectors are set up with you on request."
       />
+
+      {showSpotOn ? <SpotOnCard summary={spotOnSummary} lastImportAt={lastSpotOnImport?.createdAt ?? null} canImport={canImport} tz={tz} isDemo={Boolean(ctx.organization?.isDemo)} /> : null}
 
       {showSquare ? (
         <SquareCard view={squareView} summary={squareSummary} canConnect={canManage} canSync={canImport} showServerDetail={ctx.isSuperAdmin} tz={tz} />

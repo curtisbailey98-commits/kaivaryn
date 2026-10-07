@@ -11,6 +11,11 @@ approved partner or marketplace app with any vendor.
 - Clover private apps: https://docs.clover.com/dev/docs/private-apps
 - Lightspeed K-Series custom API: https://api-portal.lsk.lightspeed.app/guides/integration-guides/custom-integrations
 - SpotOn partner OAuth: https://developers.spoton.com/central-api/docs/spoton-oauth-integration-guide
+- SpotOn "no open API" + partner intake: https://www.spoton.com/integrations/ · certification: https://developers.spoton.com/central-api/docs/certification-process
+- SpotOn Reporting API (Retrieve Orders, scope reporting:orders:read): https://developers.spoton.com/central-api/reference/reportingservice_getorders.md
+- SpotOn Orders Per Day CSV export: https://help.spoton.com/space/SK/5234688207/View%20Daily%20Sales%20by%20Date%20Range%20%7C%20SpotOn%20Dashboard%20RPOS
+- SpotOn report fields (Sales, Voids, Actual, Discounts, Taxes, Refunds, Net Sales): https://help.spoton.com/space/SK/5234393190/Customize%20Your%20Restaurant%20Reporting%20View%20%7C%20SpotOn%20Dashboard%20RPOS
+- SpotOn Order Item List export (voided by, void reason): https://help.spoton.com/space/SK/5635833858/Order%20Item%20List%20%7C%20SpotOn%20Express
 - TouchBistro reporting: https://www.touchbistro.com/features/reporting-analytics/
 - Revel Data Connector credentials: https://developer.revelsystems.com/revelsystems/docs/how-to-get-credentials
 - Aloha Cloud API Access setting: https://docs.ncrvoyix.com/restaurant/aloha-cloud/implementing/settings/configuring_admin · https://developer.ncrvoyix.com/

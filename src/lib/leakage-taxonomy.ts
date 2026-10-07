@@ -13,6 +13,13 @@ export const LEAKAGE_TYPES = [
   { id: "scope_creep", label: "Unbilled scope", aliases: ["scope_creep", "unbilled_scope", "scope"] },
   { id: "retention", label: "Account retention risk", aliases: ["churn", "dormant", "retention", "churn_risk", "dormant_customers"] },
   { id: "pipeline", label: "Commercial pipeline stall", aliases: ["pipeline", "stalled_leads", "pipeline_stalls"] },
+  // Restaurant / POS leakage (exact rule and item types only, so existing types keep their labels)
+  { id: "comps_discounts", label: "Comps & discounts", aliases: ["spoton_comps_discounts", "square_comps_discounts"] },
+  { id: "voids", label: "Voids", aliases: ["spoton_voids"] },
+  { id: "refunds", label: "Refunds", aliases: ["spoton_refunds", "square_refunds"] },
+  { id: "delivery_charges", label: "Delivery charges & disputes", aliases: ["delivery_charges"] },
+  { id: "unanswered_calls", label: "Unanswered calls", aliases: ["unanswered_calls"] },
+  { id: "unbilled_balance", label: "Unbilled balance", aliases: ["event_balance"] },
   { id: "leakage_other", label: "Other leakage", aliases: ["leakage", "revenue_leak", "other", "abandoned_checkout", "missed_appointments", "unanswered_inquiries"] },
 ] as const;
 

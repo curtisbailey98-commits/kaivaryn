@@ -136,7 +136,7 @@ const POS_NOTES: Record<string, string> = {
   pos_square: "Reports and transactions typically export from the Square Dashboard. Loyalty is a Square add-on.",
   pos_clover: "Reports typically export from the Clover web dashboard. Features vary by plan and installed Clover apps.",
   pos_lightspeed: "Reports typically export from Lightspeed Back Office. Features vary by plan.",
-  pos_spoton: "Reports typically export from the SpotOn dashboard. Labor, loyalty, and online ordering depend on the SpotOn products in use.",
+  pos_spoton: "Daily sales export from the SpotOn Dashboard (Custom Views → Orders Per Day → Download CSV) and imports with Kaivaryn's SpotOn importer. Labor, loyalty, and online ordering depend on the SpotOn products in use.",
   pos_touchbistro: "Reports typically export from TouchBistro Cloud. Loyalty, online ordering, and reservations are separate TouchBistro products.",
   pos_revel: "Reports typically export from the Revel management console. Features vary by setup.",
   pos_aloha: "Data typically comes from Aloha back-office reporting. Setup often involves your NCR Voyix reseller.",

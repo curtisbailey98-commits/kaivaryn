@@ -8,6 +8,8 @@ import { normalizeRevenueAmounts, normalizeOpsAmounts } from "./financial-impact
 import { recordStatusChange } from "./status-history";
 import { getLearnedAdjustment } from "./learning";
 import { detectPosSignals } from "./integrations/square/summary";
+import { detectSpotOnSignals } from "./integrations/spoton/summary";
+import { SPOTON_SOURCE } from "./integrations/spoton/export-format";
 
 
 function consumerDetectionsEnabled(settings: { settingsJson?: string | null }): boolean {
@@ -411,6 +413,33 @@ export async function runDetectionEngines(organizationId: string): Promise<Detec
         amount: sig.estimate,
         source: `detection:${sig.ruleId}`,
         sourceId: `square:${sig.periodKey}`,
+        department: "Restaurant operations",
+        evidenceSummary: sig.evidence,
+      });
+      const after = await prisma.opportunity.count({ where: { organizationId } });
+      createdOpportunities += Math.max(0, after - before);
+    }
+  }
+
+  // RR: restaurant signals from imported SpotOn sales exports (estimates only; own baseline).
+  // Exports are point-in-time, so the 30-day window ends on the latest imported day (never in the future).
+  const spotRows = txns.filter((t) => t.source === SPOTON_SOURCE);
+  if (spotRows.length) {
+    const latest = spotRows.reduce((m, r) => (r.occurredAt > m ? r.occurredAt : m), spotRows[0]!.occurredAt);
+    const anchor = new Date(Math.min(now.getTime(), latest.getTime() + 12 * 3_600_000));
+    const so = detectSpotOnSignals(spotRows, anchor);
+    if (so.insufficient) insufficient.push(so.insufficient);
+    for (const sig of so.signals) {
+      rulesFired.push(sig.ruleId);
+      const before = await prisma.opportunity.count({ where: { organizationId } });
+      await upsertOpportunityFromRule({
+        organizationId,
+        ruleId: sig.ruleId,
+        title: sig.title,
+        description: sig.description,
+        amount: sig.estimate,
+        source: `detection:${sig.ruleId}`,
+        sourceId: `spoton:${sig.periodKey}`,
         department: "Restaurant operations",
         evidenceSummary: sig.evidence,
       });
