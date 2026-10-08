@@ -88,10 +88,14 @@ const toRows = (m: ReturnType<typeof mapSpotOnRows>): SpotOnRow[] => m.rows.map(
   const card = src("src/components/integrations/spoton-card.tsx");
   assert(!/>\s*Connected\s*</.test(card) && card.includes("Direct SpotOn connection: not available yet"), "SpotOn card never claims a live connection");
   assert(card.includes("Sales imported from SpotOn export"), "imported state says import, not connection");
-  const page = src("src/app/(public)/partners/spoton/page.tsx");
-  assert(page.includes("not affiliated with") && page.includes("Kaivaryn is not a SpotOn integration partner today"), "partner page: independence + no partner claim");
-  assert(!/\$\d/.test(page) && !/%/.test(page.replace(/className="[^"]*"/g, "")), "partner page: no invented prices, stats, or percentages");
-  assert(page.includes('href="/pricing"') && !/logo|\.svg|\.png/i.test(page), "partner page links existing pricing; no logos");
+  const page = src("src/app/(public)/spoton/page.tsx");
+  assert(page.includes("not affiliated with") && page.includes("Kaivaryn is not a SpotOn integration partner today"), "SpotOn page: independence + no SpotOn-partner claim");
+  assert(!/\$\d/.test(page) && !/%/.test(page.replace(/className="[^"]*"/g, "")), "SpotOn page: no invented prices, stats, or percentages");
+  assert(page.includes('href="/pricing"') && !/logo|\.svg|\.png/i.test(page), "SpotOn page links existing pricing; no logos");
+  assert(!/Larry|in-house AI|partner call|referral/i.test(page), "SpotOn page does not imply a deal with anyone");
+  assert(page.includes("Book a demo"), "SpotOn page CTA is a demo, not a partner call");
+  const cfg = src("next.config.mjs");
+  assert(cfg.includes('source: "/partners/spoton"') && cfg.includes('destination: "/spoton"'), "old /partners/spoton URL redirects to /spoton");
   const seed = src("prisma/seed-spoton-demo.ts");
   assert(seed.includes("process.env.SPOTON_DEMO_PASSWORD") && !/SpotOn-[A-Za-z0-9]{10,}/.test(seed), "demo password only from env (never committed)");
   assert(seed.includes("isDemo: true") && seed.includes("runSpotOnImport"), "demo org is flagged isDemo and imports through the real SpotOn importer");

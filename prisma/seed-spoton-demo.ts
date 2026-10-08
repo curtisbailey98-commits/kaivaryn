@@ -1,5 +1,5 @@
 /**
- * "SpotOn Demo Restaurant" — example workspace for SpotOn merchant / partner demos.
+ * "SpotOn Demo Restaurant" — example workspace for demos with businesses that already run SpotOn.
  *
  * SAMPLE DATA ONLY (isDemo = true → every page shows the "Example workspace" tag). Not a real restaurant,
  * not client results. Rebuilt on every boot like the Acme demo; touches only the org with slug "spoton-demo"

@@ -7,7 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/solutions/revenue-recovery",
     "/solutions/operations-efficiency",
     "/restaurants",
-    "/partners/spoton",
+    "/spoton",
     "/platform",
     "/how-it-works",
     "/intelligence",
