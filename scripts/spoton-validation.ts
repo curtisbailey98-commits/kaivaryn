@@ -94,6 +94,12 @@ const toRows = (m: ReturnType<typeof mapSpotOnRows>): SpotOnRow[] => m.rows.map(
   assert(page.includes('href="/pricing"') && !/logo|\.svg|\.png/i.test(page), "SpotOn page links existing pricing; no logos");
   assert(!/Larry|in-house AI|partner call|referral/i.test(page), "SpotOn page does not imply a deal with anyone");
   assert(page.includes("Book a demo"), "SpotOn page CTA is a demo, not a partner call");
+  assert(page.includes('href="/kaivaryn-for-spoton.pdf" download') && page.includes("Download the one-pager (PDF)"), "SpotOn page offers the one-pager PDF as a download");
+  {
+    const pdf = readFileSync(join(process.cwd(), "public/kaivaryn-for-spoton.pdf"));
+    const text = pdf.toString("latin1");
+    assert(pdf.subarray(0, 5).toString() === "%PDF-" && !/\/JavaScript|\/Launch|\/EmbeddedFile/.test(text), "public one-pager is a plain PDF (no scripts or attachments)");
+  }
   const cfg = src("next.config.mjs");
   assert(cfg.includes('source: "/partners/spoton"') && cfg.includes('destination: "/spoton"'), "old /partners/spoton URL redirects to /spoton");
   const seed = src("prisma/seed-spoton-demo.ts");

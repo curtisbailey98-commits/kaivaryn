@@ -52,6 +52,7 @@ export default function SpotOnPage() {
             <p className="mt-6 max-w-2xl text-base leading-7 text-neutral-300 sm:text-lg">If the restaurant already runs SpotOn, setup is familiar. Kaivaryn reads the sales export the team already downloads and points to the money slipping away: comps, voids, refunds, missed calls, delivery charges, and labor. Then it tracks what actually comes back.</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Magnetic><a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="public-button-primary">Book a demo <span aria-hidden>↗</span></a></Magnetic>
+              <a href="/kaivaryn-for-spoton.pdf" download="kaivaryn-for-spoton.pdf" className="public-button-secondary">Download the one-pager (PDF)</a>
               <Link href="/restaurants" className="public-button-secondary">How it works for restaurants</Link>
             </div>
           </Reveal>
@@ -130,7 +131,10 @@ export default function SpotOnPage() {
           <SectionRule className="my-12" />
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="max-w-xl text-sm text-neutral-400">Want to see it on a sample SpotOn restaurant? Book a demo and walk through it.</p>
-            <Magnetic><a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="public-button-primary">Book a demo <span aria-hidden>↗</span></a></Magnetic>
+            <div className="flex flex-wrap gap-3">
+              <a href="/kaivaryn-for-spoton.pdf" download="kaivaryn-for-spoton.pdf" className="public-button-secondary">Download the one-pager (PDF)</a>
+              <Magnetic><a href={ZOOM_SCHEDULER_URL} target="_blank" rel="noopener noreferrer" className="public-button-primary">Book a demo <span aria-hidden>↗</span></a></Magnetic>
+            </div>
           </div>
           <p className="mt-10 text-[11px] leading-5 text-neutral-600">Kaivaryn is independent and is not affiliated with, endorsed by, or sponsored by SpotOn. SpotOn is a trademark of its owner and is named here only to describe compatibility with its standard report exports.</p>
         </div>
